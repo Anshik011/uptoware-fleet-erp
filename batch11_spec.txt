@@ -1,0 +1,340 @@
+<USER_REQUEST>
+# BATCH 11 — ALERTS & NOTIFICATIONS MANAGEMENT
+
+Act as a senior ERPNext v16 architect, notification systems engineer and fleet-management automation specialist.
+
+Project: Uptoware Fleet Management ERP  
+Platform: ERPNext v16.51.1 / Frappe v16.52.0  
+Interface: Native ERPNext Desk only.
+
+## 1. Objective
+
+Implement a centralized Alerts & Notifications system for Fleet Management.
+
+The system must proactively notify the appropriate users about operational issues, pending actions, compliance risks, inventory shortages, financial events and important workflow changes.
+
+Alerts must be actionable, accurate, configurable and traceable.
+
+Do not start Batch 12 — Approval Workflows.
+
+## 2. Mandatory inspection
+
+Read DEVELOPMENT_PROGRESS.md and inspect all completed modules from Batches 1–10.
+
+Pay particular attention to:
+
+- Fleet Settings
+- Fleet Expiry Notification Log
+- Existing insurance/statutory expiry scheduler
+- Vehicle Insurance Policy
+- Vehicle and Driver
+- Mining Trip
+- Fuel Log
+- Vehicle Breakdown
+- Operational Expense
+- Stock and procurement DocTypes
+- Sales Invoice and Payment Entry
+- Dashboard and Workspace
+- Existing Frappe Notification, Notification Log, Email Queue and scheduler functionality.
+
+Identify existing notification rules, schedules, logs and event hooks.
+
+Reuse native ERPNext notification mechanisms wherever appropriate.
+
+Do not create duplicate alerts or duplicate schedulers.
+
+## 3. Central notification architecture
+
+Create a unified notification framework using native ERPNext functionality where possible.
+
+Support:
+
+- In-app notifications
+- Desk notification indicators
+- Email notifications
+- Configurable alert recipients
+- Severity levels
+- Alert categories
+- Read/unread status
+- Acknowledgement where appropriate
+- Alert timestamps
+- Source document references
+- Duplicate prevention
+- Notification history
+- Configurable enable/disable settings
+
+If a custom DocType is genuinely necessary, explain why native ERPNext functionality is insufficient.
+
+Do not build a separate messaging application.
+
+## 4. Alert categories
+
+### A. Vehicle & Driver Alerts
+- Vehicle insurance expiry
+- Fitness certificate expiry
+- PUC expiry
+- Road tax expiry
+- Permit expiry
+- Driver licence expiry
+- Driver medical fitness expiry
+- Vehicle breakdown reported
+- Vehicle unavailable for dispatch
+- Vehicle maintenance overdue, only if maintenance scheduling data supports it.
+
+### B. Trip Operations Alerts
+- Trip dispatched
+- Trip awaiting weighbridge confirmation
+- Trip awaiting approval
+- Trip delivered
+- Trip cancelled
+- Trip delayed, only where a reliable expected completion time exists.
+- Vehicle or driver unavailable for assignment.
+
+### C. Fuel Alerts
+- Abnormal fuel consumption
+- Fuel efficiency below configured threshold
+- Suspicious duplicate fuel entries
+- Fuel approval pending
+- Fuel log rejected
+
+Use verified fuel benchmarks. Do not create arbitrary thresholds.
+
+### D. Maintenance & Workshop Alerts
+- New breakdown reported
+- Breakdown awaiting approval
+- Vehicle sent to workshop
+- Breakdown awaiting spare parts
+- Repair completed
+- Breakdown open beyond a configurable duration
+- Repeated breakdowns, only with a defensible threshold.
+
+### E. Inventory Alerts
+- Spare part below reorder level
+- Stockout risk
+- Material Request pending
+- Material Request approved
+- Material Issue completed
+- Material Receipt completed
+- Stock adjustment requiring attention.
+
+Use actual warehouse-level reorder settings and stock balances.
+
+### F. Procurement Alerts
+- Purchase Order submitted
+- Purchase Order awaiting receipt
+- Purchase Receipt completed
+- Purchase Invoice pending
+- Supplier payment due, where reliable due dates exist.
+- Delayed procurement, only when expected dates are configured.
+
+### G. Insurance & Compliance Alerts
+Integrate the existing Batch 8 expiry scheduler.
+
+Support:
+- Upcoming expiry milestones
+- Expired documents
+- Missing mandatory documents
+- Dispatch blocked due to compliance
+- Policy renewal pending
+- Renewal completed
+- Notification history and duplicate prevention.
+
+Do not create a second expiry-monitoring scheduler.
+
+### H. Revenue & Financial Alerts
+- Sales Invoice submitted
+- Customer payment received
+- Invoice partially paid
+- Invoice overdue
+- Outstanding receivables exceeding configured thresholds
+- Credit note issued
+- Operational expense awaiting approval
+- Expense approved or rejected.
+
+Do not count Payment Entries as revenue.
+
+Financial notifications must respect accounting permissions and confidentiality.
+
+## 5. Configuration
+
+Extend Fleet Settings where appropriate.
+
+Allow authorized administrators to configure:
+
+- Global notification enable/disable
+- Individual alert category enable/disable
+- Alert severity
+- Recipient roles or authorized users
+- Email versus in-app delivery
+- Reminder intervals
+- Expiry warning windows
+- Financial alert thresholds
+- Fuel efficiency thresholds
+- Breakdown escalation duration
+- Inventory alert settings.
+
+Validate all thresholds and intervals.
+
+Do not silently use arbitrary business values.
+
+Use sensible defaults only where already established by previous batches. Clearly document every default.
+
+## 6. Escalation and reminders
+
+Support configurable reminders for unresolved actionable alerts.
+
+Examples:
+- Expired statutory documents
+- Breakdown awaiting action
+- Pending trip approval
+- Low-stock spare parts
+- Overdue customer invoices.
+
+Requirements:
+- No repeated notification spam.
+- Respect configured reminder intervals.
+- Track previous notifications.
+- Escalate only when configured.
+- Stop reminders when the underlying condition is resolved.
+- Prevent duplicate notifications for the same event and milestone.
+
+Do not create unnecessary background jobs.
+
+Use native Frappe scheduler events and existing scheduled infrastructure.
+
+## 7. Notification history and audit
+
+Provide an accessible notification history with:
+
+- Alert title
+- Description
+- Category
+- Severity
+- Source document
+- Recipient
+- Creation date/time
+- Delivery method
+- Delivery status
+- Read/acknowledged status
+- Last reminder time
+- Resolution status.
+
+Do not delete historical notification records when an alert is resolved.
+
+## 8. Security and permissions
+
+Define appropriate access for:
+
+- System Manager
+- Fleet Manager
+- Accountant
+- Workshop Supervisor
+- Store Manager
+- Other authorized users.
+
+Ensure:
+- Financial alerts are restricted to authorized finance users.
+- Workshop alerts are visible to relevant workshop users.
+- Procurement and inventory alerts are visible to authorized store/procurement users.
+- Drivers cannot access confidential financial information.
+- Users cannot manipulate alert audit history or delivery records.
+
+## 9. Email delivery and local environment
+
+Inspect the existing Email Account and SMTP configuration.
+
+The development environment may not have external SMTP credentials.
+
+Therefore:
+- Verify in-app notification creation and delivery.
+- Verify email queue creation and configuration.
+- Handle missing SMTP configuration safely.
+- Do not claim external email delivery is verified without a successful real delivery test.
+- Preserve notification records when delivery fails.
+- Support later production SMTP configuration without code changes.
+
+Track external SMTP configuration as a production dependency if credentials remain unavailable.
+
+## 10. Testing
+
+Create comprehensive tests for:
+
+- Every alert category
+- Trigger conditions
+- Recipient selection
+- Role restrictions
+- In-app notifications
+- Email queue behavior
+- Scheduler execution
+- Expiry milestone integration
+- Reminder intervals
+- Escalation
+- Duplicate prevention
+- Resolved alert handling
+- Historical records
+- Missing SMTP configuration
+- Delivery failure handling
+- Test-record exclusion
+- Cancellation and reversal scenarios
+- Permission enforcement
+- Existing Batch 8 expiry scheduler compatibility.
+
+Use tagged test records. Never delete real operational records.
+
+## 11. Development protocol
+
+Round 1:
+- Inspect existing architecture.
+- Implement all independently actionable functionality.
+- Run comprehensive tests.
+- Produce one consolidated defect report.
+
+Round 2:
+- Correct genuine defects in one consolidated correction round.
+- Run affected tests and complete regression.
+
+Do not repeatedly reopen approved modules without evidence.
+
+Do not change existing workflows or accounting logic unnecessarily.
+
+Update DEVELOPMENT_PROGRESS.md.
+
+## 12. Final acceptance report
+
+Document:
+
+- Notification architecture
+- Existing functionality reused
+- New DocTypes and fields
+- Alert categories implemented
+- Trigger conditions
+- Recipient and permission matrix
+- Scheduler configuration
+- Duplicate-prevention mechanism
+- Reminder and escalation logic
+- Notification history
+- Email verification status
+- Test results
+- Full regression results
+- Unresolved dependencies
+- Incomplete or unverified requirements.
+
+Use PASS, FAIL, INCOMPLETE and UNVERIFIED accurately.
+
+Do not claim external email delivery is verified unless it was actually tested.
+
+STRICT BOUNDARY: Do not start Batch 12 — Approval Workflows. Stop after Batch 11 and wait for explicit approval.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-11-06T11:44:52+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\Admin\.gemini\antigravity-ide\scratch\erpnext\test_batch3.py (LANGUAGE_UNSPECIFIED)
+Cursor is on line: 702
+Other open documents:
+- c:\Users\Admin\.gemini\antigravity-ide\scratch\erpnext\audit_batch10_kpi_semantics.py (LANGUAGE_UNSPECIFIED)
+- c:\Users\Admin\.gemini\antigravity-ide\scratch\erpnext\audit_test_filters.py (LANGUAGE_UNSPECIFIED)
+- c:\Users\Admin\.gemini\antigravity-ide\scratch\erpnext\batch10_apply_audit_remediation.py (LANGUAGE_UNSPECIFIED)
+- c:\Users\Admin\.gemini\antigravity-ide\scratch\erpnext\test_card_eval.py (LANGUAGE_UNSPECIFIED)
+- c:\Users\Admin\.gemini\antigravity-ide\scratch\erpnext\test_nc_calc.py (LANGUAGE_UNSPECIFIED)
+</ADDITIONAL_METADATA>

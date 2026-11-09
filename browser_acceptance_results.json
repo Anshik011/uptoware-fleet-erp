@@ -1,0 +1,2116 @@
+[
+  {
+    "idx": 1,
+    "name": "Daily Fuel Consumption",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "driver",
+        "label": "Driver",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 5,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 2,
+    "name": "Vehicle-wise Fuel Consumption",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "driver",
+        "label": "Driver",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 7,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 3,
+    "name": "Monthly Fuel Cost",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "driver",
+        "label": "Driver",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 6,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 4,
+    "name": "Fuel Efficiency (KM/L)",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "driver",
+        "label": "Driver",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 13,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 5,
+    "name": "Fuel Consumption by Mine Site",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "driver",
+        "label": "Driver",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 6,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 6,
+    "name": "Vehicle Breakdown Register",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "breakdown_type",
+        "label": "Breakdown Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "repair_status",
+        "label": "Repair Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 14,
+    "initial_rows": 3,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 7,
+    "name": "Vehicle Downtime Report",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "breakdown_type",
+        "label": "Breakdown Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "repair_status",
+        "label": "Repair Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 6,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 8,
+    "name": "Maintenance Cost by Vehicle",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "breakdown_type",
+        "label": "Breakdown Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "repair_status",
+        "label": "Repair Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 6,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 9,
+    "name": "Breakdown Frequency by Type",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "breakdown_type",
+        "label": "Breakdown Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "repair_status",
+        "label": "Repair Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 5,
+    "initial_rows": 3,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 10,
+    "name": "Pending Repairs / Awaiting Parts",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "breakdown_type",
+        "label": "Breakdown Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 10,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 11,
+    "name": "Vehicle Maintenance History",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "breakdown_type",
+        "label": "Breakdown Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "repair_status",
+        "label": "Repair Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 11,
+    "initial_rows": 3,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 12,
+    "name": "Daily Operational Expense",
+    "desk_loaded": true,
+    "filter_count": 7,
+    "filters_rendered": [
+      {
+        "fieldname": "accounting_status",
+        "label": "Accounting Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "approval_status",
+        "label": "Approval Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "expense_category",
+        "label": "Expense Category",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 6,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 13,
+    "name": "Monthly Operational Expense",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "expense_category",
+        "label": "Expense Category",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 7,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 14,
+    "name": "Vehicle-wise Expense",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "expense_category",
+        "label": "Expense Category",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 7,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 15,
+    "name": "Trip-wise Expense",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "mining_trip",
+        "label": "Mining Trip",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 9,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 16,
+    "name": "Mine Site-wise Expense",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "expense_category",
+        "label": "Expense Category",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 6,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 17,
+    "name": "Expense Category Analysis",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "expense_category",
+        "label": "Expense Category",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 7,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 18,
+    "name": "Pending Expense Approvals",
+    "desk_loaded": true,
+    "filter_count": 7,
+    "filters_rendered": [
+      {
+        "fieldname": "approval_status",
+        "label": "Approval Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "driver",
+        "label": "Driver",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "expense_category",
+        "label": "Expense Category",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 12,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 19,
+    "name": "Spare Parts Stock Register",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "brand",
+        "label": "Brand",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "item_code",
+        "label": "Item Code",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "item_group",
+        "label": "Item Group",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 12,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 20,
+    "name": "Warehouse-wise Stock",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "company",
+        "label": "Company",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "item_code",
+        "label": "Item Code",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "item_group",
+        "label": "Item Group",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "warehouse",
+        "label": "Warehouse",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 11,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 21,
+    "name": "Low Stock / Reorder Report",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "item_group",
+        "label": "Item Group",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "preferred_supplier",
+        "label": "Preferred Supplier",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "show_all",
+        "label": "Show All",
+        "fieldtype": "Check",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "warehouse",
+        "label": "Warehouse",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 10,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 22,
+    "name": "Spare Parts Consumption by Vehicle",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 8,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 23,
+    "name": "Spare Parts Consumption by Breakdown",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "breakdown_type",
+        "label": "Breakdown Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 15,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 24,
+    "name": "Spare Parts Consumption by Mine Site",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 5,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 25,
+    "name": "Stock Movement History",
+    "desk_loaded": true,
+    "filter_count": 6,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "include_cancelled",
+        "label": "Include Cancelled",
+        "fieldtype": "Check",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "item_code",
+        "label": "Item Code",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "voucher_type",
+        "label": "Voucher Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "warehouse",
+        "label": "Warehouse",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 15,
+    "initial_rows": 87,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 26,
+    "name": "Supplier Register",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "disabled",
+        "label": "Disabled",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "supplier",
+        "label": "Supplier",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "supplier_group",
+        "label": "Supplier Group",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 9,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 27,
+    "name": "Supplier-wise Purchase Summary",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "company",
+        "label": "Company",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "supplier",
+        "label": "Supplier",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 8,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 28,
+    "name": "Purchase Order Register",
+    "desk_loaded": true,
+    "filter_count": 7,
+    "filters_rendered": [
+      {
+        "fieldname": "company",
+        "label": "Company",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "procurement_type",
+        "label": "Procurement Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "status",
+        "label": "Status",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "supplier",
+        "label": "Supplier",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 13,
+    "initial_rows": 14,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 29,
+    "name": "Pending Purchase Orders",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "company",
+        "label": "Company",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "supplier",
+        "label": "Supplier",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 11,
+    "initial_rows": 15,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 30,
+    "name": "Purchase Receipt Register",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "company",
+        "label": "Company",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "supplier",
+        "label": "Supplier",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "warehouse",
+        "label": "Warehouse",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 12,
+    "initial_rows": 15,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 31,
+    "name": "Purchase Invoice Register",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "company",
+        "label": "Company",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "status",
+        "label": "Status",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "supplier",
+        "label": "Supplier",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 13,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 32,
+    "name": "Supplier Outstanding / Payables",
+    "desk_loaded": true,
+    "filter_count": 2,
+    "filters_rendered": [
+      {
+        "fieldname": "company",
+        "label": "Company",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "supplier",
+        "label": "Supplier",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 6,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 33,
+    "name": "Purchase by Vehicle / Breakdown / Mine Site",
+    "desk_loaded": true,
+    "filter_count": 5,
+    "filters_rendered": [
+      {
+        "fieldname": "company",
+        "label": "Company",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 8,
+    "initial_rows": 15,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 34,
+    "name": "Purchase Analysis by Month",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "company",
+        "label": "Company",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 7,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 35,
+    "name": "Vehicle Insurance Register",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "insurance_company",
+        "label": "Insurance Company",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "status",
+        "label": "Status",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 13,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 36,
+    "name": "Insurance Expiry Report",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "insurance_company",
+        "label": "Insurance Company",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 11,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 37,
+    "name": "Vehicle Document Expiry Report",
+    "desk_loaded": true,
+    "filter_count": 1,
+    "filters_rendered": [
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 14,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 38,
+    "name": "Upcoming Renewals",
+    "desk_loaded": true,
+    "filter_count": 2,
+    "filters_rendered": [
+      {
+        "fieldname": "document_type",
+        "label": "Document Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 8,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 39,
+    "name": "Expired Insurance & Documents",
+    "desk_loaded": true,
+    "filter_count": 2,
+    "filters_rendered": [
+      {
+        "fieldname": "document_type",
+        "label": "Document Type",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 9,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 40,
+    "name": "Insurance Premium by Vehicle",
+    "desk_loaded": true,
+    "filter_count": 1,
+    "filters_rendered": [
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 8,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 41,
+    "name": "Insurance Renewal History",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "is_renewal",
+        "label": "Is Renewal",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "policy_status",
+        "label": "Policy Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 14,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 42,
+    "name": "Trip-wise Revenue and Profitability",
+    "desk_loaded": true,
+    "filter_count": 6,
+    "filters_rendered": [
+      {
+        "fieldname": "billing_status",
+        "label": "Billing Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "trip_status",
+        "label": "Trip Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 17,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 43,
+    "name": "Vehicle-wise Revenue and Profitability",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "make",
+        "label": "Make",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 15,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 44,
+    "name": "Mine Site-wise Revenue and Profitability",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "customer",
+        "label": "Customer",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 11,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 45,
+    "name": "Customer-wise Revenue",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "customer",
+        "label": "Customer",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 8,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 46,
+    "name": "Monthly Revenue Summary",
+    "desk_loaded": true,
+    "filter_count": 2,
+    "filters_rendered": [
+      {
+        "fieldname": "customer",
+        "label": "Customer",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "year",
+        "label": "Year",
+        "fieldtype": "Int",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 7,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 47,
+    "name": "Operating Cost Summary",
+    "desk_loaded": true,
+    "filter_count": 2,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 4,
+    "initial_rows": 3,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 48,
+    "name": "Vehicle Operating Cost Analysis",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 11,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 49,
+    "name": "Revenue vs Cost Analysis",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 9,
+    "initial_rows": 1,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 50,
+    "name": "Outstanding Revenue / Receivables",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "customer",
+        "label": "Customer",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 11,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 51,
+    "name": "Unallocated Cost Register",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "expense_category",
+        "label": "Expense Category",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 11,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 52,
+    "name": "Fleet Utilization",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "vehicle_status",
+        "label": "Vehicle Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 12,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 53,
+    "name": "Vehicle Performance Summary",
+    "desk_loaded": true,
+    "filter_count": 3,
+    "filters_rendered": [
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 14,
+    "initial_rows": 2,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 54,
+    "name": "Driver Performance",
+    "desk_loaded": true,
+    "filter_count": 4,
+    "filters_rendered": [
+      {
+        "fieldname": "driver",
+        "label": "Driver",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "status",
+        "label": "Status",
+        "fieldtype": "Data",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      }
+    ],
+    "columns_count": 10,
+    "initial_rows": 5,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  },
+  {
+    "idx": 55,
+    "name": "Trip Operations Summary",
+    "desk_loaded": true,
+    "filter_count": 7,
+    "filters_rendered": [
+      {
+        "fieldname": "billing_status",
+        "label": "Billing Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "driver",
+        "label": "Driver",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "from_date",
+        "label": "From Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "mine_site",
+        "label": "Mine Site",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      },
+      {
+        "fieldname": "to_date",
+        "label": "To Date",
+        "fieldtype": "Date",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "trip_status",
+        "label": "Trip Status",
+        "fieldtype": "Select",
+        "hasAutocomplete": false
+      },
+      {
+        "fieldname": "vehicle",
+        "label": "Vehicle",
+        "fieldtype": "Link",
+        "hasAutocomplete": true
+      }
+    ],
+    "columns_count": 14,
+    "initial_rows": 0,
+    "filter_change_tested": true,
+    "export_available": true,
+    "error_dialogs": [],
+    "browser_verified": true
+  }
+]
