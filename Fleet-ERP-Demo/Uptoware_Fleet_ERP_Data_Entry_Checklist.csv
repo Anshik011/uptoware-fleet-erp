@@ -1,0 +1,19 @@
+Sequence Number,Record to Create,Navigation Page,Required Prerequisite,Sample Name / ID,Completion Status,Next Record Action
+1,Mine Site,/mine-sites,None (Base Master),Kalinga Mining Site,[ ],Create Vehicle Master
+2,Vehicle Master,/vehicles,None (Independent),OD-02-AB-4589,[ ],Create Driver Profile
+3,Driver Profile,/drivers,Vehicle OD-02-AB-4589,Amit Kumar,[ ],Create Shift Allocation
+4,Shift Allocation,/shifts,Vehicle + Driver,Morning Shift (06:00 - 14:00),[ ],Dispatch Haulage Trip
+5,Trip Dispatch,/dispatch,Active Shift Allocation,TRIP-2026-00413,[ ],Capture Weighbridge Scale
+6,Weighbridge Scale Ticket,/weighbridge,Dispatched Trip,Gross: 50.40 MT | Net: 32.40 MT,[ ],Complete Trip Delivery
+7,Trip Delivery Closeout,/dispatch or /trips,Weighbridge Confirmed Trip,Closing Odometer: 104240 km,[ ],Log Fuel Dispensation
+8,Fuel Dispensation Log,/fuel,Vehicle OD-02-AB-4589,120.0 L @ ₹92.50 = ₹11100.00,[ ],Report Breakdown Incident
+9,Breakdown Incident,/breakdowns,Vehicle OD-02-AB-4589,Hydraulic Pump Rupture,[ ],Workshop Repair Closeout
+10,Workshop Repair Closeout,/breakdowns,Active Breakdown,Repaired (Labour: ₹1200.00),[ ],Create Purchase Order
+11,Purchase Order (PO),/purchases,Supplier + Breakdown,PO-2026-00046 (₹6000.00),[ ],Log Operational Expense
+12,Operational Expense,/expenses,Vehicle OD-02-AB-4589,Highway Toll: ₹1450.00,[ ],Executive Approval
+13,Executive Approval,/approvals,Submitted Expense,Approved (MD Digital Stamp),[ ],Verify Revenue & Billing
+14,Revenue & Billing Audit,/revenue,Completed Weighbridge Trip,32.40 MT @ ₹450 = ₹14580.00,[ ],Reconcile Collections
+15,Collections Reconciliation,/collections,Billed Sales Invoice,Client Settlement: ₹14580.00,[ ],Check Compliance Watchlist
+16,Compliance & Expiries,/compliance,Vehicle Statutory Expiries,Fitness / PUC / Permit Watchlist,[ ],Inspect Reports & Alerts
+17,Reports & Alerts Console,/reports & /alerts,System Operational Events,Daily Tonnage vs Target (1500 MT),[ ],Audit Fleet Profitability
+18,Single-Truck Profitability P&L,/profitability,Revenue less Operating Costs,Net Daily Profit: +₹830.00,[ ],COMPLETE
