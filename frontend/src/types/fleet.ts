@@ -120,6 +120,7 @@ export interface MiningTrip {
   billingStatus?: string;
   billingNote?: string | null;
   salesInvoice?: string | null;
+  invoicedAmount?: number;
   isTestRecord?: boolean;
   lead?: string | null;
   leadKm?: number;

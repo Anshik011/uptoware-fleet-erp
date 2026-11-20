@@ -16120,3 +16120,34 @@ Upon production deployment at `https://fleet.uptoware.com`, login attempts retur
    - Changes committed and pushed to `main` on GitHub (`Anshik011/uptoware-fleet-erp`, commit `ec46bef`).
 3. **Comprehensive Audit Report:**
    - Generated [AWS_PRODUCTION_AUTHENTICATION_DIAGNOSTIC_REPORT.md](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/erpnext/AWS_PRODUCTION_AUTHENTICATION_DIAGNOSTIC_REPORT.md).
+
+
+---
+
+## 🚀 AWS Production 502 Remediation & Live Authentication Restoration (20-November-2026)
+
+### 1. Root Cause Identification
+- **Symptom:** Live endpoint `https://fleet.uptoware.com/api/method/ping` returned `HTTP 502 Bad Gateway` from `nginx/1.28.3 (Ubuntu)`. Downstream Next.js `/api/auth/login` calls to `http://127.0.0.1:8080/api/method/login` failed, causing login rejections on the production website.
+- **Empirical Cause:** Inspection of Frappe's internal Nginx container (`erpnext-docker-frontend-1`, ID `c5143c54c291`, port 8080) error log showed:
+  `connect() failed (113: No route to host) while connecting to upstream: "http://172.18.0.10:8000/api/method/ping"`
+  When `erpnext-docker-backend-1` (ID `7a58d709e48f`) had restarted, Docker assigned it IP `172.18.0.3`. The internal Nginx proxy retained the stale cached upstream IP `172.18.0.10` in worker memory.
+
+### 2. Approved Minimal Remediation Executed
+- **Command:** `docker restart erpnext-docker-frontend-1`
+- **Result:** Container restarted in ~1.5s, cleanly resolving `backend:8000` to `172.18.0.3`.
+- **Zero Disruptive Changes:** No database or Redis restarts, no Next.js code edits, zero modifications to business data or Docker volumes.
+
+### 3. End-to-End Live Production Verification (100% Pass)
+- **Test 1: Internal Port 8080 Ping:** `HTTP 200 OK {"message":"pong"}`
+- **Test 2: Public HTTPS Ping:** `https://fleet.uptoware.com/api/method/ping` -> `HTTP 200 OK {"message":"pong"}`
+- **Test 3: Production Login:** `POST /api/auth/login` succeeded with `HTTP 200 OK`, issuing `Set-Cookie` with `uptoware_sid` and `sid`. User: `sahooashutosh011@gmail.com`, Role: `Administrator`.
+- **Test 4: Authenticated Profile Retrieval:** `GET /api/auth/session` succeeded with `HTTP 200 OK`, confirming identity (`Ashutosh`) and role.
+- **Test 5: Dashboard Access:** `GET https://fleet.uptoware.com/` succeeded with `HTTP 200 OK` (50,360 bytes received).
+- **Test 6: Protected Pages Access:** `GET https://fleet.uptoware.com/vehicles` succeeded with `HTTP 200 OK` (46,371 bytes received).
+- **Test 7: Session Persistence:** Subsequent session requests verified session continuity.
+- **Test 8: Logout & Session Invalidation:** `POST /api/auth/logout` succeeded with `HTTP 200 OK`; subsequent session calls rejected with `HTTP 401 Unauthorized`.
+
+### 4. Security & Cleanup Status
+- **Temporary SSH Key Revocation:** Revoked from `~/.ssh/authorized_keys` on EC2; verified with `grep -c` returning `0`, and connection test returning `Permission denied (publickey)`.
+- **Local Key Cleanup:** Temporary key pair deleted from local machine.
+- **Credential Hygiene:** Zero credentials logged, exposed, or committed to Git.

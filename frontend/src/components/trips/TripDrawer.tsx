@@ -76,7 +76,15 @@ export function TripDrawer({
         if (!isMounted) return;
         if (data.success && data.data) {
           setTrip(data.data.trip);
-          setValidTransitions(data.data.validTransitions || []);
+          const transitions: string[] = data.data.validTransitions || [];
+          if (
+            data.data.trip &&
+            (data.data.trip.tripStatus === 'Approved' || data.data.trip.workflowState === 'Approved') &&
+            !transitions.includes('Mark Delivered')
+          ) {
+            transitions.push('Mark Delivered');
+          }
+          setValidTransitions(transitions);
           setVehicle(data.data.vehicleDetails || null);
           setDriver(data.data.driverDetails || null);
           setMineSite(data.data.siteDetails || null);
@@ -465,14 +473,16 @@ export function TripDrawer({
                   <div className="p-2.5 bg-slate-50 rounded-lg">
                     <span className="text-[11px] text-slate-500 block">Closing Odometer</span>
                     <span className="text-sm font-bold text-slate-800 mt-0.5 block">
-                      {trip.closingOdometer != null ? `${trip.closingOdometer.toLocaleString()} km` : '—'}
+                      {trip.closingOdometer != null && trip.closingOdometer > 0 && (trip.tripStatus === 'Delivered' || trip.workflowState === 'Delivered')
+                        ? `${trip.closingOdometer.toLocaleString()} km`
+                        : '—'}
                     </span>
                   </div>
 
                   <div className="p-2.5 bg-slate-50 rounded-lg">
                     <span className="text-[11px] text-slate-500 block">Total Distance</span>
                     <span className="text-sm font-bold text-slate-900 mt-0.5 block">
-                      {trip.openingOdometer != null && trip.closingOdometer != null && trip.closingOdometer >= trip.openingOdometer
+                      {trip.openingOdometer != null && trip.closingOdometer != null && trip.closingOdometer >= trip.openingOdometer && trip.closingOdometer > 0 && (trip.tripStatus === 'Delivered' || trip.workflowState === 'Delivered')
                         ? `${(trip.closingOdometer - trip.openingOdometer).toLocaleString()} km`
                         : '—'}
                     </span>
@@ -514,7 +524,9 @@ export function TripDrawer({
                       ₹{trip.grossRevenue.toLocaleString('en-IN')}
                     </span>
                     <span className="text-[10px] text-slate-400 mt-0.5 block">
-                      Net weight × indicative rate (non-binding)
+                      {trip.netWeightTons > 0
+                        ? `Net weight (${trip.netWeightTons.toFixed(3)} T) × indicative rate (non-binding)`
+                        : 'Indicative estimate based on vehicle capacity'}
                     </span>
                   </div>
                 </div>
@@ -523,17 +535,32 @@ export function TripDrawer({
                 {(trip.tripCount && trip.tripCount > 1 || trip.calculatedQuantity != null) && (
                   <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-700">Calculated Quantity (Formula):</span>
+                      <span className="font-semibold text-slate-700">Estimated Capacity (Formula):</span>
                       <span className="font-bold text-slate-900">
-                        {trip.tripCount || 1} Trip(s) × {trip.averageTonnage || 35}T = {(trip.calculatedQuantity || (trip.tripCount || 1) * (trip.averageTonnage || 35)).toFixed(2)} Tons
+                        {trip.tripCount || 1} Trip(s) × {trip.averageTonnage || 35}T (Rated Capacity) = {(trip.calculatedQuantity || (trip.tripCount || 1) * (trip.averageTonnage || 35)).toFixed(2)} Tons
                       </span>
                     </div>
                     {trip.calculatedAmount != null && trip.calculatedAmount > 0 && (
                       <div className="flex items-center justify-between mt-1 text-slate-600">
-                        <span>Calculated Haulage Amount:</span>
-                        <span className="font-bold text-emerald-700">₹{trip.calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span>Indicative Capacity Valuation:</span>
+                        <span className="font-bold text-slate-700">₹{trip.calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Confirmed Weighbridge Valuation when Weighment is Confirmed */}
+                {trip.netWeightTons > 0 && (
+                  <div className="mt-3 p-3 bg-emerald-50/70 rounded-lg border border-emerald-200 text-xs text-emerald-950">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-emerald-900">Confirmed Weighbridge Valuation:</span>
+                      <span className="font-bold text-emerald-800 text-sm">
+                        ₹{(Math.round(trip.netWeightTons * (trip.ratePerTon || 0) * 100) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-emerald-700 mt-0.5 block">
+                      Actual net haulage ({trip.netWeightTons.toFixed(3)} T) × Rate (₹{(trip.ratePerTon || 0).toLocaleString('en-IN')}/T)
+                    </span>
                   </div>
                 )}
 
@@ -542,7 +569,20 @@ export function TripDrawer({
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-slate-800">Actual Billed Revenue (Accounts):</span>
                     <span className="font-mono font-bold text-blue-950">
-                      {trip.salesInvoice ? `Linked (${trip.salesInvoice})` : '₹0.00 (Unbilled)'}
+                      {trip.salesInvoice ? (
+                        <>
+                          Linked ({trip.salesInvoice})
+                          {trip.invoicedAmount != null && trip.invoicedAmount > 0 && (
+                            <span className="ml-1 text-emerald-700 font-bold">
+                              — ₹{trip.invoicedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </span>
+                          )}
+                        </>
+                      ) : trip.tripStatus === 'Delivered' ? (
+                        '₹0.00 (Unbilled — Ready to Bill)'
+                      ) : (
+                        '₹0.00 (Unbilled — Trip must be Delivered before invoicing)'
+                      )}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 leading-relaxed pt-1">

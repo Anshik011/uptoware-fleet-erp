@@ -70,8 +70,7 @@ def run():
                 "action": "Confirm Weighbridge",
                 "next_state": "Weighbridge Confirmed",
                 "allowed": "Weighbridge Operator",
-                "allow_self_approval": 1,
-                "condition": "doc.gross_weight_tons > 0 and doc.tare_weight_tons > 0"
+                "allow_self_approval": 1
             },
             # Weighbridge Confirmed -> Approved
             {
@@ -87,8 +86,7 @@ def run():
                 "action": "Mark Delivered",
                 "next_state": "Delivered",
                 "allowed": "Fleet Manager",
-                "allow_self_approval": 1,
-                "condition": "doc.closing_odometer and doc.return_date_time"
+                "allow_self_approval": 1
             },
             # Cancellations
             {

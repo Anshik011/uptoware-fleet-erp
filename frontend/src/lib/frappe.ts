@@ -1595,6 +1595,7 @@ function mapMiningTrip(t: any, driverMap?: Map<string, string>): MiningTrip {
     billingStatus: t.billing_status || undefined,
     billingNote: t.billing_note || null,
     salesInvoice: t.sales_invoice || null,
+    invoicedAmount: t.invoiced_amount != null ? Number(t.invoiced_amount) : undefined,
     isTestRecord: Boolean(t.is_test_record),
     lead: t.custom_lead || null,
     leadKm: t.custom_lead_km != null ? Number(t.custom_lead_km) : undefined,
@@ -1848,6 +1849,28 @@ export async function getMiningTripById(
       }
     } catch {
       // Ignored if site details unavailable
+    }
+  }
+
+  // Fetch linked sales invoice details if present
+  if (res.data.sales_invoice && trip) {
+    try {
+      const invRes = await frappeFetch<{ data: any }>(
+        `/api/resource/Sales%20Invoice/${encodeURIComponent(res.data.sales_invoice)}`,
+        { sessionCookie }
+      );
+      if (invRes.data) {
+        trip.invoicedAmount = Number(invRes.data.base_grand_total || invRes.data.grand_total || 0);
+      }
+    } catch {
+      // Ignored if sales invoice details unavailable
+    }
+  }
+
+  // Defense-in-depth: If trip is in 'Approved' state, ensure 'Mark Delivered' is available in validTransitions
+  if (trip && (trip.tripStatus === 'Approved' || trip.workflowState === 'Approved')) {
+    if (!validTransitions.includes('Mark Delivered')) {
+      validTransitions.push('Mark Delivered');
     }
   }
 

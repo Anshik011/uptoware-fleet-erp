@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, ReactNode } from 'react';
+import React, { useState, ReactNode, Suspense } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
@@ -23,13 +23,17 @@ export function AppShell({
   return (
     <div className="min-h-screen h-full flex antialiased bg-slate-50 text-slate-900 overflow-hidden">
       {/* Desktop / Laptop Sidebar */}
-      <Sidebar />
+      <Suspense fallback={<aside className="w-72 flex-shrink-0 bg-slate-900 border-r border-slate-800 hidden lg:flex flex-col min-h-screen text-slate-300" />}>
+        <Sidebar />
+      </Suspense>
 
       {/* Mobile / Tablet Navigation Drawer */}
-      <MobileNav
-        isOpen={isMobileNavOpen}
-        onClose={() => setIsMobileNavOpen(false)}
-      />
+      <Suspense fallback={null}>
+        <MobileNav
+          isOpen={isMobileNavOpen}
+          onClose={() => setIsMobileNavOpen(false)}
+        />
+      </Suspense>
 
       {/* Main Application Area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">

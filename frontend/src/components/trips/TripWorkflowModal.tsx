@@ -47,7 +47,7 @@ export function TripWorkflowModal({
 
   // Delivery fields
   const [closingOdo, setClosingOdo] = useState<number | ''>(
-    trip?.closingOdometer || ''
+    trip?.closingOdometer && trip.closingOdometer > 0 ? trip.closingOdometer : ''
   );
   const [returnDateTime, setReturnDateTime] = useState('');
 
@@ -99,9 +99,10 @@ export function TripWorkflowModal({
         return;
       }
       payload.closingOdometer = Number(closingOdo);
-      if (returnDateTime) {
-        payload.returnDateTime = returnDateTime.replace('T', ' ') + ':00';
-      }
+      const formattedReturnTime = returnDateTime
+        ? (returnDateTime.includes(':') && returnDateTime.split(':').length === 2 ? returnDateTime.replace('T', ' ') + ':00' : returnDateTime.replace('T', ' '))
+        : new Date().toISOString().slice(0, 19).replace('T', ' ');
+      payload.returnDateTime = formattedReturnTime;
     } else if (action === 'Cancel') {
       if (!cancellationReason.trim()) {
         setError('A cancellation reason is strictly required.');

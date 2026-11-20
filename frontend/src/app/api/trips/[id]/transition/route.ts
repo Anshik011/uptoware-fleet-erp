@@ -147,6 +147,16 @@ export async function POST(
           { status: 400 }
         );
       }
+      const openingOdo = tripDetails.trip.openingOdometer ?? 0;
+      if (odo < openingOdo) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Closing odometer (${odo.toLocaleString()} km) cannot be less than opening odometer (${openingOdo.toLocaleString()} km).`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const input: TripTransitionInput = {
