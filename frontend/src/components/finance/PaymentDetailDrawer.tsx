@@ -60,7 +60,9 @@ export function PaymentDetailDrawer({ paymentId, onClose }: PaymentDetailDrawerP
               <CreditCard className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{paymentId}</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                {payment ? `Payment · ${payment.partyName}` : 'Payment Collection Receipt'}
+              </h2>
               <p className="text-xs text-slate-500">Customer Payment Collection Receipt</p>
             </div>
           </div>

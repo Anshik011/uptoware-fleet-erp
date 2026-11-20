@@ -6,6 +6,11 @@ import {
   getFinancialDashboard,
 } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import {
+  resolveUserMineScope,
+  validateAndResolveMineFilter,
+  MineAuthorizationError,
+} from '@/lib/mineAuth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,20 +33,8 @@ export async function GET(request: NextRequest) {
     const includeTest =
       isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
-    const filters = {
-      vehicle: searchParams.get('vehicle') || undefined,
-      customer: searchParams.get('customer') || undefined,
-      mineSite: searchParams.get('mine_site') || undefined,
-      fromDate: searchParams.get('from_date') || undefined,
-      toDate: searchParams.get('to_date') || undefined,
-    };
-
-    const [summary, vehicles, trips, customers] = await Promise.all([
-      getFinancialDashboard(auth.sid, filters, includeTest),
-      getVehicleProfitability(auth.sid, filters, includeTest),
-      getTripProfitability(auth.sid, filters, includeTest),
-      getCustomerRevenue(auth.sid, filters, includeTest),
-    ]);
+    const mineScope = await resolveUserMineScope(request);
+    const mineFilter = validateAndResolveMineFilter(mineScope, searchParams.get('mine_site') || undefined);
 
     const formulaDefinitions = {
       invoicedRevenue: 'Σ base_grand_total of submitted Sales Invoices (docstatus = 1) minus credit notes (is_return = 1)',
@@ -53,6 +46,21 @@ export async function GET(request: NextRequest) {
       indicativeRevenueWarning: 'Mine Site rate_per_ton is an operational planning estimate only. Actual recognized revenue is derived strictly from submitted Sales Invoices (docstatus = 1).',
       operationalVsAccountingNote: 'Approved operational expenses represent field disbursements prior to General Ledger posting. They are non-duplicated against GL Journal Entries.',
     };
+
+    const filters = {
+      vehicle: searchParams.get('vehicle') || undefined,
+      customer: searchParams.get('customer') || undefined,
+      mineSite: mineFilter.filterType === 'single' ? mineFilter.targetMine : undefined,
+      fromDate: searchParams.get('from_date') || undefined,
+      toDate: searchParams.get('to_date') || undefined,
+    };
+
+    const [summary, vehicles, trips, customers] = await Promise.all([
+      getFinancialDashboard(auth.sid, filters, includeTest),
+      getVehicleProfitability(auth.sid, filters, includeTest),
+      getTripProfitability(auth.sid, filters, includeTest),
+      getCustomerRevenue(auth.sid, filters, includeTest),
+    ]);
 
     return NextResponse.json(
       {
@@ -74,6 +82,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     console.error('API /api/finance/profitability error:', error?.message || error);
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to fetch profitability analytics' },

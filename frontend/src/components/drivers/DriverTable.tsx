@@ -15,10 +15,12 @@ import {
   Truck,
   Edit2,
   ChevronRight,
-  UserX
+  UserX,
+  ExternalLink,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface DriverTableProps {
   drivers: Driver[];
@@ -36,6 +38,8 @@ interface DriverTableProps {
   onComplianceChange: (comp: string) => void;
   sortBy: string;
   onSortChange: (sort: string) => void;
+  onAllocateVehicle?: (driverId: string) => void;
+  onViewVehicle?: (vehicleId: string) => void;
 }
 
 export function DriverTable({
@@ -54,6 +58,8 @@ export function DriverTable({
   onComplianceChange,
   sortBy,
   onSortChange,
+  onAllocateVehicle,
+  onViewVehicle,
 }: DriverTableProps) {
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -116,7 +122,7 @@ export function DriverTable({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search driver by name, ID, license, or cell..."
+              placeholder="Search driver by name, license, or cell..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 shadow-xs"
@@ -254,8 +260,8 @@ export function DriverTable({
                         <div className="font-semibold text-slate-900 group-hover:text-blue-900 transition-colors">
                           {driver.fullName}
                         </div>
-                        <div className="text-[11px] font-mono text-slate-400">
-                          {driver.id}
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          {driver.licenseNumber ? `Lic: ${driver.licenseNumber}` : 'Commercial Operator'}
                         </div>
                       </div>
                     </div>
@@ -280,17 +286,37 @@ export function DriverTable({
                     )}
                   </td>
 
-                  {/* Assigned Vehicle */}
-                  <td className="py-3.5 px-4">
+                  {/* Assigned Vehicle - ERPNext Linked Navigation */}
+                  <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
                     {driver.assignedVehicle ? (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50/80 border border-blue-200 text-blue-900 font-mono text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onViewVehicle && driver.assignedVehicle
+                            ? onViewVehicle(driver.assignedVehicle)
+                            : (window.location.href = `/vehicles`)
+                        }
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50/80 border border-blue-200 text-blue-900 font-mono text-xs font-semibold hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer"
+                        title={`Click to view assigned ${formatVehicleDisplay(driver.assignedVehicle, undefined, { includeModel: true })}`}
+                      >
                         <Truck className="w-3.5 h-3.5 text-blue-700 shrink-0" />
-                        {driver.assignedVehicle}
-                      </div>
+                        <span>{formatVehicleDisplay(driver.assignedVehicle)}</span>
+                        <ExternalLink className="w-3 h-3 text-blue-500 ml-0.5 opacity-60" />
+                      </button>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-slate-500 bg-slate-100">
-                        Standby / Unassigned
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onAllocateVehicle
+                            ? onAllocateVehicle(driver.id)
+                            : (window.location.href = `/shifts?driver=${encodeURIComponent(driver.id)}&returnUrl=/drivers`)
+                        }
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-dashed border-amber-300 bg-amber-50/70 text-amber-800 text-xs font-medium hover:bg-amber-100 hover:border-amber-400 transition-colors cursor-pointer"
+                        title="Click to allocate a commercial fleet vehicle to this driver"
+                      >
+                        <Truck className="w-3.5 h-3.5 text-amber-600" />
+                        <span>No Vehicle Allocated</span>
+                      </button>
                     )}
                   </td>
 
@@ -353,4 +379,3 @@ export function DriverTable({
     </div>
   );
 }
-

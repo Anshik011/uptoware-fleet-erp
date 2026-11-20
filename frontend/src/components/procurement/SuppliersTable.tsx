@@ -136,8 +136,15 @@ export function SuppliersTable({
                       {s.supplierGroup}
                     </span>
                   </td>
-                  <td className="py-3.5 px-4 font-mono text-xs text-slate-700">
-                    {s.pan || '—'}
+                  <td className="py-3.5 px-4 text-xs">
+                    <div className="font-mono text-slate-800 font-medium">
+                      {s.gstNo ? `GST: ${s.gstNo}` : s.pan ? `PAN: ${s.pan}` : '—'}
+                    </div>
+                    {s.mobileNo && (
+                      <div className="text-slate-500 font-mono text-[11px] mt-0.5">
+                        Ph: {s.mobileNo}
+                      </div>
+                    )}
                   </td>
                   <td className="py-3.5 px-4 text-center">
                     {s.isPreferred ? (

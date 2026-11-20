@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWarehouses } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { validateAndResolveMineFilter, MineAuthorizationError } from '@/lib/mineAuth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +20,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const warehouses = await getWarehouses(auth.sid);
+    const { searchParams } = new URL(request.url);
+    const requestedMine = searchParams.get('mine_site') || searchParams.get('mineSite');
+
+    let mineFilter;
+    try {
+      mineFilter = validateAndResolveMineFilter(auth.user, requestedMine);
+    } catch (err: any) {
+      if (err instanceof MineAuthorizationError) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+      }
+      throw err;
+    }
+
+    let warehouses = await getWarehouses(auth.sid);
+
+    // Hybrid warehouse model: central/shared warehouses (customMineSite === null) remain visible,
+    // while mine-specific warehouses are scoped by mine authorization.
+    if (mineFilter.filterType === 'single' && mineFilter.targetMine) {
+      warehouses = warehouses.filter(
+        (w) => !w.customMineSite || w.customMineSite === mineFilter.targetMine
+      );
+    } else if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      warehouses = warehouses.filter(
+        (w) => !w.customMineSite || mineFilter.targetMines!.includes(w.customMineSite)
+      );
+    }
 
     return NextResponse.json({
       success: true,

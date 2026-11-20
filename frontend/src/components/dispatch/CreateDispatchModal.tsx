@@ -14,7 +14,15 @@ import {
   Send,
 } from 'lucide-react';
 import { Vehicle, Driver, MineSite } from '@/types/fleet';
+import { toLocalDateTimeInput, toLocalDateTimeString } from '@/lib/datetime';
 import { Button } from '@/components/ui/Button';
+import { LinkedField } from '@/components/ui/LinkedField';
+import { AddVehicleModal } from '@/components/vehicles/AddVehicleModal';
+import { AddDriverModal } from '@/components/drivers/AddDriverModal';
+import { AddMineSiteModal } from '@/components/mine-sites/AddMineSiteModal';
+import { VehicleDrawer } from '@/components/vehicles/VehicleDrawer';
+import { DriverDrawer } from '@/components/drivers/DriverDrawer';
+import { MineSiteDrawer } from '@/components/mine-sites/MineSiteDrawer';
 
 interface CreateDispatchModalProps {
   isOpen: boolean;
@@ -35,6 +43,17 @@ export function CreateDispatchModal({
   mineSites,
   materials,
 }: CreateDispatchModalProps) {
+  const [localVehicles, setLocalVehicles] = useState<Vehicle[]>(vehicles);
+  const [localDrivers, setLocalDrivers] = useState<Driver[]>(drivers);
+  const [localMineSites, setLocalMineSites] = useState<MineSite[]>(mineSites);
+
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [showAddDriver, setShowAddDriver] = useState(false);
+  const [showAddMineSite, setShowAddMineSite] = useState(false);
+  const [viewVehicleId, setViewVehicleId] = useState<string | null>(null);
+  const [viewDriverId, setViewDriverId] = useState<string | null>(null);
+  const [viewMineSiteId, setViewMineSiteId] = useState<string | null>(null);
+
   const [vehicle, setVehicle] = useState('');
   const [driver, setDriver] = useState('');
   const [mineSite, setMineSite] = useState('');
@@ -49,6 +68,18 @@ export function CreateDispatchModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setLocalVehicles(vehicles);
+  }, [vehicles]);
+
+  useEffect(() => {
+    setLocalDrivers(drivers);
+  }, [drivers]);
+
+  useEffect(() => {
+    setLocalMineSites(mineSites);
+  }, [mineSites]);
+
   // Initialize defaults on open
   useEffect(() => {
     if (isOpen) {
@@ -62,11 +93,7 @@ export function CreateDispatchModal({
       setChallanNumber('');
       setDispatchImmediately(true);
 
-      const now = new Date();
-      const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16);
-      setDispatchDateTime(localIso);
+      setDispatchDateTime(toLocalDateTimeInput());
 
       if (vehicles[0]) {
         setOpeningOdometer(vehicles[0].lastOdometer || 0);
@@ -133,7 +160,7 @@ export function CreateDispatchModal({
         materialType,
         dispatchDateTime: dispatchDateTime
           ? dispatchDateTime.replace('T', ' ') + ':00'
-          : new Date().toISOString().replace('T', ' ').substring(0, 19),
+          : toLocalDateTimeString(),
         action: dispatchImmediately ? 'Dispatch' : undefined,
       };
 
@@ -199,78 +226,66 @@ export function CreateDispatchModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Vehicle Selection */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Vehicle <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <Truck className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <select
-                  value={vehicle}
-                  onChange={(e) => handleVehicleChange(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900"
-                  required
-                  data-testid="select-dispatch-vehicle"
-                >
-                  <option value="">Select Active Vehicle</option>
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.licensePlate} ({v.model || 'Tipper'} &bull; {v.payloadCapacityTons || 25}T)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <LinkedField
+              label="Vehicle"
+              required
+              value={vehicle}
+              onChange={handleVehicleChange}
+              options={localVehicles.map((v) => ({
+                id: v.id,
+                label: v.licensePlate,
+                subtext: `${v.model || 'Tipper'} • ${v.payloadCapacityTons || 25}T`,
+              }))}
+              placeholder="Select Active Vehicle"
+              entityName="Vehicle"
+              icon={Truck}
+              onCreateNew={() => setShowAddVehicle(true)}
+              onViewRecord={(id) => setViewVehicleId(id)}
+              data-testid="select-dispatch-vehicle"
+            />
 
             {/* Driver Selection */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Driver <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <select
-                  value={driver}
-                  onChange={(e) => setDriver(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900"
-                  required
-                  data-testid="select-dispatch-driver"
-                >
-                  <option value="">Select Active Driver</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.fullName} ({d.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <LinkedField
+              label="Driver"
+              required
+              value={driver}
+              onChange={setDriver}
+              options={localDrivers.map((d) => ({
+                id: d.id,
+                label: d.fullName,
+                subtext: d.licenseNumber ? `Lic: ${d.licenseNumber}` : 'Commercial Operator',
+              }))}
+              placeholder="Select Active Driver"
+              entityName="Driver"
+              icon={User}
+              onCreateNew={() => setShowAddDriver(true)}
+              onViewRecord={(id) => setViewDriverId(id)}
+              data-testid="select-dispatch-driver"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Mine Site */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Loading Mine Site <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <select
-                  value={mineSite}
-                  onChange={(e) => handleMineSiteChange(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900"
-                  required
-                  data-testid="select-dispatch-site"
-                >
-                  <option value="">Select Operational Pit</option>
-                  {mineSites.map((s) => (
-                    <option key={s.id} value={s.siteName}>
-                      {s.siteName} ({s.mineralType})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <LinkedField
+              label="Loading Mine Site"
+              required
+              value={mineSite}
+              onChange={handleMineSiteChange}
+              options={localMineSites.map((s) => ({
+                id: s.siteName,
+                label: s.siteName,
+                subtext: s.mineralType,
+              }))}
+              placeholder="Select Operational Pit"
+              entityName="Mine Site"
+              icon={MapPin}
+              onCreateNew={() => setShowAddMineSite(true)}
+              onViewRecord={(id) => {
+                const siteObj = localMineSites.find((s) => s.siteName === id || s.id === id);
+                setViewMineSiteId(siteObj ? siteObj.id : id);
+              }}
+              data-testid="select-dispatch-site"
+            />
 
             {/* Destination */}
             <div>
@@ -393,6 +408,70 @@ export function CreateDispatchModal({
           </div>
         </form>
       </div>
+
+      {/* Contextual Modals & Drawers */}
+      <AddVehicleModal
+        isOpen={showAddVehicle}
+        onClose={() => setShowAddVehicle(false)}
+        onSuccess={() => {
+          fetch('/api/vehicles?limit=100')
+            .then((r) => r.json())
+            .then((res) => {
+              if (res.success && res.data) {
+                setLocalVehicles(res.data);
+                if (res.data[0]) setVehicle(res.data[0].id);
+              }
+            });
+          setShowAddVehicle(false);
+        }}
+      />
+
+      <AddDriverModal
+        isOpen={showAddDriver}
+        onClose={() => setShowAddDriver(false)}
+        onSuccess={(newDriver) => {
+          fetch('/api/drivers?limit=100')
+            .then((r) => r.json())
+            .then((res) => {
+              if (res.success && res.data) {
+                setLocalDrivers(res.data);
+                if (newDriver?.id) setDriver(newDriver.id);
+              }
+            });
+          setShowAddDriver(false);
+        }}
+      />
+
+      <AddMineSiteModal
+        isOpen={showAddMineSite}
+        onClose={() => setShowAddMineSite(false)}
+        onSuccess={(newSite) => {
+          fetch('/api/mine-sites?limit=50')
+            .then((r) => r.json())
+            .then((res) => {
+              if (res.success && res.data) {
+                setLocalMineSites(res.data);
+                if (newSite?.siteName) setMineSite(newSite.siteName);
+              }
+            });
+          setShowAddMineSite(false);
+        }}
+      />
+
+      <VehicleDrawer
+        vehicleId={viewVehicleId}
+        onClose={() => setViewVehicleId(null)}
+      />
+
+      <DriverDrawer
+        driverId={viewDriverId}
+        onClose={() => setViewDriverId(null)}
+      />
+
+      <MineSiteDrawer
+        siteId={viewMineSiteId}
+        onClose={() => setViewMineSiteId(null)}
+      />
     </div>
   );
 }

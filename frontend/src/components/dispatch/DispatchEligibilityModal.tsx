@@ -120,7 +120,7 @@ export function DispatchEligibilityModal({
               <h2 className="text-base font-bold text-slate-900">
                 Statutory Compliance & Dispatch Gating
               </h2>
-              <p className="text-xs text-slate-500 font-mono">Trip: {tripId}</p>
+              <p className="text-xs text-slate-500 font-medium">Pre-dispatch Regulatory Verification</p>
             </div>
           </div>
           <button

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PurchaseOrder, ProcurementMetrics } from '@/types/fleet';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
@@ -9,13 +10,17 @@ import { ProcurementDashboard } from '@/components/procurement/ProcurementDashbo
 import { PurchaseOrdersTable } from '@/components/procurement/PurchaseOrdersTable';
 import { CreatePurchaseOrderModal } from '@/components/procurement/CreatePurchaseOrderModal';
 import { PurchaseOrderDetailDrawer } from '@/components/procurement/PurchaseOrderDetailDrawer';
+import { ReceiveGoodsModal } from '@/components/procurement/ReceiveGoodsModal';
 import { Button } from '@/components/ui/Button';
-import { ShoppingCart, PlusCircle, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, PlusCircle, RefreshCw, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
-export default function PurchasesPage() {
+function PurchasesContent() {
+  const searchParams = useSearchParams();
   const { hasRole } = useAuth();
   const canManage = hasRole(['Fleet Manager', 'Accountant', 'Administrator']);
   const canReceive = hasRole(['Workshop Supervisor', 'Fleet Manager', 'Administrator']);
+
+  const actionParam = searchParams.get('action');
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +50,13 @@ export default function PurchasesPage() {
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedSupplier, setSelectedSupplier] = useState('ALL');
 
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(actionParam === 'new');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [receivingOrder, setReceivingOrder] = useState<PurchaseOrder | null>(null);
+
+  useEffect(() => {
+    if (actionParam === 'new') setIsCreateModalOpen(true);
+  }, [actionParam]);
 
   // Load options
   useEffect(() => {
@@ -128,34 +138,9 @@ export default function PurchasesPage() {
     }
   };
 
-  // Receive Goods (Create Purchase Receipt against PO)
-  const handleReceiveGoods = async (order: PurchaseOrder) => {
-    if (!confirm(`Create Purchase Receipt and receive items for PO '${order.name}' into warehouse?`)) {
-      return;
-    }
-
-    try {
-      setError(null);
-      const res = await fetch('/api/procurement/receipts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purchaseOrder: order.name }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to receive goods in ERPNext');
-      }
-
-      setSuccessMessage(`Goods received for '${order.name}' under Receipt '${data.receipt?.name || ''}'. Inventory updated.`);
-      setTimeout(() => setSuccessMessage(null), 4000);
-      loadOrders();
-      if (selectedOrderId === order.name) {
-        setSelectedOrderId(null);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Error creating goods receipt');
-    }
+  // Open structured confirmation modal for goods receipt
+  const handleReceiveGoods = (order: PurchaseOrder) => {
+    setReceivingOrder(order);
   };
 
   return (
@@ -271,8 +256,45 @@ export default function PurchasesPage() {
             canManage={canManage}
           />
         )}
+
+        {/* Goods Receipt Confirmation Modal */}
+        {receivingOrder && (
+          <ReceiveGoodsModal
+            isOpen={Boolean(receivingOrder)}
+            order={receivingOrder}
+            onClose={() => setReceivingOrder(null)}
+            onSuccess={() => {
+              setSuccessMessage(`Goods inwarded successfully for PO '${receivingOrder.name}'. Inventory stock balances updated.`);
+              setTimeout(() => setSuccessMessage(null), 4000);
+              loadOrders();
+              if (selectedOrderId === receivingOrder.name) {
+                setSelectedOrderId(null);
+              }
+              setReceivingOrder(null);
+            }}
+          />
+        )}
       </PageContainer>
     </AppShell>
+  );
+}
+
+export default function PurchasesPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell>
+          <PageContainer>
+            <div className="flex items-center justify-center p-12 text-slate-500 gap-2">
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+              <span>Loading Purchases & Spare Parts Orders...</span>
+            </div>
+          </PageContainer>
+        </AppShell>
+      }
+    >
+      <PurchasesContent />
+    </Suspense>
   );
 }
 

@@ -169,7 +169,7 @@ export function DocumentUploadModal({
               {replacedDocId ? 'Replace Document' : `Upload ${entityType === 'driver' ? 'Driver' : 'Vehicle'} Document`}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Target Asset: <span className="font-semibold text-slate-800">{entityLabel}</span> ({entityId})
+              Target Asset: <span className="font-semibold text-slate-800">{entityLabel}</span>
             </p>
           </div>
           <button

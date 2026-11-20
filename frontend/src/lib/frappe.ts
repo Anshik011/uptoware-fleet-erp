@@ -5,6 +5,8 @@ import {
   CreateDriverInput,
   UpdateDriverInput,
   FleetAlert,
+  FleetLead,
+  FleetVehicleType,
   MiningTrip,
   TripStatus,
   CreateMiningTripInput,
@@ -91,7 +93,11 @@ import {
   RolePermissionItem,
   FleetOperationalSettings,
   SystemHealthStatus,
+  FleetMineTransferLog,
+  CreateMineTransferInput,
 } from '@/types/fleet';
+import { toLocalDateString, toLocalDateTimeString } from '@/lib/datetime';
+import { formatVehicleDisplay, formatDriverDisplay } from '@/lib/displayFormatters';
 
 const FRAPPE_URL = process.env.FRAPPE_URL || 'http://localhost:8080';
 
@@ -148,7 +154,7 @@ export function extractCleanFrappeError(json: any, fallbackStatus = 500): string
  * Executes strictly with the session of the authenticated user.
  * Never uses or falls back to Administrator credentials.
  */
-async function frappeFetch<T = any>(
+export async function frappeFetch<T = any>(
   endpoint: string,
   options: RequestInit & { sessionCookie?: string } = {}
 ): Promise<T> {
@@ -208,7 +214,7 @@ export async function callFrappeApi<T = any>(
   });
 }
 
-function calculateStatutoryDoc(
+export function calculateStatutoryDoc(
   title: string,
   dateStr: string | null | undefined
 ): StatutoryDocument {
@@ -243,6 +249,46 @@ function determineOverallHealth(docs: StatutoryDocument[]): StatutoryHealth {
   return 'valid';
 }
 
+/** Resolve only one unambiguous allocation active at the given instant.
+ * Shift allocations are half-open intervals: [allocation_start, allocation_end).
+ * No day-level fallback is used because it can surface expired/future assignments.
+ */
+export function resolveCurrentAllocationVehicle(
+  allocations: any[],
+  now: Date,
+  driverId: string
+): string | null {
+  const current = (allocations || []).filter((alloc) => {
+    const start = alloc?.allocation_start ? new Date(alloc.allocation_start) : null;
+    const end = alloc?.allocation_end ? new Date(alloc.allocation_end) : null;
+    return Boolean(
+      alloc?.driver && start && end && Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) &&
+      start <= now && now < end && (alloc.license_plate || alloc.vehicle)
+    );
+  });
+  const driverMatches = current.filter((alloc) => alloc.driver === driverId);
+
+  if (driverMatches.length > 1) {
+    console.error(
+      `Ambiguous active shift allocations for driver ${driverId} (${driverMatches.map((a) => a.name || 'unknown').join(', ')}); roster assignment left unresolved.`
+    );
+    return null;
+  }
+  if (!driverMatches.length) return null;
+
+  const selectedVehicle = driverMatches[0].license_plate || driverMatches[0].vehicle;
+  const vehicleMatches = current.filter((alloc) =>
+    (alloc.license_plate || alloc.vehicle) === selectedVehicle
+  );
+  if (vehicleMatches.some((alloc) => alloc.driver !== driverId)) {
+    console.error(
+      `Conflicting concurrent driver allocations for vehicle ${selectedVehicle}; assignment for driver ${driverId} left unresolved.`
+    );
+    return null;
+  }
+  return selectedVehicle;
+}
+
 export async function getDrivers(
   sessionCookie: string,
   includeTest = false
@@ -262,20 +308,62 @@ export async function getDrivers(
       'emergency_contact_name',
       'emergency_contact_phone',
       'is_test_record',
+      'employee',
+      'custom_mine_site',
     ]);
     const filters = includeTest ? [] : [['is_test_record', '=', 0]];
     const filterQuery =
       filters.length > 0 ? `&filters=${encodeURIComponent(JSON.stringify(filters))}` : '';
-    const res = await frappeFetch<{ data: any[] }>(
-      `/api/resource/Driver?fields=${encodeURIComponent(fields)}${filterQuery}&order_by=creation%20desc&limit_page_length=200`,
-      { sessionCookie }
-    );
+
+    // Fetch drivers and active shift allocations in parallel to resolve dynamic assigned vehicles
+    const shiftFilters: any[] = [
+      ['status', '=', 'Active'],
+      ['docstatus', '<', 2],
+    ];
+    if (!includeTest) shiftFilters.push(['is_test_record', '=', 0]);
+    const shiftFields = JSON.stringify([
+      'vehicle',
+      'license_plate',
+      'driver',
+      'allocation_start',
+      'allocation_end',
+      'name',
+      'docstatus',
+      'is_test_record',
+    ]);
+
+    const [res, shiftRes] = await Promise.all([
+      frappeFetch<{ data: any[] }>(
+        `/api/resource/Driver?fields=${encodeURIComponent(fields)}${filterQuery}&order_by=creation%20desc&limit_page_length=200`,
+        { sessionCookie }
+      ),
+      frappeFetch<{ data: any[] }>(
+        `/api/resource/Vehicle%20Driver%20Shift%20Allocation?filters=${encodeURIComponent(
+          JSON.stringify(shiftFilters)
+        )}&fields=${encodeURIComponent(shiftFields)}&limit_page_length=500`,
+        { sessionCookie }
+      ).catch(() => ({ data: [] })),
+    ]);
+
+    const now = new Date();
+    const activeAllocations = shiftRes.data || [];
+    // Only unique, active half-open intervals resolve. Ambiguous overlaps fail closed.
+    const driverIds = new Set<string>(activeAllocations.map((allocation: any) => allocation.driver).filter(Boolean));
+    const driverVehicleMap = new Map<string, string>();
+    for (const driverId of driverIds) {
+      const vehicle = resolveCurrentAllocationVehicle(activeAllocations, now, driverId);
+      if (vehicle) driverVehicleMap.set(driverId, vehicle);
+    }
+
     return (res.data || []).map((d) => {
       const licenseDoc = calculateStatutoryDoc('Driving License', d.expiry_date);
+      // Resolved dynamically from active shift allocation, fallback to null (standby)
+      const dynamicVehicle = driverVehicleMap.get(d.name) || null;
+
       return {
         id: d.name,
-        name: d.full_name || d.name,
-        fullName: d.full_name || d.name,
+        name: formatDriverDisplay(d.name, d.full_name),
+        fullName: formatDriverDisplay(d.name, d.full_name),
         status: (d.status as DriverStatus) || 'Active',
         cellNumber: d.cell_number || null,
         licenseNumber: d.license_number || null,
@@ -283,12 +371,16 @@ export async function getDrivers(
         expiryDate: d.expiry_date || null,
         medicalFitnessExpiry: d.medical_fitness_expiry || null,
         safetyScore: Number(d.safety_score ?? 100),
-        assignedVehicle: d.assigned_vehicle || null,
+        assignedVehicle: dynamicVehicle ? formatVehicleDisplay(dynamicVehicle) : null,
         emergencyContactName: d.emergency_contact_name || null,
         emergencyContactPhone: d.emergency_contact_phone || null,
         isTestRecord: Boolean(d.is_test_record),
         licenseStatus: licenseDoc.status,
         daysToLicenseExpiry: licenseDoc.daysRemaining,
+        customMineSite: d.custom_mine_site || undefined,
+        mineSite: d.custom_mine_site || undefined,
+        employee: d.employee || null,
+        employeeId: d.employee || null,
       };
     });
   } catch (error: any) {
@@ -394,8 +486,12 @@ export async function getDriverDetails(
       medicalFitnessExpiry: d.medical_fitness_expiry || null,
       safetyScore: Number(d.safety_score ?? 100),
       assignedVehicle: d.assigned_vehicle || null,
+      employee: d.employee || null,
+      employeeId: d.employee || null,
       emergencyContactName: d.emergency_contact_name || null,
       emergencyContactPhone: d.emergency_contact_phone || null,
+      customMineSite: d.custom_mine_site || undefined,
+      mineSite: d.custom_mine_site || undefined,
       isTestRecord: Boolean(d.is_test_record),
       licenseStatus: licenseDoc.status,
       daysToLicenseExpiry: licenseDoc.daysRemaining,
@@ -427,6 +523,8 @@ export async function createDriver(
     assigned_vehicle: input.assignedVehicle || null,
     emergency_contact_name: input.emergencyContactName?.trim() || null,
     emergency_contact_phone: input.emergencyContactPhone?.trim() || null,
+    employee: input.employee?.trim() || null,
+    custom_mine_site: input.customMineSite || input.mineSite || undefined,
     is_test_record: 0,
   };
 
@@ -456,6 +554,10 @@ export async function createDriver(
     isTestRecord: Boolean(d.is_test_record),
     licenseStatus: licenseDoc.status,
     daysToLicenseExpiry: licenseDoc.daysRemaining,
+    customMineSite: d.custom_mine_site || undefined,
+    mineSite: d.custom_mine_site || undefined,
+    employee: d.employee || null,
+    employeeId: d.employee || null,
   };
 }
 
@@ -476,6 +578,7 @@ export async function updateDriver(
   if (input.assignedVehicle !== undefined) payload.assigned_vehicle = input.assignedVehicle || null;
   if (input.emergencyContactName !== undefined) payload.emergency_contact_name = input.emergencyContactName?.trim() || null;
   if (input.emergencyContactPhone !== undefined) payload.emergency_contact_phone = input.emergencyContactPhone?.trim() || null;
+  if (input.customMineSite !== undefined) payload.custom_mine_site = input.customMineSite || null;
 
   const res = await frappeFetch<{ data: any }>(
     `/api/resource/Driver/${encodeURIComponent(driverId)}`,
@@ -506,6 +609,10 @@ export async function updateDriver(
     isTestRecord: Boolean(d.is_test_record),
     licenseStatus: licenseDoc.status,
     daysToLicenseExpiry: licenseDoc.daysRemaining,
+    customMineSite: d.custom_mine_site || undefined,
+    mineSite: d.custom_mine_site || undefined,
+    employee: d.employee || null,
+    employeeId: d.employee || null,
   };
 }
 
@@ -839,6 +946,15 @@ export async function getVehicles(
       'permit_expiry_date',
       'modified',
       'is_test_record',
+      'custom_mine_site',
+      'custom_vehicle_type',
+      'custom_owner_name',
+      'chassis_no',
+      'custom_engine_number',
+      'acquisition_date',
+      'custom_registration_date',
+      'custom_withdrawn_date',
+      'custom_withdrawn_reason',
     ]);
 
     const filters = includeTest ? [] : [['is_test_record', '=', 0]];
@@ -866,17 +982,26 @@ export async function getVehicles(
 
       return {
         id: v.name,
-        licensePlate: v.license_plate || v.name,
+        licensePlate: formatVehicleDisplay(v.name) || v.license_plate || v.name,
         make: v.make || 'Tata',
         model: v.model || 'Commercial Vehicle',
         status: (v.vehicle_status as VehicleStatus) || 'Active',
         assignedDriverId: v.assigned_driver || null,
         assignedDriverName: v.assigned_driver
-          ? driverMap.get(v.assigned_driver) || v.assigned_driver
+          ? formatDriverDisplay(v.assigned_driver, driverMap.get(v.assigned_driver))
           : null,
         lastOdometer: Number(v.last_odometer) || 0,
         payloadCapacityTons: Number(v.payload_capacity_tons) || 35,
         fuelType: v.fuel_type || 'Diesel',
+        vehicleType: v.custom_vehicle_type || undefined,
+        ownerName: v.custom_owner_name || null,
+        chassisNumber: v.chassis_no || null,
+        engineNumber: v.custom_engine_number || null,
+        registrationDate: v.custom_registration_date || v.acquisition_date || null,
+        withdrawnDate: v.custom_withdrawn_date || null,
+        withdrawnReason: v.custom_withdrawn_reason || null,
+        customMineSite: v.custom_mine_site || undefined,
+        mineSite: v.custom_mine_site || undefined,
         statutory: {
           overall,
           insurance,
@@ -1055,6 +1180,15 @@ export async function createVehicle(
     puc_expiry_date: input.pucExpiryDate || null,
     road_tax_expiry_date: input.roadTaxExpiryDate || null,
     permit_expiry_date: input.permitExpiryDate || null,
+    custom_mine_site: input.customMineSite || input.mineSite || undefined,
+    custom_vehicle_type: input.vehicleType || undefined,
+    custom_owner_name: input.ownerName || undefined,
+    chassis_no: input.chassisNumber || undefined,
+    custom_engine_number: input.engineNumber || undefined,
+    custom_registration_date: input.registrationDate || undefined,
+    acquisition_date: input.registrationDate || undefined,
+    custom_withdrawn_date: input.withdrawnDate || undefined,
+    custom_withdrawn_reason: input.withdrawnReason || undefined,
     is_test_record: 0,
   };
 
@@ -1077,11 +1211,16 @@ export async function createVehicle(
     make: created.make,
     model: created.model,
     status: created.vehicle_status,
+    vehicleType: created.custom_vehicle_type || input.vehicleType || undefined,
+    withdrawnDate: created.custom_withdrawn_date || input.withdrawnDate || null,
+    withdrawnReason: created.custom_withdrawn_reason || input.withdrawnReason || null,
     assignedDriverId: created.assigned_driver,
     assignedDriverName: null,
     lastOdometer: Number(created.last_odometer) || 0,
     payloadCapacityTons: Number(created.payload_capacity_tons) || 35,
     fuelType: created.fuel_type || 'Diesel',
+    customMineSite: created.custom_mine_site || undefined,
+    mineSite: created.custom_mine_site || undefined,
     statutory: {
       overall: determineOverallHealth([insurance, fitness, puc, roadTax, permit]),
       insurance,
@@ -1094,12 +1233,80 @@ export async function createVehicle(
   };
 }
 
+export async function updateVehicle(
+  sessionCookie: string,
+  vehicleId: string,
+  updates: {
+    status?: VehicleStatus;
+    vehicleType?: string;
+    withdrawnDate?: string;
+    withdrawnReason?: string;
+    assignedDriverId?: string | null;
+    customMineSite?: string;
+  }
+): Promise<Vehicle> {
+  const payload: any = {};
+  if (updates.status) payload.vehicle_status = updates.status;
+  if (updates.vehicleType) payload.custom_vehicle_type = updates.vehicleType;
+  if (updates.withdrawnDate) payload.custom_withdrawn_date = updates.withdrawnDate;
+  if (updates.withdrawnReason) payload.custom_withdrawn_reason = updates.withdrawnReason;
+  if (updates.assignedDriverId !== undefined) payload.assigned_driver = updates.assignedDriverId;
+  if (updates.customMineSite) payload.custom_mine_site = updates.customMineSite;
+
+  await frappeFetch<{ data: any }>(`/api/resource/Vehicle/${encodeURIComponent(vehicleId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    sessionCookie,
+  });
+
+  const vehicles = await getVehicles(sessionCookie, true);
+  const found = vehicles.find((v) => v.id === vehicleId || v.licensePlate === vehicleId);
+  if (!found) throw new Error('Vehicle not found after update');
+  return found;
+}
+
+export async function getFleetVehicleTypes(
+  sessionCookie: string
+): Promise<FleetVehicleType[]> {
+  const fields = JSON.stringify([
+    'name',
+    'vehicle_type_name',
+    'category',
+    'default_payload_capacity_tons',
+    'description',
+    'is_active',
+  ]);
+  const filters = JSON.stringify([['is_active', '=', 1]]);
+  const res = await frappeFetch<{ data: any[] }>(
+    `/api/resource/Fleet%20Vehicle%20Type?fields=${encodeURIComponent(
+      fields
+    )}&filters=${encodeURIComponent(filters)}&limit_page_length=100`,
+    { sessionCookie }
+  ).catch(() => ({ data: [] }));
+
+  return (res.data || []).map((vt) => ({
+    id: vt.name,
+    vehicleTypeName: vt.vehicle_type_name || vt.name,
+    category: vt.category,
+    defaultPayloadCapacityTons: Number(vt.default_payload_capacity_tons || 0),
+    description: vt.description || null,
+    isActive: Boolean(vt.is_active),
+  }));
+}
+
 export async function getDashboardData(
   sessionCookie: string,
-  includeTest = false
+  includeTest = false,
+  mineSite?: string
 ): Promise<DashboardSummary> {
   try {
-    const vehicles = await getVehicles(sessionCookie, includeTest);
+    let vehicles = await getVehicles(sessionCookie, includeTest);
+    if (mineSite && mineSite !== 'ALL') {
+      vehicles = vehicles.filter(
+        (v) => (v.customMineSite || v.mineSite) === mineSite
+      );
+    }
 
     const totalVehicles = vehicles.length;
     const activeVehicles = vehicles.filter(
@@ -1133,7 +1340,11 @@ export async function getDashboardData(
       'dispatch_date_time',
       'is_test_record',
     ]);
-    const tripFilters = JSON.stringify(includeTest ? [] : [['is_test_record', '=', 0]]);
+    const tripFilterConditions: any[] = includeTest ? [] : [['is_test_record', '=', 0]];
+    if (mineSite && mineSite !== 'ALL') {
+      tripFilterConditions.push(['mine_site', '=', mineSite]);
+    }
+    const tripFilters = JSON.stringify(tripFilterConditions);
     const tripsRes = await frappeFetch<{ data: any[] }>(
       `/api/resource/Mining%20Trip?fields=${encodeURIComponent(
         tripFields
@@ -1182,29 +1393,38 @@ export async function getDashboardData(
         alertFields
       )}&filters=${encodeURIComponent(
         alertFilters
-      )}&order_by=alert_timestamp%20desc&limit_page_length=5`,
+      )}&order_by=alert_timestamp%20desc&limit_page_length=15`,
       { sessionCookie }
     ).catch(() => ({ data: [] }));
 
     const rawAlerts = alertsRes.data || [];
-    const recentAlerts: FleetAlert[] = rawAlerts.map((a) => ({
-      id: a.name,
-      title: a.alert_title,
-      category: a.alert_category,
-      severity: a.severity || 'Medium',
-      status: a.status || 'Unread',
-      vehicle: a.vehicle,
-      timestamp: a.alert_timestamp,
-      actionRequired: a.action_required,
-    }));
+    const mineVehicleIds = new Set(vehicles.map((v) => v.id || v.licensePlate));
+    const recentAlerts: FleetAlert[] = rawAlerts
+      .filter((a) => !mineSite || mineSite === 'ALL' || !a.vehicle || mineVehicleIds.has(a.vehicle))
+      .slice(0, 5)
+      .map((a) => ({
+        id: a.name,
+        title: a.alert_title,
+        category: a.alert_category,
+        severity: a.severity || 'Medium',
+        status: a.status || 'Unread',
+        vehicle: a.vehicle,
+        timestamp: a.alert_timestamp,
+        actionRequired: a.action_required,
+      }));
 
     // Aggregate fuel costs from approved Fuel Logs
-    const fuelFields = JSON.stringify(['total_fuel_cost', 'approval_status', 'is_test_record']);
-    const fuelFilters = JSON.stringify(
-      includeTest
-        ? [['approval_status', '=', 'Approved']]
-        : [['is_test_record', '=', 0], ['approval_status', '=', 'Approved']]
-    );
+    const fuelFields = JSON.stringify(['total_fuel_cost', 'approval_status', 'is_test_record', 'mine_site']);
+    const fuelFilterConditions: any[] = [
+      ['approval_status', '=', 'Approved'],
+    ];
+    if (!includeTest) {
+      fuelFilterConditions.push(['is_test_record', '=', 0]);
+    }
+    if (mineSite && mineSite !== 'ALL') {
+      fuelFilterConditions.push(['mine_site', '=', mineSite]);
+    }
+    const fuelFilters = JSON.stringify(fuelFilterConditions);
     const fuelRes = await frappeFetch<{ data: any[] }>(
       `/api/resource/Fuel%20Log?fields=${encodeURIComponent(
         fuelFields
@@ -1217,8 +1437,12 @@ export async function getDashboardData(
     );
 
     // Aggregate breakdown repair costs
-    const bdFields = JSON.stringify(['total_repair_cost', 'is_test_record']);
-    const bdFilters = JSON.stringify(includeTest ? [] : [['is_test_record', '=', 0]]);
+    const bdFields = JSON.stringify(['total_repair_cost', 'is_test_record', 'mine_site']);
+    const bdFilterConditions: any[] = includeTest ? [] : [['is_test_record', '=', 0]];
+    if (mineSite && mineSite !== 'ALL') {
+      bdFilterConditions.push(['mine_site', '=', mineSite]);
+    }
+    const bdFilters = JSON.stringify(bdFilterConditions);
     const bdRes = await frappeFetch<{ data: any[] }>(
       `/api/resource/Vehicle%20Breakdown?fields=${encodeURIComponent(
         bdFields
@@ -1231,12 +1455,17 @@ export async function getDashboardData(
     );
 
     // Aggregate operational expenses
-    const expFields = JSON.stringify(['amount', 'approval_status', 'is_test_record']);
-    const expFilters = JSON.stringify(
-      includeTest
-        ? [['approval_status', '=', 'Approved']]
-        : [['is_test_record', '=', 0], ['approval_status', '=', 'Approved']]
-    );
+    const expFields = JSON.stringify(['amount', 'approval_status', 'is_test_record', 'mine_site']);
+    const expFilterConditions: any[] = [
+      ['approval_status', '=', 'Approved'],
+    ];
+    if (!includeTest) {
+      expFilterConditions.push(['is_test_record', '=', 0]);
+    }
+    if (mineSite && mineSite !== 'ALL') {
+      expFilterConditions.push(['mine_site', '=', mineSite]);
+    }
+    const expFilters = JSON.stringify(expFilterConditions);
     const expRes = await frappeFetch<{ data: any[] }>(
       `/api/resource/Operational%20Expense?fields=${encodeURIComponent(
         expFields
@@ -1249,12 +1478,17 @@ export async function getDashboardData(
     );
 
     // Aggregate Sales Invoices (grand_total for submitted invoices)
-    const invFields = JSON.stringify(['grand_total', 'custom_is_test_record', 'docstatus']);
-    const invFilters = JSON.stringify(
-      includeTest
-        ? [['docstatus', '=', 1]]
-        : [['docstatus', '=', 1], ['custom_is_test_record', '=', 0]]
-    );
+    const invFields = JSON.stringify(['grand_total', 'custom_is_test_record', 'docstatus', 'custom_mine_site']);
+    const invFilterConditions: any[] = [
+      ['docstatus', '=', 1],
+    ];
+    if (!includeTest) {
+      invFilterConditions.push(['custom_is_test_record', '=', 0]);
+    }
+    if (mineSite && mineSite !== 'ALL') {
+      invFilterConditions.push(['custom_mine_site', '=', mineSite]);
+    }
+    const invFilters = JSON.stringify(invFilterConditions);
     const invRes = await frappeFetch<{ data: any[] }>(
       `/api/resource/Sales%20Invoice?fields=${encodeURIComponent(
         invFields
@@ -1320,13 +1554,14 @@ export async function getDashboardData(
   }
 }
 
-function mapMiningTrip(t: any): MiningTrip {
+function mapMiningTrip(t: any, driverMap?: Map<string, string>): MiningTrip {
+  const resolvedDriverName = (driverMap && t.driver ? driverMap.get(t.driver) : undefined) || t.driver_name || undefined;
   return {
     id: t.name,
     namingSeries: t.naming_series || undefined,
     vehicle: t.vehicle || '',
     driver: t.driver || '',
-    driverName: t.driver_name || undefined,
+    driverName: resolvedDriverName,
     mineSite: t.mine_site || '',
     mineSiteName: t.mine_site_name || undefined,
     destination: t.destination || '',
@@ -1361,6 +1596,14 @@ function mapMiningTrip(t: any): MiningTrip {
     billingNote: t.billing_note || null,
     salesInvoice: t.sales_invoice || null,
     isTestRecord: Boolean(t.is_test_record),
+    lead: t.custom_lead || null,
+    leadKm: t.custom_lead_km != null ? Number(t.custom_lead_km) : undefined,
+    leadRate: t.custom_lead_rate != null ? Number(t.custom_lead_rate) : undefined,
+    tripCount: t.custom_trip_count != null ? Number(t.custom_trip_count) : 1,
+    averageTonnage: t.custom_average_tonnage != null ? Number(t.custom_average_tonnage) : undefined,
+    calculatedQuantity: t.custom_calculated_quantity != null ? Number(t.custom_calculated_quantity) : undefined,
+    calculatedAmount: t.custom_calculated_amount != null ? Number(t.custom_calculated_amount) : undefined,
+    shift: t.custom_shift || null,
   };
 }
 
@@ -1396,6 +1639,14 @@ const TRIP_FIELDS = JSON.stringify([
   'cancelled_on',
   'cancellation_reason',
   'is_test_record',
+  'custom_lead',
+  'custom_lead_km',
+  'custom_lead_rate',
+  'custom_trip_count',
+  'custom_average_tonnage',
+  'custom_calculated_quantity',
+  'custom_calculated_amount',
+  'custom_shift',
   'creation',
 ]);
 
@@ -1436,8 +1687,23 @@ export async function getMiningTrips(
     JSON.stringify(tripFilters)
   )}&order_by=creation%20desc&limit_page_length=200`;
 
-  const res = await frappeFetch<{ data: any[] }>(endpoint, { sessionCookie });
-  return (res.data || []).map(mapMiningTrip);
+  // Fetch trips and drivers in parallel to resolve genuine driver full names
+  const [tripsRes, driversRes] = await Promise.all([
+    frappeFetch<{ data: any[] }>(endpoint, { sessionCookie }),
+    frappeFetch<{ data: any[] }>(
+      `/api/resource/Driver?fields=${encodeURIComponent(JSON.stringify(['name', 'full_name']))}&limit_page_length=500`,
+      { sessionCookie }
+    ).catch(() => ({ data: [] })),
+  ]);
+
+  const driverMap = new Map<string, string>();
+  for (const d of driversRes.data || []) {
+    if (d.name && d.full_name) {
+      driverMap.set(d.name, d.full_name);
+    }
+  }
+
+  return (tripsRes.data || []).map((t) => mapMiningTrip(t, driverMap));
 }
 
 export async function getMiningTripById(
@@ -1610,6 +1876,12 @@ export async function createMiningTrip(
   if (input.ratePerTon != null) payload.rate_per_ton = input.ratePerTon;
   if (input.openingOdometer != null) payload.opening_odometer = input.openingOdometer;
   if (input.isTestRecord) payload.is_test_record = 1;
+  if (input.lead) payload.custom_lead = input.lead;
+  if (input.leadKm != null) payload.custom_lead_km = input.leadKm;
+  if (input.leadRate != null) payload.custom_lead_rate = input.leadRate;
+  if (input.tripCount != null) payload.custom_trip_count = input.tripCount;
+  if (input.averageTonnage != null) payload.custom_average_tonnage = input.averageTonnage;
+  if (input.shift) payload.custom_shift = input.shift;
 
   const res = await frappeFetch<{ data: any }>('/api/resource/Mining%20Trip', {
     method: 'POST',
@@ -1659,7 +1931,7 @@ export async function applyTripTransition(
     if (input.closingOdometer == null) {
       throw new Error('Closing odometer reading is mandatory to mark trip as delivered.');
     }
-    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const nowStr = toLocalDateTimeString();
     const updateRes = await frappeFetch<{ data: any }>(
       `/api/resource/Mining%20Trip/${encodeURIComponent(id)}`,
       {
@@ -1766,19 +2038,105 @@ export async function getMiningTripMaterialOptions(
   return ['Iron Ore', 'Coal', 'Bauxite', 'Limestone', 'Manganese', 'Overburden', 'Other'];
 }
 
+export async function getFleetLeads(
+  sessionCookie: string,
+  mineSite?: string
+): Promise<FleetLead[]> {
+  const filters: any[] = [['is_active', '=', 1]];
+  if (mineSite && mineSite !== 'ALL') {
+    filters.push(['mine_site', '=', mineSite]);
+  }
+  const fields = JSON.stringify([
+    'name',
+    'lead_name',
+    'mine_site',
+    'lead_km',
+    'lead_rate',
+    'valid_from',
+    'valid_to',
+    'is_active',
+    'description',
+  ]);
+  const res = await frappeFetch<{ data: any[] }>(
+    `/api/resource/Fleet%20Lead?fields=${encodeURIComponent(
+      fields
+    )}&filters=${encodeURIComponent(JSON.stringify(filters))}&limit_page_length=500`,
+    { sessionCookie }
+  ).catch(() => ({ data: [] }));
+
+  return (res.data || []).map((l) => ({
+    id: l.name,
+    leadName: l.lead_name || l.name,
+    mineSite: l.mine_site,
+    leadKm: Number(l.lead_km || 0),
+    leadRate: Number(l.lead_rate || 0),
+    validFrom: l.valid_from || null,
+    validTo: l.valid_to || null,
+    isActive: Boolean(l.is_active),
+    description: l.description || null,
+  }));
+}
+
+export async function createFleetLead(
+  sessionCookie: string,
+  input: {
+    leadName: string;
+    mineSite: string;
+    leadKm: number;
+    leadRate: number;
+    validFrom?: string;
+    validTo?: string;
+    description?: string;
+  }
+): Promise<FleetLead> {
+  const payload: any = {
+    lead_name: input.leadName.trim(),
+    mine_site: input.mineSite,
+    lead_km: Number(input.leadKm || 0),
+    lead_rate: Number(input.leadRate || 0),
+    is_active: 1,
+  };
+  if (input.validFrom) payload.valid_from = input.validFrom;
+  if (input.validTo) payload.valid_to = input.validTo;
+  if (input.description) payload.description = input.description.trim();
+
+  const res = await frappeFetch<{ data: any }>('/api/resource/Fleet%20Lead', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    sessionCookie,
+  });
+
+  const l = res.data;
+  return {
+    id: l.name,
+    leadName: l.lead_name || l.name,
+    mineSite: l.mine_site,
+    leadKm: Number(l.lead_km || 0),
+    leadRate: Number(l.lead_rate || 0),
+    validFrom: l.valid_from || null,
+    validTo: l.valid_to || null,
+    isActive: Boolean(l.is_active),
+    description: l.description || null,
+  };
+}
+
 export async function getTripFormOptions(
-  sessionCookie: string
+  sessionCookie: string,
+  mineSite?: string
 ): Promise<{
   vehicles: Vehicle[];
   drivers: Driver[];
   mineSites: MineSite[];
   materials: string[];
+  leads: FleetLead[];
 }> {
-  const [vehicles, drivers, mineSites, materials] = await Promise.all([
+  const [vehicles, drivers, mineSites, materials, leads] = await Promise.all([
     getVehicles(sessionCookie, false),
     getDrivers(sessionCookie, false),
     getMineSites(sessionCookie, false),
     getMiningTripMaterialOptions(sessionCookie),
+    getFleetLeads(sessionCookie, mineSite),
   ]);
 
   const activeVehicles = vehicles.filter((v) => v.status === 'Active');
@@ -1790,6 +2148,7 @@ export async function getTripFormOptions(
     drivers: activeDrivers,
     mineSites: operationalSites,
     materials,
+    leads,
   };
 }
 
@@ -1845,7 +2204,7 @@ export async function checkDispatchEligibility(
 ): Promise<DispatchEligibilityResult> {
   const checks: DispatchEligibilityCheck[] = [];
   const errors: string[] = [];
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateString();
 
   // 1. Fetch Vehicle record directly
   let vehicleDoc: any = null;
@@ -1856,7 +2215,7 @@ export async function checkDispatchEligibility(
     );
     vehicleDoc = vRes.data;
   } catch {
-    errors.push(`Vehicle '${vehicleId}' not found or inaccessible.`);
+    errors.push('Vehicle record not found or inaccessible.');
     return {
       eligible: false,
       vehicle: vehicleId,
@@ -1866,7 +2225,7 @@ export async function checkDispatchEligibility(
           item: 'Vehicle Record Exists',
           category: 'Vehicle',
           status: 'Fail',
-          details: `Vehicle '${vehicleId}' does not exist in the database.`,
+          details: 'Vehicle record does not exist in the database.',
         },
       ],
       errors,
@@ -1882,7 +2241,7 @@ export async function checkDispatchEligibility(
     );
     driverDoc = dRes.data;
   } catch {
-    errors.push(`Driver '${driverId}' not found or inaccessible.`);
+    errors.push('Driver record not found or inaccessible.');
     return {
       eligible: false,
       vehicle: vehicleId,
@@ -1892,12 +2251,15 @@ export async function checkDispatchEligibility(
           item: 'Driver Record Exists',
           category: 'Driver',
           status: 'Fail',
-          details: `Driver '${driverId}' does not exist in the database.`,
+          details: 'Driver record does not exist in the database.',
         },
       ],
       errors,
     };
   }
+
+  const vehicleDisplayName = vehicleDoc.license_plate || 'Vehicle';
+  const driverDisplayName = driverDoc.full_name || 'Driver';
 
   // Check 1: Vehicle Operational Status
   const vStatus = vehicleDoc.vehicle_status || 'Unknown';
@@ -1915,7 +2277,7 @@ export async function checkDispatchEligibility(
       status: 'Fail',
       details: `Vehicle status is '${vStatus}'. Only Active vehicles are eligible for dispatch.`,
     });
-    errors.push(`Vehicle '${vehicleId}' has status '${vStatus}' and is not available for dispatch.`);
+    errors.push(`Vehicle ${vehicleDisplayName} has status '${vStatus}' and is not available for dispatch.`);
   }
 
   // Check 2: Conflicting Active Trips for Vehicle
@@ -1930,14 +2292,17 @@ export async function checkDispatchEligibility(
 
   if (vTripRes.data && vTripRes.data.length > 0) {
     const activeTrip = vTripRes.data[0];
+    const challanLabel = activeTrip.challan_number
+      ? ` (Challan ${activeTrip.challan_number})`
+      : '';
     checks.push({
       item: 'Vehicle Active Trip Conflict',
       category: 'Vehicle',
       status: 'Fail',
-      details: `Vehicle is already engaged on active trip '${activeTrip.name}'.`,
+      details: `Vehicle is already engaged on an active trip${challanLabel}.`,
     });
     errors.push(
-      `Vehicle '${vehicleId}' is already on active trip '${activeTrip.name}'. Concurrent active trips are prohibited.`
+      `Vehicle ${vehicleDisplayName} is already on an active trip${challanLabel}. Concurrent active trips are prohibited.`
     );
   } else {
     checks.push({
@@ -1982,7 +2347,7 @@ export async function checkDispatchEligibility(
       details: 'No active insurance coverage recorded covering today.',
     });
     errors.push(
-      `Cannot dispatch Vehicle '${vehicleId}': No active insurance coverage recorded covering today.`
+      `Cannot dispatch Vehicle ${vehicleDisplayName}: No active insurance coverage recorded covering today.`
     );
   }
 
@@ -2005,7 +2370,7 @@ export async function checkDispatchEligibility(
         : 'No fitness certificate recorded.',
     });
     errors.push(
-      `Cannot dispatch Vehicle '${vehicleId}': Fitness certificate is ${fitExp ? `expired (${fitExp})` : 'missing'}.`
+      `Cannot dispatch Vehicle ${vehicleDisplayName}: Fitness certificate is ${fitExp ? `expired (${fitExp})` : 'missing'}.`
     );
   }
 
@@ -2028,7 +2393,7 @@ export async function checkDispatchEligibility(
         : 'No PUC certificate recorded.',
     });
     errors.push(
-      `Cannot dispatch Vehicle '${vehicleId}': PUC certificate is ${pucExp ? `expired (${pucExp})` : 'missing'}.`
+      `Cannot dispatch Vehicle ${vehicleDisplayName}: PUC certificate is ${pucExp ? `expired (${pucExp})` : 'missing'}.`
     );
   }
 
@@ -2051,7 +2416,7 @@ export async function checkDispatchEligibility(
         : 'No road tax receipt recorded.',
     });
     errors.push(
-      `Cannot dispatch Vehicle '${vehicleId}': Road tax receipt is ${taxExp ? `expired (${taxExp})` : 'missing'}.`
+      `Cannot dispatch Vehicle ${vehicleDisplayName}: Road tax receipt is ${taxExp ? `expired (${taxExp})` : 'missing'}.`
     );
   }
 
@@ -2074,7 +2439,7 @@ export async function checkDispatchEligibility(
         : 'No goods permit recorded.',
     });
     errors.push(
-      `Cannot dispatch Vehicle '${vehicleId}': Goods permit is ${permitExp ? `expired (${permitExp})` : 'missing'}.`
+      `Cannot dispatch Vehicle ${vehicleDisplayName}: Goods permit is ${permitExp ? `expired (${permitExp})` : 'missing'}.`
     );
   }
 
@@ -2124,7 +2489,52 @@ export async function checkDispatchEligibility(
       status: 'Fail',
       details: `Driver status is '${dStatus}'. Only Active drivers are eligible for dispatch.`,
     });
-    errors.push(`Driver '${driverId}' has status '${dStatus}' and is not available for dispatch.`);
+    errors.push(`Driver ${driverDisplayName} has status '${dStatus}' and is not available for dispatch.`);
+  }
+
+  // Check 6B: Linked Employee Operational Status
+  if (driverDoc.employee) {
+    let employeeStatus: string | null = null;
+    let employeeLookupFailed = false;
+
+    try {
+      const empRes = await frappeFetch<{ data: { status?: string } }>(
+        `/api/resource/Employee/${encodeURIComponent(driverDoc.employee)}`,
+        { sessionCookie }
+      );
+      employeeStatus = empRes.data?.status || null;
+    } catch {
+      employeeLookupFailed = true;
+    }
+
+    if (employeeLookupFailed || !employeeStatus) {
+      checks.push({
+        item: 'Driver Linked Employee Status',
+        category: 'Driver',
+        status: 'Fail',
+        details: 'Linked Employee record could not be verified.',
+      });
+      errors.push(
+        `Cannot dispatch Driver ${driverDisplayName}: Linked Employee record could not be verified. Only Active employees can be dispatched.`
+      );
+    } else if (employeeStatus !== 'Active') {
+      checks.push({
+        item: 'Driver Linked Employee Status',
+        category: 'Driver',
+        status: 'Fail',
+        details: `Linked Employee status is '${employeeStatus}'. Only Active employees are eligible for dispatch.`,
+      });
+      errors.push(
+        `Cannot dispatch Driver ${driverDisplayName}: Linked Employee status is '${employeeStatus}'. Only Active employees can be dispatched.`
+      );
+    } else {
+      checks.push({
+        item: 'Driver Linked Employee Status',
+        category: 'Driver',
+        status: 'Pass',
+        details: 'Linked Employee status is Active.',
+      });
+    }
   }
 
   // Check 7: Conflicting Active Trips for Driver
@@ -2139,14 +2549,17 @@ export async function checkDispatchEligibility(
 
   if (dTripRes.data && dTripRes.data.length > 0) {
     const activeTrip = dTripRes.data[0];
+    const challanLabel = activeTrip.challan_number
+      ? ` (Challan ${activeTrip.challan_number})`
+      : '';
     checks.push({
       item: 'Driver Active Trip Conflict',
       category: 'Driver',
       status: 'Fail',
-      details: `Driver is already engaged on active trip '${activeTrip.name}'.`,
+      details: `Driver is already engaged on an active trip${challanLabel}.`,
     });
     errors.push(
-      `Driver '${driverId}' is already on active trip '${activeTrip.name}'. Multiple active trips for the same driver are prohibited.`
+      `Driver ${driverDisplayName} is already on an active trip${challanLabel}. Multiple active trips for the same driver are prohibited.`
     );
   } else {
     checks.push({
@@ -2176,8 +2589,57 @@ export async function checkDispatchEligibility(
         : 'No driving license expiry recorded.',
     });
     errors.push(
-      `Cannot dispatch Driver '${driverId}': Driving license is ${licExp ? `expired (${licExp})` : 'missing'}.`
+      `Cannot dispatch Driver ${driverDisplayName}: Driving license is ${licExp ? `expired (${licExp})` : 'missing'}.`
     );
+  }
+
+  // Check 8B: Active Rejected Driving Licence Document
+  let rejectedLicence: { name: string } | null = null;
+  let licenceDocumentLookupFailed = false;
+
+  try {
+    const rejectedFilter = JSON.stringify([
+      ['driver', '=', driverId],
+      ['document_category', 'in', ['Driving License', 'Driving Licence']],
+      ['verification_status', '=', 'Rejected'],
+      ['is_active', '=', 1],
+    ]);
+    const rejectedRes = await frappeFetch<{ data: Array<{ name: string }> }>(
+      `/api/resource/Driver%20Document?filters=${encodeURIComponent(rejectedFilter)}&fields=["name"]`,
+      { sessionCookie }
+    );
+    rejectedLicence = rejectedRes.data?.[0] || null;
+  } catch {
+    licenceDocumentLookupFailed = true;
+  }
+
+  if (licenceDocumentLookupFailed) {
+    checks.push({
+      item: 'Driver Licence Document Verification',
+      category: 'Driver',
+      status: 'Fail',
+      details: 'Driving Licence document status could not be verified.',
+    });
+    errors.push(
+      `Cannot dispatch Driver ${driverDisplayName}: Driving Licence document status could not be verified.`
+    );
+  } else if (rejectedLicence) {
+    checks.push({
+      item: 'Driver Licence Document Verification',
+      category: 'Driver',
+      status: 'Fail',
+      details: 'Current Driving Licence document is marked as Rejected.',
+    });
+    errors.push(
+      `Cannot dispatch Driver ${driverDisplayName}: Current Driving Licence document is marked as 'Rejected'.`
+    );
+  } else {
+    checks.push({
+      item: 'Driver Licence Document Verification',
+      category: 'Driver',
+      status: 'Pass',
+      details: 'No active rejected Driving Licence document found.',
+    });
   }
 
   // Check 9: Driver Shift Allocation Conflict
@@ -2188,20 +2650,21 @@ export async function checkDispatchEligibility(
       ['vehicle', '!=', vehicleId],
     ]);
     const shiftRes = await frappeFetch<{ data: any[] }>(
-      `/api/resource/Vehicle%20Driver%20Shift%20Allocation?filters=${encodeURIComponent(shiftFilters)}&fields=["name","vehicle","shift_type"]`,
+      `/api/resource/Vehicle%20Driver%20Shift%20Allocation?filters=${encodeURIComponent(shiftFilters)}&fields=["name","vehicle","license_plate","shift_type"]`,
       { sessionCookie }
     ).catch(() => ({ data: [] }));
 
     if (shiftRes.data && shiftRes.data.length > 0) {
       const activeShift = shiftRes.data[0];
+      const shiftVehicle = activeShift.license_plate || 'another vehicle';
       checks.push({
         item: 'Driver Shift Allocation Conflict',
         category: 'Driver',
         status: 'Fail',
-        details: `Driver is currently actively allocated to vehicle '${activeShift.vehicle}' (${activeShift.shift_type}).`,
+        details: `Driver is currently actively allocated to vehicle '${shiftVehicle}' (${activeShift.shift_type}).`,
       });
       errors.push(
-        `Cannot dispatch Driver '${driverId}': Driver is actively assigned to vehicle '${activeShift.vehicle}' in shift '${activeShift.shift_type}'.`
+        `Cannot dispatch Driver ${driverDisplayName}: Driver is actively assigned to vehicle '${shiftVehicle}' in shift '${activeShift.shift_type}'.`
       );
     } else {
       checks.push({
@@ -2249,7 +2712,7 @@ export async function getWeighbridgeData(
       t.tripStatus === 'Delivered'
   );
 
-  const todayStr = new Date().toISOString().substring(0, 10);
+  const todayStr = toLocalDateString();
   const completedTodayCount = completedRecords.filter(
     (r) =>
       (r.dispatchDateTime && r.dispatchDateTime.startsWith(todayStr)) ||
@@ -2651,8 +3114,8 @@ export async function applyFuelTransition(
 }
 
 export async function getFuelOptions(sessionCookie: string): Promise<{
-  vehicles: Array<{ id: string; licensePlate: string; lastOdometer: number; status: string }>;
-  drivers: Array<{ id: string; fullName: string; status: string }>;
+  vehicles: Array<{ id: string; licensePlate: string; lastOdometer: number; status: string; customMineSite?: string }>;
+  drivers: Array<{ id: string; fullName: string; status: string; customMineSite?: string }>;
   mineSites: Array<{ id: string; siteName: string }>;
   fuelSources: string[];
   paymentMethods: string[];
@@ -2670,6 +3133,7 @@ export async function getFuelOptions(sessionCookie: string): Promise<{
       licensePlate: v.licensePlate,
       lastOdometer: v.lastOdometer,
       status: v.status,
+      customMineSite: v.customMineSite,
     }));
 
   const activeDrivers = drivers
@@ -2678,6 +3142,7 @@ export async function getFuelOptions(sessionCookie: string): Promise<{
       id: d.id,
       fullName: d.fullName,
       status: d.status,
+      customMineSite: d.customMineSite,
     }));
 
   const operationalSites = sites
@@ -2729,6 +3194,47 @@ export async function getFuelOptions(sessionCookie: string): Promise<{
 // PHASE 3 — MODULE A: BREAKDOWN & MAINTENANCE REPOSITORY
 // ============================================================================
 
+/**
+ * Historical/predecessor driver resolutions for deleted records preserved in
+ * Frappe tabDeleted Document (e.g. HR-DRI-2026-00018 -> Rajesh Kumar).
+ */
+export const HISTORICAL_DRIVER_RESOLUTIONS: Record<string, string> = {
+  'HR-DRI-2026-00018': 'Rajesh Kumar',
+};
+
+/**
+ * Resolves a driver ID to a human-readable driver name using active driver map,
+ * known predecessor/historical resolutions, or an appropriate fallback.
+ * Never leaks raw IDs or returns generic 'Designated Driver'.
+ */
+export function resolveDriverIdentity(
+  driverId: string | null | undefined,
+  activeDriverMap?: Map<string, string>
+): string {
+  if (!driverId) return 'Driver information unavailable';
+
+  // 1. Check active drivers map
+  if (activeDriverMap && activeDriverMap.has(driverId)) {
+    const activeName = activeDriverMap.get(driverId);
+    if (activeName && activeName !== 'Designated Driver' && !activeName.startsWith('HR-DRI-')) {
+      return activeName;
+    }
+  }
+
+  // 2. Check known predecessor / historical deleted driver records
+  if (HISTORICAL_DRIVER_RESOLUTIONS[driverId]) {
+    return HISTORICAL_DRIVER_RESOLUTIONS[driverId];
+  }
+
+  // 3. If driverId is already a human name (doesn't look like technical ID)
+  if (!driverId.startsWith('HR-DRI-') && !driverId.startsWith('EMP-')) {
+    return driverId;
+  }
+
+  // 4. Default fallback when unresolved
+  return 'Driver information unavailable';
+}
+
 export async function getBreakdowns(
   sessionCookie: string,
   options?: {
@@ -2771,6 +3277,15 @@ export async function getBreakdowns(
       'resolution_type',
       'rejection_reason',
       'is_test_record',
+      'custom_breakdown_evidence_image',
+      'custom_inspection_notes',
+      'custom_parts_availability_status',
+      'custom_purchase_request',
+      'custom_purchase_authorized_by',
+      'custom_delivery_person_name',
+      'custom_delivery_challan_no',
+      'custom_repair_completion_evidence',
+      'custom_acknowledgement_signature',
       'creation',
       'modified',
     ]);
@@ -2806,6 +3321,12 @@ export async function getBreakdowns(
 
     const raw = res.data || [];
 
+    const driverRes = await frappeFetch<{ data?: Array<{ name: string; full_name?: string }> }>(
+      `/api/resource/Driver?fields=["name","full_name"]&limit_page_length=200`,
+      { sessionCookie }
+    ).catch(() => ({ data: [] }));
+    const driverMap = new Map((driverRes.data || []).map((d) => [d.name, d.full_name || 'Driver information unavailable']));
+
     const breakdowns: VehicleBreakdown[] = raw.map((b) => {
       const partsCost = Number(b.parts_cost) || 0;
       const laborCost = Number(b.labour_cost) || 0;
@@ -2820,7 +3341,7 @@ export async function getBreakdowns(
         vehicle: b.vehicle,
         vehiclePlate: b.vehicle,
         driver: b.driver || null,
-        driverName: b.driver || null,
+        driverName: resolveDriverIdentity(b.driver, driverMap),
         mineSite: b.mine_site || null,
         mineSiteName: b.mine_site || null,
         breakdownType: (b.breakdown_type as BreakdownType) || 'Other',
@@ -2855,6 +3376,15 @@ export async function getBreakdowns(
         closedBy: b.closed_by || null,
         closedOn: b.closed_on || null,
         rejectionReason: b.rejection_reason || null,
+        breakdownEvidenceImage: b.custom_breakdown_evidence_image || null,
+        inspectionNotes: b.custom_inspection_notes || null,
+        partsAvailabilityStatus: b.custom_parts_availability_status || null,
+        purchaseRequest: b.custom_purchase_request || null,
+        purchaseAuthorizedBy: b.custom_purchase_authorized_by || null,
+        deliveryPersonName: b.custom_delivery_person_name || null,
+        deliveryChallanNo: b.custom_delivery_challan_no || null,
+        repairCompletionEvidence: b.custom_repair_completion_evidence || null,
+        acknowledgementSignature: b.custom_acknowledgement_signature || null,
         isTestRecord: Boolean(b.is_test_record),
         creation: b.creation,
         modified: b.modified,
@@ -2915,6 +3445,23 @@ export async function getBreakdownDetails(
   const laborCost = Number(b.labor_cost) || Number(b.labour_cost) || 0;
   const totalCost = Number(b.total_maintenance_cost) || Number(b.total_repair_cost) || (partsCost + laborCost);
 
+  let driverFullName = 'Driver information unavailable';
+  if (b.driver) {
+    if (HISTORICAL_DRIVER_RESOLUTIONS[b.driver]) {
+      driverFullName = HISTORICAL_DRIVER_RESOLUTIONS[b.driver];
+    } else {
+      try {
+        const dRes = await frappeFetch<{ data?: { full_name?: string } }>(
+          `/api/resource/Driver/${encodeURIComponent(b.driver)}?fields=["full_name"]`,
+          { sessionCookie }
+        );
+        driverFullName = dRes.data?.full_name || resolveDriverIdentity(b.driver);
+      } catch {
+        driverFullName = resolveDriverIdentity(b.driver);
+      }
+    }
+  }
+
   return {
     id: b.name,
     namingSeries: b.naming_series,
@@ -2924,7 +3471,7 @@ export async function getBreakdownDetails(
     vehicle: b.vehicle,
     vehiclePlate: b.vehicle,
     driver: b.driver || null,
-    driverName: b.driver || null,
+    driverName: driverFullName,
     mineSite: b.mine_site || null,
     mineSiteName: b.mine_site || null,
     breakdownType: (b.breakdown_type as BreakdownType) || 'Other',
@@ -2960,6 +3507,15 @@ export async function getBreakdownDetails(
     closedBy: b.closed_by || null,
     closedOn: b.closed_on || null,
     rejectionReason: b.rejection_reason || null,
+    breakdownEvidenceImage: b.custom_breakdown_evidence_image || null,
+    inspectionNotes: b.custom_inspection_notes || null,
+    partsAvailabilityStatus: b.custom_parts_availability_status || null,
+    purchaseRequest: b.custom_purchase_request || null,
+    purchaseAuthorizedBy: b.custom_purchase_authorized_by || null,
+    deliveryPersonName: b.custom_delivery_person_name || null,
+    deliveryChallanNo: b.custom_delivery_challan_no || null,
+    repairCompletionEvidence: b.custom_repair_completion_evidence || null,
+    acknowledgementSignature: b.custom_acknowledgement_signature || null,
     isTestRecord: Boolean(b.is_test_record),
     creation: b.creation,
     modified: b.modified,
@@ -2972,7 +3528,7 @@ export async function createBreakdown(
 ): Promise<VehicleBreakdown> {
   const bdDate =
     input.breakdownDate ||
-    (input.breakdownDatetime ? input.breakdownDatetime.split(' ')[0] : new Date().toISOString().substring(0, 10));
+    (input.breakdownDatetime ? input.breakdownDatetime.split(' ')[0] : toLocalDateString());
   const bdTime =
     input.breakdownTime ||
     (input.breakdownDatetime ? input.breakdownDatetime.split(' ')[1] : '10:00:00');
@@ -3053,6 +3609,15 @@ export async function updateBreakdown(
   if (input.repairCompletionDatetime !== undefined) payload.repair_completion_datetime = input.repairCompletionDatetime;
   if (input.repairDescription !== undefined) payload.repair_description = input.repairDescription;
   if (input.labourCost !== undefined) payload.labour_cost = Number(input.labourCost);
+  if (input.breakdownEvidenceImage !== undefined) payload.custom_breakdown_evidence_image = input.breakdownEvidenceImage;
+  if (input.inspectionNotes !== undefined) payload.custom_inspection_notes = input.inspectionNotes;
+  if (input.partsAvailabilityStatus !== undefined) payload.custom_parts_availability_status = input.partsAvailabilityStatus;
+  if (input.purchaseRequest !== undefined) payload.custom_purchase_request = input.purchaseRequest;
+  if (input.purchaseAuthorizedBy !== undefined) payload.custom_purchase_authorized_by = input.purchaseAuthorizedBy;
+  if (input.deliveryPersonName !== undefined) payload.custom_delivery_person_name = input.deliveryPersonName;
+  if (input.deliveryChallanNo !== undefined) payload.custom_delivery_challan_no = input.deliveryChallanNo;
+  if (input.repairCompletionEvidence !== undefined) payload.custom_repair_completion_evidence = input.repairCompletionEvidence;
+  if (input.acknowledgementSignature !== undefined) payload.custom_acknowledgement_signature = input.acknowledgementSignature;
   if (input.partsTable !== undefined) {
     payload.parts_table = input.partsTable.map((p) => ({
       item_code: p.itemCode,
@@ -3084,6 +3649,15 @@ export async function applyBreakdownWorkflow(
     labourCost?: number;
     parts?: VehicleBreakdownPart[];
     partsTable?: VehicleBreakdownPart[];
+    breakdownEvidenceImage?: string;
+    inspectionNotes?: string;
+    partsAvailabilityStatus?: string;
+    purchaseRequest?: string;
+    purchaseAuthorizedBy?: string;
+    deliveryPersonName?: string;
+    deliveryChallanNo?: string;
+    repairCompletionEvidence?: string;
+    acknowledgementSignature?: string;
   }
 ): Promise<VehicleBreakdown> {
   // If extra fields are provided (e.g. rejection reason or completion details), save them first
@@ -3094,6 +3668,15 @@ export async function applyBreakdownWorkflow(
     if (extra.repairDescription || extra.repairDetails) {
       updatePayload.repair_description = (extra.repairDescription || extra.repairDetails)!.trim();
     }
+    if (extra.breakdownEvidenceImage) updatePayload.custom_breakdown_evidence_image = extra.breakdownEvidenceImage;
+    if (extra.inspectionNotes) updatePayload.custom_inspection_notes = extra.inspectionNotes;
+    if (extra.partsAvailabilityStatus) updatePayload.custom_parts_availability_status = extra.partsAvailabilityStatus;
+    if (extra.purchaseRequest) updatePayload.custom_purchase_request = extra.purchaseRequest;
+    if (extra.purchaseAuthorizedBy) updatePayload.custom_purchase_authorized_by = extra.purchaseAuthorizedBy;
+    if (extra.deliveryPersonName) updatePayload.custom_delivery_person_name = extra.deliveryPersonName;
+    if (extra.deliveryChallanNo) updatePayload.custom_delivery_challan_no = extra.deliveryChallanNo;
+    if (extra.repairCompletionEvidence) updatePayload.custom_repair_completion_evidence = extra.repairCompletionEvidence;
+    if (extra.acknowledgementSignature) updatePayload.custom_acknowledgement_signature = extra.acknowledgementSignature;
     const cost = extra.laborCost != null ? extra.laborCost : extra.labourCost;
     if (cost != null) {
       updatePayload.labour_cost = Number(cost);
@@ -4046,7 +4629,7 @@ export async function createSparePart(
 export async function getWarehouses(sessionCookie: string): Promise<Warehouse[]> {
   const whRes = await frappeFetch<{ data: any[] }>(
     `/api/resource/Warehouse?fields=${encodeURIComponent(
-      JSON.stringify(['name', 'warehouse_name', 'company', 'is_group'])
+      JSON.stringify(['name', 'warehouse_name', 'company', 'is_group', 'custom_mine_site'])
     )}&limit_page_length=50&order_by=warehouse_name asc`,
     { sessionCookie }
   );
@@ -4080,6 +4663,8 @@ export async function getWarehouses(sessionCookie: string): Promise<Warehouse[]>
       isGroup: Boolean(w.is_group),
       totalItems,
       totalValuation,
+      customMineSite: w.custom_mine_site || null,
+      mineSite: w.custom_mine_site || null,
     };
   });
 }
@@ -4092,6 +4677,7 @@ export async function getStockMovements(
     vehicle?: string;
     breakdown?: string;
     warehouse?: string;
+    mineSite?: string;
     showTestRecords?: boolean;
   }
 ): Promise<{ movements: StockMovement[]; totalCount: number }> {
@@ -4104,6 +4690,9 @@ export async function getStockMovements(
   }
   if (filters?.breakdown && filters.breakdown !== 'ALL') {
     seFilters.push(['custom_vehicle_breakdown', '=', filters.breakdown]);
+  }
+  if (filters?.mineSite && filters.mineSite !== 'ALL') {
+    seFilters.push(['custom_mine_site', '=', filters.mineSite]);
   }
 
   const seRes = await frappeFetch<{ data: any[] }>(
@@ -4118,6 +4707,7 @@ export async function getStockMovements(
         'posting_time',
         'from_warehouse',
         'to_warehouse',
+        'custom_mine_site',
         'custom_vehicle',
         'custom_vehicle_breakdown',
         'custom_is_return',
@@ -4129,10 +4719,42 @@ export async function getStockMovements(
   );
 
   const rawEntries = seRes.data || [];
-  const movements: StockMovement[] = rawEntries.map((e) => {
+
+  // Fetch full document details in parallel to retrieve genuine items and calculate accurate total quantities
+  const docs = await Promise.all(
+    rawEntries.map((e) =>
+      frappeFetch<{ data: any }>(
+        `/api/resource/Stock%20Entry/${encodeURIComponent(e.name)}`,
+        { sessionCookie }
+      )
+        .then((r) => r.data)
+        .catch(() => null)
+    )
+  );
+
+  const movements: StockMovement[] = rawEntries.map((e, idx) => {
     let status: 'Draft' | 'Submitted' | 'Cancelled' = 'Draft';
     if (e.docstatus === 1) status = 'Submitted';
     else if (e.docstatus === 2) status = 'Cancelled';
+
+    const fullDoc = docs[idx];
+    const rawItems: any[] = fullDoc?.items || [];
+    const items: StockMovementItem[] = rawItems.map((item) => ({
+      itemCode: item.item_code,
+      itemName: item.item_name || item.item_code,
+      qty: Number(item.qty || item.transfer_qty || 0),
+      uom: item.uom || item.stock_uom || 'Nos',
+      basicRate: Number(item.basic_rate || item.valuation_rate || 0),
+      amount: Number(item.amount || item.basic_amount || 0),
+      sWarehouse: item.s_warehouse || undefined,
+      tWarehouse: item.t_warehouse || undefined,
+    }));
+
+    // Use total_qty from API response as fallback, otherwise calculate from items
+    const apiTotalQty = Number(e.total_qty || 0);
+    const calculatedTotalQty = items.reduce((sum, item) => sum + item.qty, 0);
+    // Prefer calculated from items (more accurate), fall back to API total_qty, then 0
+    const totalQty = calculatedTotalQty || apiTotalQty || 0;
 
     return {
       id: e.name,
@@ -4143,15 +4765,16 @@ export async function getStockMovements(
       postingTime: e.posting_time,
       fromWarehouse: e.from_warehouse,
       toWarehouse: e.to_warehouse,
+      mineSite: e.custom_mine_site || undefined,
       vehicle: e.custom_vehicle || undefined,
       vehicleBreakdown: e.custom_vehicle_breakdown || undefined,
       isReturn: Boolean(e.custom_is_return),
       isTestRecord: false,
       docstatus: e.docstatus,
       status,
-      totalQty: Number(e.total_qty || 0),
+      totalQty,
       totalAmount: Number(e.total_amount || 0),
-      items: [],
+      items,
     };
   });
 
@@ -4162,7 +4785,7 @@ export async function createStockEntry(
   sessionCookie: string,
   input: CreateStockEntryInput
 ): Promise<StockMovement> {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateString();
 
   const payload: any = {
     doctype: 'Stock Entry',
@@ -4171,6 +4794,7 @@ export async function createStockEntry(
     posting_date: input.postingDate || todayStr,
     from_warehouse: input.fromWarehouse || null,
     to_warehouse: input.toWarehouse || null,
+    custom_mine_site: input.mineSite || null,
     custom_vehicle: input.vehicle || null,
     custom_vehicle_breakdown: input.vehicleBreakdown || null,
     custom_is_return: input.isReturn ? 1 : 0,
@@ -4218,6 +4842,7 @@ export async function createStockEntry(
     postingTime: se.posting_time,
     fromWarehouse: se.from_warehouse,
     toWarehouse: se.to_warehouse,
+    mineSite: se.custom_mine_site || undefined,
     vehicle: se.custom_vehicle,
     vehicleBreakdown: se.custom_vehicle_breakdown,
     isReturn: Boolean(se.custom_is_return),
@@ -4270,6 +4895,11 @@ export async function getSuppliers(
         'supplier_type',
         'country',
         'custom_pan',
+        'tax_id',
+        'custom_gst_no',
+        'mobile_no',
+        'custom_mobile_no',
+        'primary_address',
         'custom_is_preferred_supplier',
         'custom_is_test_record',
       ])
@@ -4321,6 +4951,9 @@ export async function getSuppliers(
       supplierType: s.supplier_type,
       country: s.country,
       pan: s.custom_pan || s.pan,
+      gstNo: s.custom_gst_no || s.tax_id || null,
+      mobileNo: s.custom_mobile_no || s.mobile_no || null,
+      address: s.primary_address || null,
       isPreferred: Boolean(s.custom_is_preferred_supplier),
       isTestRecord: Boolean(s.custom_is_test_record),
       totalPurchases,
@@ -4475,6 +5108,11 @@ export async function createSupplier(
     supplier_type: input.supplierType || 'Company',
     country: input.country || 'India',
     custom_pan: input.pan?.trim() || null,
+    tax_id: input.gstNo?.trim() || null,
+    custom_gst_no: input.gstNo?.trim() || null,
+    mobile_no: input.mobileNo?.trim() || null,
+    custom_mobile_no: input.mobileNo?.trim() || null,
+    primary_address: input.address?.trim() || null,
     custom_is_preferred_supplier: input.isPreferred ? 1 : 0,
     custom_is_test_record: input.isTestRecord ? 1 : 0,
   };
@@ -4623,7 +5261,7 @@ export async function createPurchaseOrder(
   sessionCookie: string,
   input: CreatePurchaseOrderInput
 ): Promise<PurchaseOrder> {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateString();
 
   const payload: any = {
     doctype: 'Purchase Order',
@@ -4736,38 +5374,41 @@ export async function createPurchaseReceipt(
     postingDate?: string;
   }
 ): Promise<PurchaseReceipt> {
-  const poDoc = await getPurchaseOrderDetails(sessionCookie, input.purchaseOrder);
-  const todayStr = new Date().toISOString().split('T')[0];
+  // 1. Generate mapped Purchase Receipt from Purchase Order via native ERPNext method
+  const mapRes = await frappeFetch<{ message: any }>(
+    '/api/method/erpnext.buying.doctype.purchase_order.purchase_order.make_purchase_receipt',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source_name: input.purchaseOrder,
+      }),
+      sessionCookie,
+    }
+  );
 
-  const payload: any = {
-    doctype: 'Purchase Receipt',
-    supplier: poDoc.supplier,
-    posting_date: input.postingDate || todayStr,
-    custom_procurement_type: poDoc.procurementType,
-    custom_vehicle: poDoc.vehicle,
-    custom_vehicle_breakdown: poDoc.vehicleBreakdown,
-    custom_mine_site: poDoc.mineSite,
-    custom_is_test_record: poDoc.isTestRecord ? 1 : 0,
-    items: poDoc.items.map((i) => ({
-      item_code: i.itemCode,
-      qty: i.qty,
-      received_qty: i.qty,
-      rate: i.rate,
-      warehouse: i.warehouse || 'Stores - U',
-      purchase_order: poDoc.name,
-    })),
-  };
+  const prDoc = mapRes.message;
+  if (!prDoc || !prDoc.items || prDoc.items.length === 0) {
+    throw new Error(
+      `No pending items available to receive for Purchase Order '${input.purchaseOrder}'. The order may already be fully received or cancelled.`
+    );
+  }
 
-  const res = await frappeFetch<{ data: any }>('/api/resource/Purchase%20Receipt', {
+  if (input.postingDate) {
+    prDoc.posting_date = input.postingDate;
+  }
+
+  // 2. Insert the Purchase Receipt
+  const insertRes = await frappeFetch<{ data: any }>('/api/resource/Purchase%20Receipt', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(prDoc),
     sessionCookie,
   });
 
-  const prName = res.data.name;
+  const prName = insertRes.data.name;
 
-  // Submit to update stock balances in Bin
+  // 3. Submit the Purchase Receipt to update stock balances in Bin and PO receipt status
   await frappeFetch(`/api/resource/Purchase%20Receipt/${encodeURIComponent(prName)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -4931,26 +5572,29 @@ export async function executeFleetReport(
 }
 
 export async function getInventoryOptions(sessionCookie: string): Promise<{
-  warehouses: Array<{ id: string; name: string }>;
+  warehouses: Array<{ id: string; name: string; customMineSite?: string | null; mineSite?: string | null }>;
+  mineSites: Array<{ id: string; siteName: string; location?: string }>;
   itemGroups: string[];
   supplierGroups: string[];
   items: Array<{ itemCode: string; itemName: string; uom: string; rate: number }>;
   suppliers: Array<{ id: string; name: string }>;
-  vehicles: Array<{ id: string; licensePlate: string }>;
-  breakdowns: Array<{ id: string; vehicle: string; description: string; parts: Array<{ itemCode: string; plannedQty: number }> }>;
+  vehicles: Array<{ id: string; licensePlate: string; customMineSite?: string | null; mineSite?: string | null }>;
+  breakdowns: Array<{ id: string; vehicle: string; description: string; mineSite?: string | null; parts: Array<{ itemCode: string; plannedQty: number }> }>;
 }> {
   // Warehouses
-  let warehouses: Array<{ id: string; name: string }> = [];
+  let warehouses: Array<{ id: string; name: string; customMineSite?: string | null; mineSite?: string | null }> = [];
   try {
     const whRes = await frappeFetch<{ data: any[] }>(
       `/api/resource/Warehouse?filters=${encodeURIComponent(
         JSON.stringify([['is_group', '=', 0]])
-      )}&fields=${encodeURIComponent(JSON.stringify(['name', 'warehouse_name']))}&limit_page_length=50`,
+      )}&fields=${encodeURIComponent(JSON.stringify(['name', 'warehouse_name', 'custom_mine_site']))}&limit_page_length=50`,
       { sessionCookie }
     );
     warehouses = (whRes.data || []).map((w) => ({
       id: w.name,
       name: w.warehouse_name || w.name,
+      customMineSite: w.custom_mine_site || null,
+      mineSite: w.custom_mine_site || null,
     }));
   } catch (err) {
     console.warn('Could not fetch warehouses:', err);
@@ -5021,16 +5665,21 @@ export async function getInventoryOptions(sessionCookie: string): Promise<{
   }
 
   // Vehicles
-  let vehicles: Array<{ id: string; licensePlate: string }> = [];
+  let vehicles: Array<{ id: string; licensePlate: string; customMineSite?: string | null; mineSite?: string | null }> = [];
   try {
     const vehList = await getVehicles(sessionCookie);
-    vehicles = vehList.map((v) => ({ id: v.id, licensePlate: v.licensePlate }));
+    vehicles = vehList.map((v) => ({
+      id: v.id,
+      licensePlate: v.licensePlate,
+      customMineSite: v.customMineSite || null,
+      mineSite: v.customMineSite || null,
+    }));
   } catch (err) {
     console.warn('Could not fetch vehicles:', err);
   }
 
   // Active Breakdowns
-  let breakdowns: Array<{ id: string; vehicle: string; description: string; parts: Array<{ itemCode: string; plannedQty: number }> }> = [];
+  let breakdowns: Array<{ id: string; vehicle: string; description: string; mineSite?: string | null; parts: Array<{ itemCode: string; plannedQty: number }> }> = [];
   try {
     const bkdRes = await frappeFetch<{ data: any[] }>(
       `/api/resource/Vehicle%20Breakdown?filters=${encodeURIComponent(
@@ -5039,7 +5688,7 @@ export async function getInventoryOptions(sessionCookie: string): Promise<{
           ['repair_status', 'in', ['Approved', 'In Workshop', 'Awaiting Parts']],
           ['is_test_record', '=', 0],
         ])
-      )}&fields=${encodeURIComponent(JSON.stringify(['name', 'vehicle', 'description']))}&limit_page_length=50`,
+      )}&fields=${encodeURIComponent(JSON.stringify(['name', 'vehicle', 'description', 'mine_site']))}&limit_page_length=50`,
       { sessionCookie }
     );
     for (const b of bkdRes.data || []) {
@@ -5048,6 +5697,7 @@ export async function getInventoryOptions(sessionCookie: string): Promise<{
         id: b.name,
         vehicle: b.vehicle,
         description: b.description || 'Breakdown incident',
+        mineSite: b.mine_site || null,
         parts: (bDoc.partsTable || []).map((p) => ({
           itemCode: p.itemCode,
           plannedQty: p.plannedQty,
@@ -5058,8 +5708,27 @@ export async function getInventoryOptions(sessionCookie: string): Promise<{
     console.warn('Could not fetch breakdowns:', err);
   }
 
+  // Mine Sites
+  let mineSites: Array<{ id: string; siteName: string; location?: string }> = [];
+  try {
+    const msRes = await frappeFetch<{ data: any[] }>(
+      `/api/resource/Mine%20Site?filters=${encodeURIComponent(
+        JSON.stringify([['is_test_record', '=', 0]])
+      )}&fields=${encodeURIComponent(JSON.stringify(['name', 'site_name', 'location']))}&limit_page_length=50`,
+      { sessionCookie }
+    );
+    mineSites = (msRes.data || []).map((ms) => ({
+      id: ms.name,
+      siteName: ms.site_name || ms.name,
+      location: ms.location || undefined,
+    }));
+  } catch (err) {
+    console.warn('Could not fetch mine sites:', err);
+  }
+
   return {
     warehouses,
+    mineSites,
     itemGroups,
     supplierGroups,
     items,
@@ -5700,6 +6369,8 @@ export interface VehicleProfitabilityRecord {
 
 export interface TripProfitabilityRecord {
   tripId: string;
+  materialType?: string;
+  challanNumber?: string;
   dispatchDate: string;
   vehicle: string;
   driver: string;
@@ -5731,7 +6402,7 @@ export interface CustomerRevenueRecord {
 
 export async function getFinancialDashboard(
   sessionCookie: string,
-  filters?: { fromDate?: string; toDate?: string; vehicle?: string; customer?: string },
+  filters?: { fromDate?: string; toDate?: string; vehicle?: string; customer?: string; mineSite?: string },
   includeTest = false
 ): Promise<FinancialKpis> {
   const defaultFrom = filters?.fromDate || '2026-01-01';
@@ -5768,6 +6439,9 @@ export async function getFinancialDashboard(
   }
   if (filters?.vehicle) {
     invFilterConditions.push(['custom_vehicle', '=', filters.vehicle]);
+  }
+  if (filters?.mineSite && filters.mineSite !== 'ALL') {
+    invFilterConditions.push(['custom_mine_site', '=', filters.mineSite]);
   }
 
   const invRes = await frappeFetch<{ data: any[] }>(
@@ -5836,7 +6510,7 @@ export async function getFinancialDashboard(
   }
 
   // 3. Fuel Expenses from approved Fuel Logs
-  const fuelFields = JSON.stringify(['total_fuel_cost', 'vehicle', 'approval_status', 'is_test_record']);
+  const fuelFields = JSON.stringify(['total_fuel_cost', 'vehicle', 'approval_status', 'is_test_record', 'mine_site']);
   const fuelFilterConditions: any[] = [['approval_status', '=', 'Approved']];
   if (!includeTest) {
     fuelFilterConditions.push(['is_test_record', '=', 0]);
@@ -5849,6 +6523,9 @@ export async function getFinancialDashboard(
   }
   if (filters?.toDate) {
     fuelFilterConditions.push(['fuel_date', '<=', filters.toDate]);
+  }
+  if (filters?.mineSite && filters.mineSite !== 'ALL') {
+    fuelFilterConditions.push(['mine_site', '=', filters.mineSite]);
   }
 
   const fuelRes = await frappeFetch<{ data: any[] }>(
@@ -5877,6 +6554,7 @@ export async function getFinancialDashboard(
     'vehicle',
     'resolution_type',
     'is_test_record',
+    'mine_site',
   ]);
   const bdFilterConditions: any[] = [['docstatus', '!=', 2]];
   if (!includeTest) {
@@ -5890,6 +6568,9 @@ export async function getFinancialDashboard(
   }
   if (filters?.toDate) {
     bdFilterConditions.push(['breakdown_datetime', '<=', filters.toDate]);
+  }
+  if (filters?.mineSite && filters.mineSite !== 'ALL') {
+    bdFilterConditions.push(['mine_site', '=', filters.mineSite]);
   }
 
   const bdRes = await frappeFetch<{ data: any[] }>(
@@ -5918,6 +6599,7 @@ export async function getFinancialDashboard(
     'approval_status',
     'accounting_status',
     'is_test_record',
+    'mine_site',
   ]);
   const expFilterConditions: any[] = [
     ['docstatus', '!=', 2],
@@ -5934,6 +6616,9 @@ export async function getFinancialDashboard(
   }
   if (filters?.toDate) {
     expFilterConditions.push(['expense_date', '<=', filters.toDate]);
+  }
+  if (filters?.mineSite && filters.mineSite !== 'ALL') {
+    expFilterConditions.push(['mine_site', '=', filters.mineSite]);
   }
 
   const expRes = await frappeFetch<{ data: any[] }>(
@@ -5986,6 +6671,110 @@ export async function getFinancialDashboard(
     collectionEfficiencyPct,
     period: { fromDate: defaultFrom, toDate: defaultTo },
     topVehicles,
+  };
+}
+
+// Input type for creating a Sales Invoice. ERPNext supplies native company,
+// currency, account and cost-center defaults from Customer, Item and Company.
+export interface CreateSalesInvoiceInput {
+  customer: string;
+  postingDate?: string;
+  dueDate?: string;
+  paymentTermsTemplate?: string;
+  items: Array<{
+    itemCode: string;
+    description?: string;
+    qty: number;
+    rate: number;
+    custom_mining_trip?: string;
+    custom_vehicle?: string;
+    custom_mine_site?: string;
+  }>;
+  custom_is_test_record?: boolean;
+  custom_mining_trip: string;
+  custom_vehicle?: string;
+  custom_mine_site?: string;
+}
+
+function draftStatus(docstatus: unknown, status: unknown): string {
+  if (Number(docstatus) === 0) return 'Draft';
+  if (Number(docstatus) === 2) return 'Cancelled';
+  return typeof status === 'string' && status.trim() ? status : 'Submitted';
+}
+
+// Create a Sales Invoice through ERPNext's standard document insert. The
+// document is deliberately left at docstatus 0 (Draft).
+export async function createSalesInvoice(
+  sessionCookie: string,
+  input: CreateSalesInvoiceInput
+): Promise<SalesInvoiceRecord> {
+  if (!input.items.length) {
+    throw new Error('At least one validated Sales Invoice item is required.');
+  }
+
+  const items = input.items.map((item) => ({
+    item_code: item.itemCode,
+    ...(item.description ? { description: item.description } : {}),
+    qty: item.qty,
+    rate: item.rate,
+    custom_mining_trip: item.custom_mining_trip || input.custom_mining_trip,
+    custom_vehicle: item.custom_vehicle || input.custom_vehicle || null,
+    custom_mine_site: item.custom_mine_site || input.custom_mine_site || null,
+  }));
+
+  const payload: Record<string, unknown> = {
+    customer: input.customer,
+    posting_date: input.postingDate || new Date().toISOString().split('T')[0],
+    items,
+    is_return: 0,
+    custom_mining_trip: input.custom_mining_trip,
+    custom_vehicle: input.custom_vehicle || null,
+    custom_mine_site: input.custom_mine_site || null,
+    custom_is_test_record: input.custom_is_test_record ? 1 : 0,
+  };
+
+  // Never invent payment terms. Use only a validated Customer template or an
+  // explicit valid due date supplied by the caller.
+  if (input.paymentTermsTemplate) {
+    payload.payment_terms_template = input.paymentTermsTemplate;
+  } else if (input.dueDate) {
+    payload.due_date = input.dueDate;
+  }
+
+  const res = await frappeFetch<{ data: any }>('/api/resource/Sales%20Invoice', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    sessionCookie,
+  });
+
+  const d = res.data;
+  const returnedItems = Array.isArray(d.items) ? d.items : items;
+
+  return {
+    id: d.name,
+    customer: d.customer,
+    customerName: d.customer_name || d.customer,
+    postingDate: d.posting_date,
+    dueDate: d.due_date || '',
+    grandTotal: Number(d.grand_total) || 0,
+    baseGrandTotal: Number(d.base_grand_total || d.grand_total) || 0,
+    outstandingAmount: Number(d.outstanding_amount) || 0,
+    status: draftStatus(d.docstatus, d.status),
+    isReturn: Number(d.is_return) === 1,
+    miningTrip: d.custom_mining_trip || input.custom_mining_trip,
+    vehicle: d.custom_vehicle || input.custom_vehicle || null,
+    mineSite: d.custom_mine_site || input.custom_mine_site || null,
+    isTestRecord: Number(d.custom_is_test_record) === 1,
+    items: returnedItems.map((item: any) => ({
+      itemCode: item.item_code,
+      itemName: item.item_name || item.item_code,
+      qty: Number(item.qty) || 0,
+      rate: Number(item.rate) || 0,
+      amount: Number(item.amount) || Math.round(Number(item.qty) * Number(item.rate) * 100) / 100,
+      vehicle: item.custom_vehicle || input.custom_vehicle || null,
+      trip: item.custom_mining_trip || input.custom_mining_trip,
+      mineSite: item.custom_mine_site || input.custom_mine_site || null,
+    })),
   };
 }
 
@@ -6069,6 +6858,108 @@ export async function getSalesInvoices(
   }));
 }
 
+export async function findSalesInvoicesForTrip(
+  sessionCookie: string,
+  tripId: string
+): Promise<Array<{ id: string; docstatus: number; status: string }>> {
+  const filters = JSON.stringify([
+    ['custom_mining_trip', '=', tripId],
+    ['docstatus', 'in', [0, 1]],
+  ]);
+  const fields = JSON.stringify(['name', 'docstatus', 'status']);
+  const response = await frappeFetch<{ data: any[] }>(
+    `/api/resource/Sales%20Invoice?fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}&limit_page_length=2`,
+    { sessionCookie }
+  );
+
+  return (response.data || []).map((invoice) => ({
+    id: invoice.name,
+    docstatus: Number(invoice.docstatus),
+    status: draftStatus(invoice.docstatus, invoice.status),
+  }));
+}
+
+export async function updateTripBillingReference(
+  sessionCookie: string,
+  tripId: string,
+  invoiceId: string
+): Promise<void> {
+  await frappeFetch(
+    `/api/resource/Mining%20Trip/${encodeURIComponent(tripId)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        sales_invoice: invoiceId,
+        billing_status: 'Invoiced',
+        billing_note: `Draft Sales Invoice ${invoiceId} created for accounting review.`,
+      }),
+      sessionCookie,
+    }
+  );
+}
+
+export async function deleteSalesInvoice(
+  sessionCookie: string,
+  invoiceId: string
+): Promise<void> {
+  await frappeFetch(
+    `/api/resource/Sales%20Invoice/${encodeURIComponent(invoiceId)}`,
+    {
+      method: 'DELETE',
+      sessionCookie,
+    }
+  );
+}
+
+export async function findPaymentEntryByReference(
+  sessionCookie: string,
+  party: string,
+  referenceNo: string
+): Promise<{ id: string; docstatus: number } | null> {
+  const filters = JSON.stringify([
+    ['party', '=', party],
+    ['reference_no', '=', referenceNo],
+    ['docstatus', '<', 2],
+  ]);
+  const fields = JSON.stringify(['name', 'docstatus']);
+  const response = await frappeFetch<{ data: any[] }>(
+    `/api/resource/Payment%20Entry?fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}&limit_page_length=1`,
+    { sessionCookie }
+  ).catch(() => ({ data: [] }));
+
+  if (response.data && response.data.length > 0) {
+    return {
+      id: response.data[0].name,
+      docstatus: Number(response.data[0].docstatus),
+    };
+  }
+  return null;
+}
+
+export async function getPendingDraftAllocationsForInvoice(
+  sessionCookie: string,
+  invoiceId: string
+): Promise<number> {
+  const filters = JSON.stringify([
+    ['reference_doctype', '=', 'Sales Invoice'],
+    ['reference_name', '=', invoiceId],
+    ['docstatus', '=', 0],
+  ]);
+  const fields = JSON.stringify(['allocated_amount']);
+  const response = await frappeFetch<{ data: any[] }>(
+    `/api/resource/Payment%20Entry%20Reference?fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}&limit_page_length=50`,
+    { sessionCookie }
+  ).catch(() => ({ data: [] }));
+
+  let total = 0;
+  if (response.data) {
+    for (const row of response.data) {
+      total += Number(row.allocated_amount) || 0;
+    }
+  }
+  return total;
+}
+
 export async function getSalesInvoiceDetail(
   sessionCookie: string,
   id: string
@@ -6128,6 +7019,206 @@ export async function getSalesInvoiceDetail(
     isTestRecord: Number(d.custom_is_test_record) === 1,
     items,
     payments,
+  };
+}
+
+export interface CreatePaymentEntryInput {
+  party: string;
+  paidAmount: number;
+  receivedAmount?: number;
+  modeOfPayment: string;
+  postingDate?: string;
+  referenceNo?: string;
+  referenceDate?: string;
+  references: Array<{
+    referenceDoctype: 'Sales Invoice';
+    referenceName: string;
+    totalAmount: number;
+    outstandingAmount: number;
+    allocatedAmount: number;
+  }>;
+  custom_is_test_record?: boolean;
+}
+
+// Create a native customer receipt Payment Entry and leave it in Draft.
+export async function getSubmittedSalesInvoiceForAllocation(
+  sessionCookie: string,
+  invoiceId: string
+): Promise<{
+  id: string;
+  customer: string;
+  customerName: string;
+  grandTotal: number;
+  outstandingAmount: number;
+  isReturn: boolean;
+  docstatus: number;
+} | null> {
+  const response = await frappeFetch<{ data: any }>(
+    `/api/resource/Sales%20Invoice/${encodeURIComponent(invoiceId)}`,
+    { sessionCookie }
+  ).catch(() => null);
+  const invoice = response?.data;
+  if (!invoice || Number(invoice.docstatus) !== 1) return null;
+
+  return {
+    id: invoice.name,
+    customer: invoice.customer,
+    customerName: invoice.customer_name || invoice.customer,
+    grandTotal: Number(invoice.grand_total) || 0,
+    outstandingAmount: Number(invoice.outstanding_amount) || 0,
+    isReturn: Number(invoice.is_return) === 1,
+    docstatus: Number(invoice.docstatus),
+  };
+}
+
+export interface FleetBillingContract {
+  id: string;
+  customer: string;
+  mineSite: string;
+  startDate: string;
+  endDate: string;
+  ratePerTon: number;
+  serviceItem: string;
+}
+
+export async function getApprovedFleetBillingContract(
+  sessionCookie: string,
+  customer: string,
+  mineSite: string,
+  effectiveDate: string
+): Promise<FleetBillingContract | null> {
+  const filters = JSON.stringify([
+    ['party_type', '=', 'Customer'],
+    ['party_name', '=', customer],
+    ['custom_mine_site', '=', mineSite],
+    ['custom_billing_approved', '=', 1],
+    ['is_signed', '=', 1],
+    ['document_status', '=', 'Active'],
+    ['start_date', '<=', effectiveDate],
+    ['end_date', '>=', effectiveDate],
+  ]);
+  const fields = JSON.stringify([
+    'name',
+    'party_name',
+    'start_date',
+    'end_date',
+    'custom_mine_site',
+    'custom_rate_per_ton',
+    'custom_service_item',
+    'custom_billing_approved_by',
+    'custom_billing_approved_on',
+  ]);
+  const response = await frappeFetch<{ data: any[] }>(
+    `/api/resource/Contract?fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}&order_by=start_date%20desc&limit_page_length=2`,
+    { sessionCookie }
+  );
+  const contracts = response.data || [];
+  if (contracts.length !== 1) return null;
+  const contract = contracts[0];
+  if (!contract.custom_billing_approved_by || !contract.custom_billing_approved_on) return null;
+  const ratePerTon = Number(contract.custom_rate_per_ton);
+  if (!Number.isFinite(ratePerTon) || ratePerTon <= 0 || !contract.custom_service_item) return null;
+
+  return {
+    id: contract.name,
+    customer: contract.party_name,
+    mineSite: contract.custom_mine_site,
+    startDate: contract.start_date,
+    endDate: contract.end_date,
+    ratePerTon,
+    serviceItem: contract.custom_service_item,
+  };
+}
+
+export async function getCustomerBillingTerms(
+  sessionCookie: string,
+  customer: string
+): Promise<{ customerName: string; paymentTermsTemplate: string | null } | null> {
+  const response = await frappeFetch<{ data: any }>(
+    `/api/resource/Customer/${encodeURIComponent(customer)}`,
+    { sessionCookie }
+  ).catch(() => null);
+  if (!response?.data) return null;
+  return {
+    customerName: response.data.customer_name || response.data.name,
+    paymentTermsTemplate: response.data.payment_terms || null,
+  };
+}
+
+export async function validateItemForSalesInvoice(
+  sessionCookie: string,
+  itemCode: string
+): Promise<{ itemCode: string; itemName: string } | null> {
+  const response = await frappeFetch<{ data: any }>(
+    `/api/resource/Item/${encodeURIComponent(itemCode)}`,
+    { sessionCookie }
+  ).catch(() => null);
+  const item = response?.data;
+  if (!item || Number(item.disabled) === 1 || Number(item.is_sales_item) === 0) return null;
+  return { itemCode: item.name, itemName: item.item_name || item.name };
+}
+
+export async function createPaymentEntry(
+  sessionCookie: string,
+  input: CreatePaymentEntryInput
+): Promise<PaymentEntryRecord> {
+  const today = new Date().toISOString().split('T')[0];
+  if (!input.references.length) {
+    throw new Error('At least one validated Sales Invoice allocation is required.');
+  }
+
+  const payload = {
+    payment_type: 'Receive',
+    party_type: 'Customer',
+    party: input.party,
+    paid_amount: input.paidAmount,
+    received_amount: input.receivedAmount ?? input.paidAmount,
+    mode_of_payment: input.modeOfPayment,
+    posting_date: input.postingDate || today,
+    reference_no: input.referenceNo || null,
+    reference_date: input.referenceDate || today,
+    custom_is_test_record: input.custom_is_test_record ? 1 : 0,
+    references: input.references.map((reference) => ({
+      reference_doctype: reference.referenceDoctype,
+      reference_name: reference.referenceName,
+      total_amount: reference.totalAmount,
+      outstanding_amount: reference.outstandingAmount,
+      allocated_amount: reference.allocatedAmount,
+    })),
+  };
+
+  const res = await frappeFetch<{ data: any }>('/api/resource/Payment%20Entry', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    sessionCookie,
+  });
+
+  const d = res.data;
+  const references = (Array.isArray(d.references) ? d.references : payload.references).map((reference: any) => ({
+    referenceDoctype: reference.reference_doctype,
+    referenceName: reference.reference_name,
+    totalAmount: Number(reference.total_amount) || 0,
+    outstandingAmount: Number(reference.outstanding_amount) || 0,
+    allocatedAmount: Number(reference.allocated_amount) || 0,
+  }));
+
+  return {
+    id: d.name,
+    postingDate: d.posting_date,
+    paymentType: d.payment_type,
+    partyType: d.party_type,
+    party: d.party,
+    partyName: d.party_name || d.party,
+    modeOfPayment: d.mode_of_payment || input.modeOfPayment,
+    paidAmount: Number(d.paid_amount) || 0,
+    receivedAmount: Number(d.received_amount) || 0,
+    allocatedAmount: Number(d.total_allocated_amount) || references.reduce((sum: number, reference: any) => sum + reference.allocatedAmount, 0),
+    unallocatedAmount: Number(d.unallocated_amount) || 0,
+    referenceNo: d.reference_no || '',
+    referenceDate: d.reference_date || d.posting_date,
+    status: draftStatus(d.docstatus, d.status),
+    isTestRecord: Number(d.custom_is_test_record) === 1,
+    references,
   };
 }
 
@@ -6300,6 +7391,8 @@ export async function getTripProfitability(
 
   return (reportRes.result || []).map((r: any) => ({
     tripId: r.trip_id,
+    materialType: r.material_type || r.material || 'Bulk Mineral Cargo',
+    challanNumber: r.challan_number || r.challan_no || '',
     dispatchDate: r.dispatch_date || '',
     vehicle: r.vehicle,
     driver: r.driver,
@@ -6350,22 +7443,39 @@ export async function getCustomerRevenue(
 // PHASE 7: ALERTS, NOTIFICATIONS, APPROVALS & ADMINISTRATION HELPERS
 // ============================================================================
 
+const TECHNICAL_ID_REGEX = /\b(?:BKD|HR-DRI|TRIP|ACC-SINV|ACC-PAY|PUR-ORD|MAT-STE|INS|VD-SFT|SFT|HR-EMP|FL|FUEL)-\d{4}-\d{5}\b/g;
+
+function sanitizeBusinessNotification(text?: string | null): string {
+  if (!text) return '';
+  return text.replace(TECHNICAL_ID_REGEX, (id) => {
+    if (id.startsWith('PUR-ORD-')) return 'Purchase Order';
+    if (id.startsWith('BKD-')) return 'Breakdown Incident';
+    if (id.startsWith('HR-DRI-')) return 'Driver Assignment';
+    if (id.startsWith('MAT-STE-')) return 'Stock Movement';
+    if (id.startsWith('ACC-PAY-')) return 'Payment Entry';
+    if (id.startsWith('ACC-SINV-')) return 'Sales Billing';
+    if (id.startsWith('TRIP-')) return 'Mining Dispatch';
+    if (id.startsWith('INS-')) return 'Insurance Policy';
+    return 'Record';
+  });
+}
+
 export function mapFleetAlert(r: any): FleetAlert {
   return {
     id: r.name,
-    title: r.alert_title || r.name,
+    title: sanitizeBusinessNotification(r.alert_title) || 'Fleet Alert',
     category: r.alert_category || 'General',
     severity: (r.severity as 'Low' | 'Medium' | 'High' | 'Critical') || 'Medium',
     status: r.status || 'Unread',
     vehicle: r.vehicle || null,
-    driver: r.driver || null,
+    driver: r.driver && !r.driver.startsWith('HR-DRI-') ? r.driver : null,
     sourceDoctype: r.source_doctype || null,
     sourceName: r.source_name || null,
     recipientRole: r.recipient_role || null,
     forUser: r.for_user || null,
-    message: r.message || null,
+    message: sanitizeBusinessNotification(r.message) || null,
     timestamp: r.alert_timestamp || r.creation,
-    actionRequired: r.action_required || null,
+    actionRequired: sanitizeBusinessNotification(r.action_required) || null,
     resolvedBy: r.resolved_by || null,
     resolvedOn: r.resolved_on || null,
     resolutionNote: r.resolution_note || null,
@@ -6512,13 +7622,13 @@ export async function updateFleetAlert(
   }
   if (data.status === 'Resolved') {
     updatePayload.resolved_by = data.resolvedBy || 'Administrator';
-    updatePayload.resolved_on = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    updatePayload.resolved_on = toLocalDateTimeString();
     if (data.resolutionNote) {
       updatePayload.resolution_note = data.resolutionNote;
     }
   } else if (data.status === 'Acknowledged') {
     updatePayload.acknowledged_by = data.resolvedBy || 'Administrator';
-    updatePayload.acknowledged_on = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    updatePayload.acknowledged_on = toLocalDateTimeString();
   }
 
   const endpoint = `/api/resource/Fleet%20Alert%20Log/${encodeURIComponent(id)}`;
@@ -6552,7 +7662,7 @@ export async function createFleetAlert(
     driver: alert.driver || null,
     recipient_role: alert.recipientRole || 'Fleet Manager',
     for_user: alert.forUser || null,
-    alert_timestamp: alert.timestamp || new Date().toISOString().replace('T', ' ').substring(0, 19),
+    alert_timestamp: alert.timestamp || toLocalDateTimeString(),
     action_required: alert.actionRequired || null,
     message: alert.message || null,
     is_test_record: alert.isTestRecord ? 1 : 0,
@@ -6666,7 +7776,7 @@ export async function getPendingApprovals(
         items.push({
           id: t.name,
           doctype: 'Mining Trip',
-          title: `Mining Trip ${t.name} (${t.material_type || 'Ore'} - ${t.net_weight_tons || 0} Tons)`,
+          title: `Mining Trip (${t.material_type || 'Bulk Minerals'} · ${t.net_weight_tons || 0} Tons)`,
           submitter: t.owner || 'Dispatcher',
           submissionDate: t.dispatch_date_time || t.creation,
           currentState: t.workflow_state || 'Draft',
@@ -6726,7 +7836,7 @@ export async function getPendingApprovals(
         items.push({
           id: String(f.name),
           doctype: 'Fuel Log',
-          title: `Fuel Dispensation ${f.name} (${f.quantity_litres || 0} Liters)`,
+          title: `Fuel Dispensation (${f.quantity_litres || 0} L · ${f.vehicle})`,
           submitter: f.owner || 'Operator',
           submissionDate: f.fuel_date || f.creation,
           currentState: 'Draft',
@@ -6788,7 +7898,7 @@ export async function getPendingApprovals(
         items.push({
           id: b.name,
           doctype: 'Vehicle Breakdown',
-          title: `Breakdown Incident ${b.name}: ${b.breakdown_type || 'Mechanical'} (${b.severity || 'Medium'})`,
+          title: `Breakdown Incident: ${b.breakdown_type || 'Mechanical'} (${b.severity || 'Medium'})`,
           submitter: b.owner || 'Workshop Supervisor',
           submissionDate: b.breakdown_datetime || b.creation,
           currentState: state,
@@ -6846,7 +7956,7 @@ export async function getPendingApprovals(
         items.push({
           id: x.name,
           doctype: 'Operational Expense',
-          title: `OpEx Claim ${x.name}: ${x.expense_category} (₹${Number(x.amount || 0).toLocaleString('en-IN')})`,
+          title: `OpEx Claim: ${x.expense_category} (₹${Number(x.amount || 0).toLocaleString('en-IN')})`,
           submitter: x.owner || 'Staff',
           submissionDate: x.expense_date || x.creation,
           currentState: x.approval_status || 'Submitted',
@@ -6884,6 +7994,7 @@ export async function getPendingApprovals(
         'transaction_date',
       ]);
       const poFilters: any[] = [['docstatus', '=', 0]];
+      if (!includeTest) poFilters.push(['custom_is_test_record', 'in', [0, null]]);
 
       const poRes = await frappeFetch<{ data?: any[] }>(
         `/api/resource/Purchase%20Order?fields=${encodeURIComponent(
@@ -6899,7 +8010,7 @@ export async function getPendingApprovals(
         items.push({
           id: p.name,
           doctype: 'Purchase Order',
-          title: `Purchase Order ${p.name} - ${p.supplier} (₹${Number(p.grand_total || 0).toLocaleString('en-IN')})`,
+          title: `Purchase Order - ${p.supplier} (₹${Number(p.grand_total || 0).toLocaleString('en-IN')})`,
           submitter: p.owner || 'Buyer',
           submissionDate: p.transaction_date || p.creation,
           currentState: 'Draft',
@@ -6950,7 +8061,7 @@ export async function getPendingApprovals(
         items.push({
           id: pl.name,
           doctype: 'Vehicle Insurance Policy',
-          title: `Policy Renewal ${pl.name} - ${pl.vehicle} (${pl.insurance_company || 'Insurer'})`,
+          title: `Policy Renewal - ${pl.vehicle} (${pl.insurance_company || 'Insurer'})`,
           submitter: pl.owner || 'Compliance Officer',
           submissionDate: pl.start_date || pl.creation,
           currentState: 'Draft',
@@ -6989,7 +8100,7 @@ export async function getPendingApprovals(
 
 export async function executeApprovalAction(
   sessionCookie: string,
-  user: { email: string; role: string; roles: string[] },
+  user: { email: string; role: string; roles: string[]; isAllMines?: boolean; allowedMines?: string[] },
   payload: ApprovalActionInput
 ): Promise<{ success: boolean; message: string; updatedDoc?: any }> {
   const { doctype, id, action, rejectionReason, notes } = payload;
@@ -7002,10 +8113,23 @@ export async function executeApprovalAction(
   const endpoint = `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(id)}`;
   const docRes = await frappeFetch<{ data?: any }>(endpoint, { sessionCookie });
   if (!docRes.data) {
-    throw new Error(`Target record '${doctype}' '${id}' not found.`);
+    const notFoundErr: any = new Error(`Target record '${doctype}' '${id}' not found.`);
+    notFoundErr.status = 404;
+    throw notFoundErr;
   }
 
-  const doc = docRes.data;
+  let doc = docRes.data;
+
+  // Strict Cross-Mine Transition Guard
+  if (doc.mine_site && user.allowedMines && !user.isAllMines) {
+    if (!user.allowedMines.includes(doc.mine_site)) {
+      const err: any = new Error(
+        `Access Denied: You are not authorized to transition records belonging to mine site '${doc.mine_site}'.`
+      );
+      err.status = 403;
+      throw err;
+    }
+  }
 
   // 2. Strict Anti-Self-Approval Enforcement
   const isOwner =
@@ -7039,6 +8163,37 @@ export async function executeApprovalAction(
   let updatedDoc: any = null;
 
   if (doctype === 'Mining Trip') {
+    let tripAction = action;
+    if (action === 'Reject') {
+      tripAction = 'Cancel';
+    }
+
+    if (tripAction === 'Cancel') {
+      if (!rejectionReason || !rejectionReason.trim()) {
+        const err: any = new Error(
+          'Rejection reason is strictly mandatory when rejecting or cancelling a Mining Trip.'
+        );
+        err.status = 400;
+        throw err;
+      }
+
+      // Persist cancellation reason to the trip record
+      const updateRes = await frappeFetch<{ data?: any }>(
+        `/api/resource/Mining%20Trip/${encodeURIComponent(id)}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cancellation_reason: rejectionReason.trim(),
+          }),
+          sessionCookie,
+        }
+      );
+      if (updateRes.data) {
+        doc = updateRes.data;
+      }
+    }
+
     const wfRes = await frappeFetch<{ message?: any }>(
       '/api/method/frappe.model.workflow.apply_workflow',
       {
@@ -7046,7 +8201,7 @@ export async function executeApprovalAction(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           doc,
-          action,
+          action: tripAction,
         }),
         sessionCookie,
       }
@@ -7082,16 +8237,43 @@ export async function executeApprovalAction(
       );
       updatedDoc = wfRes.message || doc;
     } else if (action === 'Reject') {
-      const putRes = await frappeFetch<{ data?: any }>(endpoint, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repair_status: 'Cancelled',
-          resolution_notes: rejectionReason,
-        }),
-        sessionCookie,
-      });
-      updatedDoc = putRes.data;
+      if (rejectionReason && rejectionReason.trim()) {
+        await frappeFetch(`/api/resource/Vehicle%20Breakdown/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rejection_reason: rejectionReason.trim(),
+            resolution_notes: rejectionReason.trim(),
+          }),
+          sessionCookie,
+        });
+      }
+      if (doc.workflow_state === 'Reported') {
+        const wfRes = await frappeFetch<{ message?: any }>(
+          '/api/method/frappe.model.workflow.apply_workflow',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              doc,
+              action: 'Reject',
+            }),
+            sessionCookie,
+          }
+        );
+        updatedDoc = wfRes.message || doc;
+      } else {
+        const putRes = await frappeFetch<{ data?: any }>(endpoint, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            repair_status: 'Cancelled',
+            resolution_notes: rejectionReason,
+          }),
+          sessionCookie,
+        });
+        updatedDoc = putRes.data;
+      }
     } else if (action === 'Close Breakdown') {
       const wfRes = await frappeFetch<{ message?: any }>(
         '/api/method/frappe.model.workflow.apply_workflow',
@@ -7462,6 +8644,8 @@ import type {
   VehicleDocument,
   VehicleDriverShiftAllocation,
   EmployeeProfile,
+  EmployeeAttendance,
+  EmployeeAttendanceSummary,
   DocumentVerificationStatus,
 } from '@/types/fleet';
 
@@ -7562,7 +8746,7 @@ export async function createDriverDocument(
     replaced_document: docData.replacedDocument || null,
     is_active: docData.isActive !== false ? 1 : 0,
     uploaded_by: username || 'Administrator',
-    upload_date: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    upload_date: toLocalDateTimeString(),
     is_test_record: docData.isTestRecord ? 1 : 0,
   };
 
@@ -7607,7 +8791,7 @@ export async function updateDriverDocumentStatus(
   const values: any = {
     verification_status: status,
     verified_by: username,
-    verification_date: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    verification_date: toLocalDateTimeString(),
   };
   if (rejectionReason) {
     values.rejection_reason = rejectionReason;
@@ -7720,7 +8904,7 @@ export async function createVehicleDocument(
     replaced_document: docData.replacedDocument || null,
     is_active: docData.isActive !== false ? 1 : 0,
     uploaded_by: username || 'Administrator',
-    upload_date: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    upload_date: toLocalDateTimeString(),
     is_test_record: docData.isTestRecord ? 1 : 0,
   };
 
@@ -7765,7 +8949,7 @@ export async function updateVehicleDocumentStatus(
   const values: any = {
     verification_status: status,
     verified_by: username,
-    verification_date: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    verification_date: toLocalDateTimeString(),
   };
   if (rejectionReason) {
     values.rejection_reason = rejectionReason;
@@ -7802,7 +8986,7 @@ export async function getShiftAllocations(
     fields: JSON.stringify([
       'name', 'vehicle', 'license_plate', 'driver', 'driver_name',
       'shift_type', 'allocation_start', 'allocation_end', 'status',
-      'is_primary', 'remarks', 'created_by_user', 'is_test_record'
+      'is_primary', 'remarks', 'created_by_user', 'is_test_record', 'mine_site'
     ]),
     filters: JSON.stringify(filters),
     order_by: 'allocation_start desc',
@@ -7821,6 +9005,8 @@ export async function getShiftAllocations(
     licensePlate: s.license_plate,
     driver: s.driver,
     driverName: s.driver_name,
+    mineSite: s.mine_site || '',
+    mineSiteName: s.mine_site || '',
     shiftType: s.shift_type,
     allocationStart: s.allocation_start,
     allocationEnd: s.allocation_end,
@@ -7841,6 +9027,7 @@ export async function createShiftAllocation(
     doctype: 'Vehicle Driver Shift Allocation',
     vehicle: allocData.vehicle,
     driver: allocData.driver,
+    mine_site: allocData.mineSite,
     shift_type: allocData.shiftType || 'Morning (06:00 - 14:00)',
     allocation_start: allocData.allocationStart,
     allocation_end: allocData.allocationEnd || null,
@@ -7863,6 +9050,8 @@ export async function createShiftAllocation(
     licensePlate: created.license_plate,
     driver: created.driver,
     driverName: created.driver_name,
+    mineSite: created.mine_site || allocData.mineSite || '',
+    mineSiteName: created.mine_site || allocData.mineSite || '',
     shiftType: created.shift_type,
     allocationStart: created.allocation_start,
     allocationEnd: created.allocation_end,
@@ -7893,6 +9082,42 @@ export async function updateShiftAllocationStatus(
   });
 }
 
+export async function updateShiftAllocation(
+  sessionCookie: string,
+  allocId: string,
+  allocData: {
+    vehicle?: string;
+    driver?: string;
+    mineSite?: string;
+    shiftType?: string;
+    allocationStart?: string;
+    allocationEnd?: string | null;
+    status?: string;
+    isPrimary?: boolean;
+    remarks?: string | null;
+  }
+): Promise<void> {
+  const values: any = {};
+  if (allocData.vehicle !== undefined) values.vehicle = allocData.vehicle;
+  if (allocData.driver !== undefined) values.driver = allocData.driver;
+  if (allocData.mineSite !== undefined) values.mine_site = allocData.mineSite;
+  if (allocData.shiftType !== undefined) values.shift_type = allocData.shiftType;
+  if (allocData.allocationStart !== undefined) values.allocation_start = allocData.allocationStart;
+  if (allocData.allocationEnd !== undefined) values.allocation_end = allocData.allocationEnd;
+  if (allocData.status !== undefined) values.status = allocData.status;
+  if (allocData.isPrimary !== undefined) values.is_primary = allocData.isPrimary ? 1 : 0;
+  if (allocData.remarks !== undefined) values.remarks = allocData.remarks;
+
+  await callFrappeApi('/api/method/frappe.client.set_value', sessionCookie, {
+    method: 'POST',
+    body: JSON.stringify({
+      doctype: 'Vehicle Driver Shift Allocation',
+      name: allocId,
+      fieldname: values,
+    }),
+  });
+}
+
 export async function getEmployees(
   sessionCookie: string,
   options: { status?: string; limit?: number } = {}
@@ -7904,9 +9129,11 @@ export async function getEmployees(
     doctype: 'Employee',
     fields: JSON.stringify([
       'name', 'employee_name', 'first_name', 'last_name', 'status',
-      'gender', 'date_of_birth', 'date_of_joining', 'cell_number',
+      'gender', 'date_of_birth', 'date_of_joining', 'relieving_date', 'cell_number',
       'company_email', 'personal_email', 'department', 'designation',
-      'branch', 'reports_to', 'user_id', 'image'
+      'branch', 'reports_to', 'user_id', 'image',
+      'custom_mine_site', 'custom_assigned_vehicle', 'custom_daily_salary',
+      'custom_ifsc_code', 'custom_aadhaar_no', 'custom_pan_no', 'bank_name', 'bank_ac_no'
     ]),
     filters: JSON.stringify(filters),
     order_by: 'employee_name asc',
@@ -7919,6 +9146,19 @@ export async function getEmployees(
     { method: 'GET' }
   );
 
+  // Query Driver profiles to resolve linkedDriverId and driverStatus
+  const driversRes = await frappeFetch<{ data: any[] }>(
+    `/api/resource/Driver?fields=${encodeURIComponent(JSON.stringify(['name', 'employee', 'status']))}&limit_page_length=500`,
+    { sessionCookie }
+  ).catch(() => ({ data: [] }));
+
+  const driverMap = new Map<string, { id: string; status: string }>();
+  for (const d of (driversRes.data || [])) {
+    if (d.employee) {
+      driverMap.set(d.employee, { id: d.name, status: d.status });
+    }
+  }
+
   return (res.message || []).map((e: any) => ({
     id: e.name,
     employeeName: e.employee_name,
@@ -7928,6 +9168,7 @@ export async function getEmployees(
     gender: e.gender,
     dateOfBirth: e.date_of_birth,
     dateOfJoining: e.date_of_joining,
+    relievingDate: e.relieving_date || null,
     cellNumber: e.cell_number,
     companyEmail: e.company_email,
     personalEmail: e.personal_email,
@@ -7937,6 +9178,17 @@ export async function getEmployees(
     reportsTo: e.reports_to,
     userId: e.user_id,
     image: e.image,
+    linkedDriverId: driverMap.get(e.name)?.id || null,
+    driverStatus: driverMap.get(e.name)?.status || null,
+    customMineSite: e.custom_mine_site || undefined,
+    mineSite: e.custom_mine_site || undefined,
+    assignedVehicle: e.custom_assigned_vehicle || undefined,
+    dailySalary: Number(e.custom_daily_salary || 0),
+    ifscCode: e.custom_ifsc_code || null,
+    aadhaarNo: e.custom_aadhaar_no || null,
+    panNo: e.custom_pan_no || null,
+    bankName: e.bank_name || null,
+    bankAcNo: e.bank_ac_no || null,
   }));
 }
 
@@ -7946,20 +9198,31 @@ export async function createEmployee(
 ): Promise<EmployeeProfile> {
   const payload = {
     doctype: 'Employee',
+    naming_series: 'HR-EMP-',
     first_name: empData.firstName,
     last_name: empData.lastName || null,
     status: empData.status || 'Active',
-    gender: empData.gender || 'Prefer not to say',
-    date_of_birth: empData.dateOfBirth || '1990-01-01',
-    date_of_joining: empData.dateOfJoining || new Date().toISOString().substring(0, 10),
+    company: 'Uptoware',
+    gender: empData.gender || null,
+    date_of_birth: empData.dateOfBirth || null,
+    date_of_joining: empData.dateOfJoining || null,
     cell_number: empData.cellNumber || null,
     company_email: empData.companyEmail || null,
     personal_email: empData.personalEmail || null,
-    department: empData.department || null,
+    department: empData.department ? (empData.department.includes(' - ') ? empData.department : `${empData.department} - U`) : 'Operations - U',
     designation: empData.designation || null,
     branch: empData.branch || null,
     reports_to: empData.reportsTo || null,
     user_id: empData.userId || null,
+    custom_mine_site: (empData as any).mineSite || (empData as any).customMineSite || null,
+    custom_assigned_vehicle: (empData as any).assignedVehicle || null,
+    custom_daily_salary: (empData as any).dailySalary || 0,
+    custom_ifsc_code: (empData as any).ifscCode || null,
+    custom_aadhaar_no: (empData as any).aadhaarNo || null,
+    custom_pan_no: (empData as any).panNo || null,
+    bank_name: (empData as any).bankName || null,
+    bank_ac_no: (empData as any).bankAcNo || (empData as any).bankAccountNo || null,
+    relieving_date: empData.relievingDate || null,
   };
 
   const res = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
@@ -7986,5 +9249,376 @@ export async function createEmployee(
     reportsTo: created.reports_to,
     userId: created.user_id,
     image: created.image,
+    customMineSite: created.custom_mine_site || undefined,
+    mineSite: created.custom_mine_site || undefined,
+    assignedVehicle: created.custom_assigned_vehicle || undefined,
+    dailySalary: Number(created.custom_daily_salary || 0),
+    ifscCode: created.custom_ifsc_code || undefined,
+    aadhaarNo: created.custom_aadhaar_no || undefined,
+    panNo: created.custom_pan_no || undefined,
   };
 }
+
+export async function getMineTransferLogs(
+  sessionCookie: string,
+  options: {
+    transferType?: string;
+    assetId?: string;
+    mineSite?: string;
+    status?: string;
+    limit?: number;
+  } = {}
+): Promise<FleetMineTransferLog[]> {
+  const filters: any[] = [];
+  if (options.transferType) filters.push(['transfer_type', '=', options.transferType]);
+  if (options.assetId) filters.push(['asset_id', '=', options.assetId]);
+  if (options.status) filters.push(['transfer_status', '=', options.status]);
+  if (options.mineSite && options.mineSite !== 'ALL') {
+    filters.push([
+      'Fleet Mine Transfer Log',
+      'from_mine',
+      '=',
+      options.mineSite
+    ]);
+  }
+
+  const queryParams = new URLSearchParams({
+    doctype: 'Fleet Mine Transfer Log',
+    fields: JSON.stringify([
+      'name', 'transfer_type', 'asset_id', 'asset_identifier',
+      'from_mine', 'to_mine', 'effective_date', 'odometer_at_transfer',
+      'reason', 'remarks', 'requested_by', 'approved_by',
+      'transfer_status', 'docstatus', 'creation', 'modified'
+    ]),
+    filters: JSON.stringify(filters),
+    order_by: 'creation desc',
+    limit_page_length: String(options.limit || 50),
+  });
+
+  const res = await callFrappeApi(
+    `/api/method/frappe.client.get_list?${queryParams.toString()}`,
+    sessionCookie,
+    { method: 'GET' }
+  );
+
+  return (res.message || []).map((t: any) => ({
+    name: t.name,
+    transferType: t.transfer_type,
+    assetId: t.asset_id,
+    assetIdentifier: t.asset_identifier,
+    fromMine: t.from_mine,
+    toMine: t.to_mine,
+    effectiveDate: t.effective_date,
+    odometerAtTransfer: t.odometer_at_transfer,
+    reason: t.reason,
+    remarks: t.remarks,
+    requestedBy: t.requested_by,
+    approvedBy: t.approved_by,
+    transferStatus: t.transfer_status,
+    docstatus: t.docstatus,
+    creation: t.creation,
+    modified: t.modified,
+  }));
+}
+
+export async function createMineTransferLog(
+  sessionCookie: string,
+  input: CreateMineTransferInput,
+  username?: string
+): Promise<FleetMineTransferLog> {
+  const payload: any = {
+    doctype: 'Fleet Mine Transfer Log',
+    transfer_type: input.transferType,
+    asset_id: input.assetId,
+    to_mine: input.toMine,
+    effective_date: input.effectiveDate || toLocalDateTimeString(new Date()),
+    reason: input.reason,
+    remarks: input.remarks || null,
+    requested_by: username || 'Administrator',
+  };
+
+  if (input.odometerAtTransfer !== undefined) {
+    payload.odometer_at_transfer = input.odometerAtTransfer;
+  }
+
+  const res = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
+    method: 'POST',
+    body: JSON.stringify({ doc: payload }),
+  });
+
+  const created = res.message;
+  return {
+    name: created.name,
+    transferType: created.transfer_type,
+    assetId: created.asset_id,
+    assetIdentifier: created.asset_identifier,
+    fromMine: created.from_mine,
+    toMine: created.to_mine,
+    effectiveDate: created.effective_date,
+    odometerAtTransfer: created.odometer_at_transfer,
+    reason: created.reason,
+    remarks: created.remarks,
+    requestedBy: created.requested_by,
+    approvedBy: created.approved_by,
+    transferStatus: created.transfer_status,
+    docstatus: created.docstatus,
+    creation: created.creation,
+    modified: created.modified,
+  };
+}
+
+export async function submitMineTransferLog(
+  sessionCookie: string,
+  transferId: string
+): Promise<FleetMineTransferLog> {
+  const getRes = await callFrappeApi(
+    `/api/method/frappe.client.get?doctype=Fleet+Mine+Transfer+Log&name=${encodeURIComponent(transferId)}`,
+    sessionCookie,
+    { method: 'GET' }
+  );
+
+  if (!getRes.message) {
+    throw new Error(`Fleet Mine Transfer Log '${transferId}' not found.`);
+  }
+
+  const existingDoc = getRes.message;
+  if (existingDoc.docstatus === 1 || existingDoc.transfer_status === 'Completed') {
+    const err: any = new Error(`Fleet Mine Transfer Log '${transferId}' is already submitted and completed. Duplicate submission rejected.`);
+    err.status = 400;
+    throw err;
+  }
+
+  const res = await callFrappeApi('/api/method/frappe.client.submit', sessionCookie, {
+    method: 'POST',
+    body: JSON.stringify({
+      doc: getRes.message,
+    }),
+  });
+
+  const submitted = res.message;
+  return {
+    name: submitted.name,
+    transferType: submitted.transfer_type,
+    assetId: submitted.asset_id,
+    assetIdentifier: submitted.asset_identifier,
+    fromMine: submitted.from_mine,
+    toMine: submitted.to_mine,
+    effectiveDate: submitted.effective_date,
+    odometerAtTransfer: submitted.odometer_at_transfer,
+    reason: submitted.reason,
+    remarks: submitted.remarks,
+    requestedBy: submitted.requested_by,
+    approvedBy: submitted.approved_by,
+    transferStatus: submitted.transfer_status,
+    docstatus: submitted.docstatus,
+    creation: submitted.creation,
+    modified: submitted.modified,
+  };
+}
+
+export async function getEmployeeAttendance(
+  sessionCookie: string,
+  filters: {
+    employee?: string;
+    mineSite?: string;
+    startDate?: string;
+    endDate?: string;
+    date?: string;
+    attendanceStatus?: string;
+    limit?: number;
+  } = {}
+): Promise<EmployeeAttendance[]> {
+  const queryFilters: any[] = [];
+  if (filters.employee) queryFilters.push(['employee', '=', filters.employee]);
+  if (filters.mineSite) queryFilters.push(['mine_site', '=', filters.mineSite]);
+  if (filters.date) queryFilters.push(['attendance_date', '=', filters.date]);
+  if (filters.startDate) queryFilters.push(['attendance_date', '>=', filters.startDate]);
+  if (filters.endDate) queryFilters.push(['attendance_date', '<=', filters.endDate]);
+  if (filters.attendanceStatus) queryFilters.push(['attendance_status', '=', filters.attendanceStatus]);
+
+  const queryParams = new URLSearchParams({
+    doctype: 'Employee Attendance',
+    fields: JSON.stringify([
+      'name', 'employee', 'employee_name', 'attendance_date', 'attendance_status',
+      'shift', 'vehicle', 'mine_site', 'daily_salary_rate', 'calculated_salary_amount',
+      'marked_by', 'remarks'
+    ]),
+    filters: JSON.stringify(queryFilters),
+    order_by: 'attendance_date desc, employee_name asc',
+    limit_page_length: String(filters.limit || 500),
+  });
+
+  const res = await callFrappeApi(
+    `/api/method/frappe.client.get_list?${queryParams.toString()}`,
+    sessionCookie,
+    { method: 'GET' }
+  );
+
+  return (res.message || []).map((a: any) => ({
+    id: a.name,
+    employee: a.employee,
+    employeeName: a.employee_name,
+    attendanceDate: a.attendance_date,
+    attendanceStatus: a.attendance_status,
+    shift: a.shift,
+    vehicle: a.vehicle || null,
+    mineSite: a.mine_site,
+    dailySalaryRate: Number(a.daily_salary_rate || 0),
+    calculatedSalaryAmount: Number(a.calculated_salary_amount || 0),
+    markedBy: a.marked_by || null,
+    remarks: a.remarks || null,
+  }));
+}
+
+export async function markEmployeeAttendance(
+  sessionCookie: string,
+  record: {
+    employee: string;
+    attendanceDate: string;
+    attendanceStatus: 'Present' | 'Half Day' | 'Absent' | 'On Leave';
+    shift?: 'Day' | 'Night' | 'General';
+    vehicle?: string;
+    mineSite?: string;
+    dailySalaryRate?: number;
+    remarks?: string;
+  }
+): Promise<EmployeeAttendance> {
+  const existingList = await callFrappeApi(
+    `/api/method/frappe.client.get_list?doctype=Employee Attendance&filters=${encodeURIComponent(
+      JSON.stringify([
+        ['employee', '=', record.employee],
+        ['attendance_date', '=', record.attendanceDate]
+      ])
+    )}&fields=["name"]`,
+    sessionCookie,
+    { method: 'GET' }
+  );
+
+  const docData: any = {
+    doctype: 'Employee Attendance',
+    employee: record.employee,
+    attendance_date: record.attendanceDate,
+    attendance_status: record.attendanceStatus,
+    shift: record.shift || 'Day',
+    vehicle: record.vehicle || '',
+    mine_site: record.mineSite || '',
+    remarks: record.remarks || '',
+  };
+
+  if (record.dailySalaryRate !== undefined && record.dailySalaryRate > 0) {
+    docData.daily_salary_rate = record.dailySalaryRate;
+  }
+
+  let savedDoc: any;
+
+  if (existingList.message && existingList.message.length > 0) {
+    const existingName = existingList.message[0].name;
+    const res = await callFrappeApi('/api/method/frappe.client.set_value', sessionCookie, {
+      method: 'POST',
+      body: JSON.stringify({
+        doctype: 'Employee Attendance',
+        name: existingName,
+        fieldname: docData,
+      }),
+    });
+    savedDoc = res.message;
+  } else {
+    const res = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
+      method: 'POST',
+      body: JSON.stringify({
+        doc: docData,
+      }),
+    });
+    savedDoc = res.message;
+  }
+
+  return {
+    id: savedDoc.name,
+    employee: savedDoc.employee,
+    employeeName: savedDoc.employee_name,
+    attendanceDate: savedDoc.attendance_date,
+    attendanceStatus: savedDoc.attendance_status,
+    shift: savedDoc.shift,
+    vehicle: savedDoc.vehicle || null,
+    mineSite: savedDoc.mine_site,
+    dailySalaryRate: Number(savedDoc.daily_salary_rate || 0),
+    calculatedSalaryAmount: Number(savedDoc.calculated_salary_amount || 0),
+    markedBy: savedDoc.marked_by || null,
+    remarks: savedDoc.remarks || null,
+  };
+}
+
+export async function getEmployeeAttendanceSummary(
+  sessionCookie: string,
+  filters: { mineSite?: string; month?: number; year?: number } = {}
+): Promise<EmployeeAttendanceSummary[]> {
+  const now = new Date();
+  const year = filters.year || now.getFullYear();
+  const month = filters.month || (now.getMonth() + 1);
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  const [attendances, employees] = await Promise.all([
+    getEmployeeAttendance(sessionCookie, {
+      mineSite: filters.mineSite,
+      startDate,
+      endDate,
+      limit: 1000,
+    }),
+    getEmployees(sessionCookie, { limit: 200 }),
+  ]);
+
+  const empMap = new Map<string, EmployeeAttendanceSummary>();
+  for (const emp of employees) {
+    if (!filters.mineSite || emp.customMineSite === filters.mineSite || emp.mineSite === filters.mineSite) {
+      empMap.set(emp.id, {
+        employee: emp.id,
+        employeeName: emp.employeeName,
+        mineSite: emp.customMineSite || emp.mineSite || '',
+        assignedVehicle: emp.assignedVehicle || null,
+        dailySalaryRate: emp.dailySalary || 0,
+        totalLoggedDays: 0,
+        presentDays: 0,
+        halfDays: 0,
+        absentDays: 0,
+        leaveDays: 0,
+        totalCalculatedSalary: 0,
+      });
+    }
+  }
+
+  for (const att of attendances) {
+    let summary = empMap.get(att.employee);
+    if (!summary) {
+      summary = {
+        employee: att.employee,
+        employeeName: att.employeeName,
+        mineSite: att.mineSite,
+        assignedVehicle: att.vehicle || null,
+        dailySalaryRate: att.dailySalaryRate,
+        totalLoggedDays: 0,
+        presentDays: 0,
+        halfDays: 0,
+        absentDays: 0,
+        leaveDays: 0,
+        totalCalculatedSalary: 0,
+      };
+      empMap.set(att.employee, summary);
+    }
+    summary.totalLoggedDays += 1;
+    if (att.attendanceStatus === 'Present') {
+      summary.presentDays += 1;
+    } else if (att.attendanceStatus === 'Half Day') {
+      summary.halfDays += 1;
+    } else if (att.attendanceStatus === 'Absent') {
+      summary.absentDays += 1;
+    } else if (att.attendanceStatus === 'On Leave') {
+      summary.leaveDays += 1;
+    }
+    summary.totalCalculatedSalary += att.calculatedSalaryAmount;
+  }
+
+  return Array.from(empMap.values());
+}
+

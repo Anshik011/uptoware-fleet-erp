@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFuelLogs, createFuelLog } from '@/lib/frappe';
-import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { resolveUserMineScope, validateAndResolveMineFilter, validateWriteMineSite, MineAuthorizationError } from '@/lib/mineAuth';
 import { CreateFuelLogInput, FuelSource, FuelPaymentMethod } from '@/types/fleet';
 
 export async function GET(request: NextRequest) {
@@ -26,7 +27,13 @@ export async function GET(request: NextRequest) {
     const source = searchParams.get('source') || undefined;
     const mineSite = searchParams.get('mine_site') || undefined;
     const query = searchParams.get('q')?.toLowerCase().trim();
-    const includeTest = searchParams.get('include_test') === 'true';
+    if (searchParams.get('include_test') === 'true' && !isAuthorizedForTestRecords(auth.user)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Access to test records requires Administrator or System Manager privileges.' },
+        { status: 403 }
+      );
+    }
+    const includeTest = isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
     const validStatuses = ['DRAFT', 'APPROVED', 'REJECTED', 'ALL'];
     if (!validStatuses.includes(status.toUpperCase())) {
@@ -39,15 +46,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const mineScope = await resolveUserMineScope(request);
+    const mineFilter = validateAndResolveMineFilter(mineScope, searchParams.get('mine_site'));
+
     const { logs, metrics } = await getFuelLogs(auth.sid, {
       status: status !== 'ALL' ? status : undefined,
       vehicle: vehicle && vehicle !== 'ALL' ? vehicle : undefined,
       source: source && source !== 'ALL' ? source : undefined,
-      mineSite: mineSite && mineSite !== 'ALL' ? mineSite : undefined,
+      mineSite: mineFilter.filterType === 'single' ? mineFilter.targetMine : undefined,
       includeTest,
     });
 
     let filteredLogs = logs;
+    if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      filteredLogs = filteredLogs.filter((l) => l.mineSite && mineFilter.targetMines!.includes(l.mineSite));
+    }
     if (query) {
       filteredLogs = filteredLogs.filter(
         (l) =>
@@ -77,6 +90,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /fuel GET error:', err?.message || 'Error');
     const status = err?.status || 500;
@@ -139,6 +158,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!mineSite || typeof mineSite !== 'string' || !mineSite.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Mine Site selection is strictly mandatory for fuel entry.' },
+        { status: 400 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateWriteMineSite(mineScope, mineSite);
+
     if (!fuelDate || typeof fuelDate !== 'string' || !fuelDate.trim()) {
       return NextResponse.json(
         { success: false, error: 'Refuel date is strictly mandatory.' },
@@ -198,6 +227,12 @@ export async function POST(request: NextRequest) {
     const newLog = await createFuelLog(auth.sid, input);
     return NextResponse.json({ success: true, data: newLog }, { status: 201 });
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /fuel POST error:', err?.message || 'Error');
     const msg = err?.message || '';

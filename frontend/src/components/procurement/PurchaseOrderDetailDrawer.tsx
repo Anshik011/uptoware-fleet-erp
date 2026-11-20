@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { PurchaseOrder } from '@/types/fleet';
 import { X, ShoppingCart, CheckCircle2, Clock, PackageCheck, UserCheck, IndianRupee, AlertCircle } from 'lucide-react';
+import {
+  formatVehicleDisplay,
+  formatMineSiteDisplay,
+  formatItemDisplay,
+} from '@/lib/displayFormatters';
 
 interface PurchaseOrderDetailDrawerProps {
   orderId: string | null;
@@ -60,8 +65,8 @@ export function PurchaseOrderDetailDrawer({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-xl font-bold text-slate-900 font-mono">
-                  {order ? order.name : orderId}
+                <h2 className="text-xl font-bold text-slate-900">
+                  {order ? `${order.supplier || 'Vendor'} · ${order.procurementType || 'Replenishment'}` : 'Purchase Order'}
                 </h2>
                 {order && (
                   <span
@@ -150,19 +155,23 @@ export function PurchaseOrderDetailDrawer({
                     {order.vehicle && (
                       <div>
                         <dt className="text-slate-500">Vehicle</dt>
-                        <dd className="font-semibold text-slate-900 mt-0.5">{order.vehicle}</dd>
+                        <dd className="font-semibold text-slate-900 mt-0.5">
+                          {formatVehicleDisplay(order.vehicle, undefined, { includeModel: true })}
+                        </dd>
                       </div>
                     )}
                     {order.vehicleBreakdown && (
                       <div>
                         <dt className="text-slate-500">Breakdown Incident</dt>
-                        <dd className="font-mono text-blue-600 mt-0.5">{order.vehicleBreakdown}</dd>
+                        <dd className="text-blue-600 mt-0.5">Linked Breakdown Service</dd>
                       </div>
                     )}
                     {order.mineSite && (
                       <div>
                         <dt className="text-slate-500">Mine Site</dt>
-                        <dd className="font-semibold text-slate-900 mt-0.5">{order.mineSite}</dd>
+                        <dd className="font-semibold text-slate-900 mt-0.5">
+                          {formatMineSiteDisplay(order.mineSite)}
+                        </dd>
                       </div>
                     )}
                   </dl>
@@ -188,8 +197,10 @@ export function PurchaseOrderDetailDrawer({
                       {order.items.map((i, idx) => (
                         <tr key={idx} className="hover:bg-slate-50">
                           <td className="py-2.5 px-3">
-                            <div className="font-semibold text-slate-900">{i.itemCode}</div>
-                            <div className="text-slate-500 text-[11px]">{i.itemName}</div>
+                            <div className="font-semibold text-slate-900">
+                              {formatItemDisplay(i.itemCode, i.itemName)}
+                            </div>
+                            <div className="text-slate-500 text-[11px] font-mono">Part Code: {i.itemCode}</div>
                             {i.warehouse && (
                               <div className="text-slate-400 text-[11px]">Wh: {i.warehouse}</div>
                             )}

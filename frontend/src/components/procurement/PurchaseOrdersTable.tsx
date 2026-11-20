@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PurchaseOrder } from '@/types/fleet';
 import { Search, ShoppingCart, Eye, CheckCircle2, Clock, PackageCheck, AlertCircle } from 'lucide-react';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface PurchaseOrdersTableProps {
   orders: PurchaseOrder[];
@@ -100,7 +101,7 @@ export function PurchaseOrdersTable({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search PO #, supplier, vehicle..."
+              placeholder="Search supplier, vehicle, parts..."
               value={searchQuery}
               onChange={(e) => {
                 onSearchChange(e.target.value);
@@ -153,7 +154,7 @@ export function PurchaseOrdersTable({
         <table className="w-full text-left border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-xs tracking-wider uppercase">
-              <th className="py-3.5 px-4">PO Number</th>
+              <th className="py-3.5 px-4">Order Reference</th>
               <th className="py-3.5 px-4">Date</th>
               <th className="py-3.5 px-4">Supplier</th>
               <th className="py-3.5 px-4">Procurement Type</th>
@@ -189,7 +190,10 @@ export function PurchaseOrdersTable({
               paginatedOrders.map((o) => (
                 <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3.5 px-4">
-                    <span className="font-mono font-semibold text-slate-900">{o.name}</span>
+                    <span className="font-semibold text-slate-900">{o.supplier}</span>
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      {o.procurementType || 'Replenishment Order'}
+                    </div>
                   </td>
                   <td className="py-3.5 px-4 text-xs text-slate-600">
                     <div>{o.transactionDate}</div>
@@ -207,13 +211,15 @@ export function PurchaseOrdersTable({
                   </td>
                   <td className="py-3.5 px-4 text-xs">
                     {o.vehicle ? (
-                      <div className="font-semibold text-slate-900">{o.vehicle}</div>
+                      <div className="font-semibold text-slate-900 font-mono">
+                        {formatVehicleDisplay(o.vehicle, vehicles)}
+                      </div>
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
                     {o.vehicleBreakdown && (
-                      <div className="text-blue-600 font-mono text-[11px]">
-                        BKD: {o.vehicleBreakdown}
+                      <div className="text-blue-600 font-medium text-[11px]">
+                        Linked Breakdown Service
                       </div>
                     )}
                   </td>

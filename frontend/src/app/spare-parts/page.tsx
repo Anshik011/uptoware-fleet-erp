@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { SparePartItem, InventoryMetrics } from '@/types/fleet';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
@@ -10,12 +11,16 @@ import { InventoryDashboard } from '@/components/inventory/InventoryDashboard';
 import { SparePartsTable } from '@/components/inventory/SparePartsTable';
 import { AddSparePartModal } from '@/components/inventory/AddSparePartModal';
 import { SparePartDrawer } from '@/components/inventory/SparePartDrawer';
+import { AddStockEntryModal, WarehouseOption, ItemOption, VehicleOption, BreakdownOption } from '@/components/inventory/AddStockEntryModal';
 import { Button } from '@/components/ui/Button';
-import { Package, PlusCircle, RefreshCw, AlertCircle } from 'lucide-react';
+import { Package, PlusCircle, RefreshCw, AlertCircle, ArrowLeftRight, Loader2 } from 'lucide-react';
 
-export default function SparePartsPage() {
+function SparePartsContent() {
+  const searchParams = useSearchParams();
   const { hasRole } = useAuth();
   const canManage = hasRole(['Fleet Manager', 'Workshop Supervisor', 'Administrator']);
+
+  const actionParam = searchParams.get('action');
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +45,19 @@ export default function SparePartsPage() {
   const [selectedStatus, setSelectedStatus] = useState('ALL');
 
   // Modals & Drawers
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(actionParam === 'new');
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(actionParam === 'adjust');
+  const [movementItems, setMovementItems] = useState<ItemOption[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
+  const [breakdowns, setBreakdowns] = useState<BreakdownOption[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
-  // Load options (warehouses, groups, suppliers)
+  useEffect(() => {
+    if (actionParam === 'adjust') setIsAdjustmentModalOpen(true);
+    if (actionParam === 'new') setIsAddModalOpen(true);
+  }, [actionParam]);
+
+  // Load options (warehouses, groups, suppliers, vehicles, breakdowns)
   useEffect(() => {
     async function loadOptions() {
       try {
@@ -53,6 +67,9 @@ export default function SparePartsPage() {
           if (json.warehouses) setWarehouses(json.warehouses);
           if (json.itemGroups) setItemGroups(json.itemGroups);
           if (json.suppliers) setSuppliers(json.suppliers);
+          if (json.items) setMovementItems(json.items);
+          if (json.vehicles) setVehicles(json.vehicles);
+          if (json.breakdowns) setBreakdowns(json.breakdowns);
         }
       } catch (err) {
         console.warn('Could not load inventory options:', err);
@@ -124,15 +141,26 @@ export default function SparePartsPage() {
             </Button>
 
             {canManage && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center space-x-1.5 shadow-sm"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Add Spare Part</span>
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAdjustmentModalOpen(true)}
+                  className="flex items-center space-x-1.5 shadow-sm"
+                >
+                  <ArrowLeftRight className="w-4 h-4" />
+                  <span>Adjust Stock</span>
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="flex items-center space-x-1.5 shadow-sm"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Add Spare Part</span>
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -179,6 +207,22 @@ export default function SparePartsPage() {
           />
         )}
 
+        {/* Stock Adjustment Modal */}
+        {isAdjustmentModalOpen && (
+          <AddStockEntryModal
+            isOpen={isAdjustmentModalOpen}
+            onClose={() => setIsAdjustmentModalOpen(false)}
+            onSuccess={() => {
+              setIsAdjustmentModalOpen(false);
+              loadParts();
+            }}
+            warehouses={warehouses}
+            items={movementItems}
+            vehicles={vehicles}
+            breakdowns={breakdowns}
+          />
+        )}
+
         {/* Spare Part Details Slide-Over Drawer */}
         {selectedItemId && (
           <SparePartDrawer
@@ -188,6 +232,25 @@ export default function SparePartsPage() {
         )}
       </PageContainer>
     </AppShell>
+  );
+}
+
+export default function SparePartsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell>
+          <PageContainer>
+            <div className="flex items-center justify-center p-12 text-slate-500 gap-2">
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+              <span>Loading Spare Parts & Inventory...</span>
+            </div>
+          </PageContainer>
+        </AppShell>
+      }
+    >
+      <SparePartsContent />
+    </Suspense>
   );
 }
 

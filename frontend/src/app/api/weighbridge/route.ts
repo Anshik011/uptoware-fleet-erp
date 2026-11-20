@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getWeighbridgeData, confirmWeighbridgeScale } from '@/lib/frappe';
-import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { getWeighbridgeData, confirmWeighbridgeScale, getMiningTripById } from '@/lib/frappe';
+import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { resolveUserMineScope, validateAndResolveMineFilter, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 import { MiningTrip } from '@/types/fleet';
 
 export async function GET(request: NextRequest) {
@@ -25,7 +26,13 @@ export async function GET(request: NextRequest) {
     const mineSite = searchParams.get('mine_site');
     const material = searchParams.get('material');
     const query = searchParams.get('q')?.toLowerCase().trim();
-    const includeTest = searchParams.get('include_test') === 'true';
+    if (searchParams.get('include_test') === 'true' && !isAuthorizedForTestRecords(auth.user)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Access to test records requires Administrator or System Manager privileges.' },
+        { status: 403 }
+      );
+    }
+    const includeTest = isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
     const validStatuses = ['PENDING', 'COMPLETED', 'ALL'];
     if (!validStatuses.includes(status.toUpperCase())) {
@@ -43,12 +50,18 @@ export async function GET(request: NextRequest) {
       includeTest
     );
 
+    const mineScope = await resolveUserMineScope(request);
+    const mineFilter = validateAndResolveMineFilter(mineScope, searchParams.get('mine_site'));
+
     let filteredPending = [...pendingQueue];
     let filteredCompleted = [...completedRecords];
 
-    if (mineSite && mineSite !== 'ALL') {
-      filteredPending = filteredPending.filter((t) => t.mineSite === mineSite);
-      filteredCompleted = filteredCompleted.filter((t) => t.mineSite === mineSite);
+    if (mineFilter.filterType === 'single') {
+      filteredPending = filteredPending.filter((t) => t.mineSite === mineFilter.targetMine);
+      filteredCompleted = filteredCompleted.filter((t) => t.mineSite === mineFilter.targetMine);
+    } else if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      filteredPending = filteredPending.filter((t) => mineFilter.targetMines!.includes(t.mineSite));
+      filteredCompleted = filteredCompleted.filter((t) => mineFilter.targetMines!.includes(t.mineSite));
     }
 
     if (material && material !== 'ALL') {
@@ -89,6 +102,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /weighbridge GET error:', err?.message || 'Error');
     const status = err?.status || 500;
@@ -135,6 +154,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const tripDetails = await getMiningTripById(auth.sid, tripId.trim(), true);
+    if (!tripDetails || !tripDetails.trip) {
+      return NextResponse.json(
+        { success: false, error: `Mining trip '${tripId}' not found.` },
+        { status: 404 }
+      );
+    }
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, tripDetails.trip.mineSite);
+
     if (grossWeightTons == null || tareWeightTons == null) {
       return NextResponse.json(
         {
@@ -177,6 +206,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: updatedTrip }, { status: 200 });
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /weighbridge POST error:', err?.message || 'Error');
     const msg = err?.message || '';

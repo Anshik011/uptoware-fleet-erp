@@ -20,6 +20,9 @@ export function AddSupplierModal({
   const [supplierType, setSupplierType] = useState('Company');
   const [country, setCountry] = useState('India');
   const [pan, setPan] = useState('');
+  const [gstNo, setGstNo] = useState('');
+  const [mobileNo, setMobileNo] = useState('');
+  const [address, setAddress] = useState('');
   const [isPreferred, setIsPreferred] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,6 +47,9 @@ export function AddSupplierModal({
         supplierType,
         country,
         pan: pan.trim() || undefined,
+        gstNo: gstNo.trim() || undefined,
+        mobileNo: mobileNo.trim() || undefined,
+        address: address.trim() || undefined,
         isPreferred,
       };
 
@@ -153,6 +159,30 @@ export function AddSupplierModal({
             </div>
 
             <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">GST Number</label>
+              <input
+                type="text"
+                placeholder="e.g. 21AABCU9603R1ZM"
+                value={gstNo}
+                onChange={(e) => setGstNo(e.target.value.toUpperCase())}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 font-mono focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile / Contact Phone</label>
+              <input
+                type="text"
+                placeholder="e.g. +91 98765 43210"
+                value={mobileNo}
+                onChange={(e) => setMobileNo(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Country</label>
               <input
                 type="text"
@@ -161,6 +191,17 @@ export function AddSupplierModal({
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Vendor Address / Workshop Location</label>
+            <textarea
+              rows={2}
+              placeholder="e.g. Plot 42, Industrial Estate, Angul, Odisha"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           <div className="pt-2">

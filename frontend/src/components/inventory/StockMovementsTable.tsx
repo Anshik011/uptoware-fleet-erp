@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StockMovement } from '@/types/fleet';
 import { Search, ArrowLeftRight, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface StockMovementsTableProps {
   movements: StockMovement[];
@@ -69,7 +70,7 @@ export function StockMovementsTable({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search voucher #, vehicle, breakdown..."
+              placeholder="Search transaction reference, vehicle, or breakdown..."
               value={searchQuery}
               onChange={(e) => {
                 onSearchChange(e.target.value);
@@ -120,7 +121,7 @@ export function StockMovementsTable({
         <table className="w-full text-left border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-xs tracking-wider uppercase">
-              <th className="py-3.5 px-4">Voucher No.</th>
+              <th className="py-3.5 px-4">Movement Voucher</th>
               <th className="py-3.5 px-4">Date & Time</th>
               <th className="py-3.5 px-4">Type</th>
               <th className="py-3.5 px-4">Warehouse Route</th>
@@ -156,7 +157,10 @@ export function StockMovementsTable({
               paginatedMovements.map((m) => (
                 <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3.5 px-4">
-                    <span className="font-mono font-semibold text-slate-900">{m.name}</span>
+                    <span className="font-semibold text-slate-900">{m.entryType}</span>
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      {m.vehicle ? `Vehicle: ${formatVehicleDisplay(m.vehicle, vehicles)}` : 'Warehouse Inventory'}
+                    </div>
                   </td>
                   <td className="py-3.5 px-4 text-xs text-slate-600">
                     <div>{m.postingDate}</div>
@@ -174,13 +178,15 @@ export function StockMovementsTable({
                   </td>
                   <td className="py-3.5 px-4 text-xs">
                     {m.vehicle ? (
-                      <div className="font-semibold text-slate-900">{m.vehicle}</div>
+                      <div className="font-semibold text-slate-900 font-mono">
+                        {formatVehicleDisplay(m.vehicle, vehicles)}
+                      </div>
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
                     {m.vehicleBreakdown && (
-                      <div className="text-blue-600 font-mono text-[11px]">
-                        BKD: {m.vehicleBreakdown}
+                      <div className="text-blue-600 font-medium text-[11px]">
+                        Linked Workshop Service
                       </div>
                     )}
                   </td>

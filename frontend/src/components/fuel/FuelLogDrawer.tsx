@@ -5,6 +5,11 @@ import { FuelLog } from '@/types/fleet';
 import { Badge, BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
+  formatVehicleDisplay,
+  formatDriverDisplay,
+  formatMineSiteDisplay,
+} from '@/lib/displayFormatters';
+import {
   Fuel,
   X,
   Truck,
@@ -97,8 +102,8 @@ export function FuelLogDrawer({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-900 font-mono">
-                  {logId}
+                <h2 className="text-base font-bold text-slate-900">
+                  {log ? `Refuel · ${formatVehicleDisplay(log.vehicle)}` : 'Fuel Dispensation'}
                 </h2>
                 {log && (
                   <Badge variant={getStatusVariant(log.approvalStatus)} size="sm">
@@ -107,7 +112,7 @@ export function FuelLogDrawer({
                 )}
               </div>
               <p className="text-xs text-slate-500">
-                {log ? `${log.vehicle} · Refuel on ${log.fuelDate}` : 'Loading...'}
+                {log ? `${formatVehicleDisplay(log.vehicle)} · Refuel on ${log.fuelDate}` : 'Loading...'}
               </p>
             </div>
           </div>
@@ -189,19 +194,21 @@ export function FuelLogDrawer({
                 </h3>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
-                    <span className="text-slate-400 block mb-0.5">Vehicle License Plate</span>
-                    <span className="font-bold text-slate-900 font-mono">{log.vehicle}</span>
+                    <span className="text-slate-400 block mb-0.5">Vehicle Registration</span>
+                    <span className="font-bold text-slate-900 font-mono">
+                      {formatVehicleDisplay(log.vehicle, undefined, { includeModel: true })}
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block mb-0.5">Assigned Operator</span>
                     <span className="font-semibold text-slate-900">
-                      {log.driverName || log.driver || 'Unspecified'}
+                      {formatDriverDisplay(undefined, log.driverName)}
                     </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block mb-0.5">Mine Site Location</span>
                     <span className="font-semibold text-slate-900">
-                      {log.mineSiteName || log.mineSite || 'Central Yard / Bowser'}
+                      {formatMineSiteDisplay(log.mineSite, log.mineSiteName) || 'Central Yard / Bowser'}
                     </span>
                   </div>
                   <div>
@@ -287,7 +294,7 @@ export function FuelLogDrawer({
                 <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-3">
                   <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                     <History className="w-4 h-4 text-slate-500" />
-                    Recent Refuels for {log.vehicle}
+                    Recent Refuels for {formatVehicleDisplay(log.vehicle)}
                   </h3>
                   <div className="divide-y divide-slate-100 text-xs">
                     {recentLogs.map((rl) => (

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { VehicleBreakdown, BreakdownWorkflowAction } from '@/types/fleet';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import { Button } from '@/components/ui/Button';
 import {
   Wrench,
@@ -36,6 +37,20 @@ export function BreakdownWorkflowModal({
     breakdown.laborCost > 0 ? String(breakdown.laborCost) : ''
   );
   const [rejectionReason, setRejectionReason] = useState('');
+  const [inspectionNotes, setInspectionNotes] = useState(breakdown.inspectionNotes || '');
+  const [partsAvailabilityStatus, setPartsAvailabilityStatus] = useState(
+    breakdown.partsAvailabilityStatus || 'In Stock'
+  );
+  const [purchaseRequest, setPurchaseRequest] = useState(breakdown.purchaseRequest || '');
+  const [purchaseAuthorizedBy, setPurchaseAuthorizedBy] = useState(breakdown.purchaseAuthorizedBy || '');
+  const [deliveryPersonName, setDeliveryPersonName] = useState(breakdown.deliveryPersonName || '');
+  const [deliveryChallanNo, setDeliveryChallanNo] = useState(breakdown.deliveryChallanNo || '');
+  const [repairCompletionEvidence, setRepairCompletionEvidence] = useState(
+    breakdown.repairCompletionEvidence || ''
+  );
+  const [acknowledgementSignature, setAcknowledgementSignature] = useState(
+    breakdown.acknowledgementSignature || ''
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,6 +103,14 @@ export function BreakdownWorkflowModal({
             repairDetails: repairDetails.trim() || undefined,
             laborCost: laborCost ? Number(laborCost) : undefined,
             rejectionReason: rejectionReason.trim() || undefined,
+            inspectionNotes: inspectionNotes.trim() || undefined,
+            partsAvailabilityStatus: partsAvailabilityStatus || undefined,
+            purchaseRequest: purchaseRequest.trim() || undefined,
+            purchaseAuthorizedBy: purchaseAuthorizedBy.trim() || undefined,
+            deliveryPersonName: deliveryPersonName.trim() || undefined,
+            deliveryChallanNo: deliveryChallanNo.trim() || undefined,
+            repairCompletionEvidence: repairCompletionEvidence.trim() || undefined,
+            acknowledgementSignature: acknowledgementSignature.trim() || undefined,
           }),
         }
       );
@@ -122,8 +145,8 @@ export function BreakdownWorkflowModal({
               <h3 className="text-base font-semibold text-slate-900">
                 Update Maintenance Status
               </h3>
-              <p className="text-xs text-slate-500 font-mono">
-                {breakdown.id} • {breakdown.vehicle} ({breakdown.repairStatus})
+              <p className="text-xs text-slate-500">
+                {breakdown.breakdownType} • {formatVehicleDisplay(breakdown.vehicle)} ({breakdown.repairStatus})
               </p>
             </div>
           </div>
@@ -138,6 +161,10 @@ export function BreakdownWorkflowModal({
 
         {/* Modal Body */}
         <div className="p-6 space-y-4">
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 leading-relaxed">
+            <span className="font-semibold">Provisional Role Authorization:</span> Driver (Report), Workshop Supervisor (Inspection/Repair/Parts), Fleet Manager (Approve/Close) — Formal delegation of authority (DOA) pending client sign-off.
+          </div>
+
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-2.5 text-xs text-rose-800">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -186,38 +213,143 @@ export function BreakdownWorkflowModal({
             </div>
           )}
 
-          {(currentAction === 'Mark Repaired' || currentAction === 'Send to Workshop') && (
+          {/* Action-Specific Step Fields */}
+          {currentAction === 'Send to Workshop' && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Diagnosis & Repair Details
+                  Supervisor Inspection Notes
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Record workshop actions, diagnostic steps, repairs carried out..."
-                  value={repairDetails}
-                  onChange={(e) => setRepairDetails(e.target.value)}
-                  data-testid="input-breakdown-repair-details"
+                  placeholder="Record initial inspection observations, damage assessment..."
+                  value={inspectionNotes}
+                  onChange={(e) => setInspectionNotes(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
                 />
               </div>
 
-              {currentAction === 'Mark Repaired' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Parts Availability Status
+                </label>
+                <select
+                  value={partsAvailabilityStatus}
+                  onChange={(e) => setPartsAvailabilityStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+                >
+                  <option value="In Stock">In Stock (Central Warehouse)</option>
+                  <option value="Required Procurement">Required Procurement (Raise PO)</option>
+                  <option value="Direct Purchase Issued">Direct Purchase Issued (Local Vendor)</option>
+                  <option value="Not Required">Not Required (Minor Adjustment Only)</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {currentAction === 'Request Parts' && (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Labor Cost (₹)
+                    Parts Availability Status
+                  </label>
+                  <select
+                    value={partsAvailabilityStatus}
+                    onChange={(e) => setPartsAvailabilityStatus(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+                  >
+                    <option value="Required Procurement">Required Procurement</option>
+                    <option value="Direct Purchase Issued">Direct Purchase Issued</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Purchase Order / Indent No
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g. 3500"
-                    value={laborCost}
-                    onChange={(e) => setLaborCost(e.target.value)}
-                    data-testid="input-breakdown-labor-cost"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+                    type="text"
+                    placeholder="e.g. PUR-ORD-2026-0001"
+                    value={purchaseRequest}
+                    onChange={(e) => setPurchaseRequest(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
                   />
                 </div>
-              )}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Purchase Authorized By
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Workshop Manager / Admin"
+                  value={purchaseAuthorizedBy}
+                  onChange={(e) => setPurchaseAuthorizedBy(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+                />
+              </div>
+            </div>
+          )}
+
+          {currentAction === 'Parts Received' && (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Delivery Person Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rajesh Kumar (Vendor Agent)"
+                    value={deliveryPersonName}
+                    onChange={(e) => setDeliveryPersonName(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Delivery Challan / Invoice No
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. DC-9842 / INV-4821"
+                    value={deliveryChallanNo}
+                    onChange={(e) => setDeliveryChallanNo(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(currentAction === 'Mark Repaired' || currentAction === 'Close Breakdown') && (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Repair Evidence Photo / Note
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Evidence doc / photo link"
+                    value={repairCompletionEvidence}
+                    onChange={(e) => setRepairCompletionEvidence(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Driver Handover Acknowledgement
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Driver full name or ID"
+                    value={acknowledgementSignature}
+                    onChange={(e) => setAcknowledgementSignature(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600"
+                  />
+                </div>
+              </div>
             </div>
           )}
 

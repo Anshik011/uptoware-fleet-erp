@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { formatCurrency, formatNumber, formatDate } from '@/config/branding';
+import { useMine } from '@/context/MineContext';
 import {
   FileSpreadsheet,
   Download,
@@ -12,6 +14,7 @@ import {
   ChevronRight,
   AlertCircle,
   BarChart3,
+  MapPin,
 } from 'lucide-react';
 
 export const FINANCE_REPORTS = [
@@ -27,10 +30,33 @@ export const FINANCE_REPORTS = [
   { name: 'Unallocated Cost Register', desc: 'Overhead and indirect costs not tied to specific vehicles or trips' },
   { name: 'Accounts Receivable', desc: 'Standard ERPNext trade receivables ledger with aging buckets' },
   { name: 'Gross Profit', desc: 'Standard ERPNext gross profit analysis on submitted commercial invoices' },
+  { name: 'Daily Fleet Income and Expense Summary', desc: 'Daily net operating contribution: Haulage revenue minus fuel, repair, and OpEx costs' },
+  { name: 'Monthly Fleet Income and Expense Summary', desc: 'Monthly executive P&L: Completed trips, billed tonnage, revenue vs outflow margins' },
+  { name: 'Vehicle Earning Summary Report', desc: 'Provisional vehicle unit economics (Revenue, fuel, repairs, net profit) — Draft format pending client template' },
+  { name: 'HSD Fuel Price Escalation Report', desc: 'HSD benchmark price escalation tracking — User-configurable contract baseline rate' },
+  { name: 'Fleet Lead Haulage Report', desc: 'Lead route performance: Tonnage, contract rates, trip counts, and earned freight' },
+  { name: 'Employee Attendance Summary Report', desc: 'Personnel shift roster: Present, half-day, absent, wage rates, and calculated payroll' },
 ];
 
 export function FinancialReportViewer() {
-  const [selectedReport, setSelectedReport] = useState(FINANCE_REPORTS[0].name);
+  const { currentMine } = useMine();
+  const searchParams = useSearchParams();
+  const activeMine = currentMine && currentMine !== 'ALL' ? currentMine : undefined;
+  const reportParam = searchParams.get('report');
+
+  const [selectedReport, setSelectedReport] = useState(() => {
+    if (reportParam && FINANCE_REPORTS.some((r) => r.name === reportParam)) {
+      return reportParam;
+    }
+    return FINANCE_REPORTS[0].name;
+  });
+
+  useEffect(() => {
+    if (reportParam && FINANCE_REPORTS.some((r) => r.name === reportParam)) {
+      setSelectedReport(reportParam);
+    }
+  }, [reportParam]);
+
   const [fromDate, setFromDate] = useState('2026-01-01');
   const [toDate, setToDate] = useState('2026-12-31');
   const [vehicleFilter, setVehicleFilter] = useState('');
@@ -52,17 +78,22 @@ export function FinancialReportViewer() {
     setCurrentPage(1);
 
     try {
+      const filters: Record<string, any> = {
+        from_date: fromDate || '2026-01-01',
+        to_date: toDate || '2026-12-31',
+        vehicle: vehicleFilter || '',
+        customer: customerFilter || '',
+      };
+      if (activeMine) {
+        filters.mine_site = activeMine;
+      }
+
       const res = await fetch('/api/finance/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           report_name: selectedReport,
-          filters: {
-            from_date: fromDate || '2026-01-01',
-            to_date: toDate || '2026-12-31',
-            vehicle: vehicleFilter || '',
-            customer: customerFilter || '',
-          },
+          filters,
         }),
       });
 
@@ -86,7 +117,7 @@ export function FinancialReportViewer() {
 
   useEffect(() => {
     fetchReport();
-  }, [selectedReport]);
+  }, [selectedReport, currentMine]);
 
   // Client search filtering
   const filteredData = data.filter((row) => {
@@ -159,9 +190,17 @@ export function FinancialReportViewer() {
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex-1">
-            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block mb-1.5">
-              Select Financial & Analytics Report
-            </label>
+            <div className="flex items-center gap-2 mb-1.5">
+              <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Select Financial & Analytics Report
+              </label>
+              {activeMine && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <MapPin className="w-2.5 h-2.5" />
+                  {activeMine}
+                </span>
+              )}
+            </div>
             <select
               value={selectedReport}
               onChange={(e) => setSelectedReport(e.target.value)}
@@ -251,6 +290,11 @@ export function FinancialReportViewer() {
             <span className="text-[11px] text-slate-500">
               ({filteredData.length} records)
             </span>
+            {activeMine && (
+              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                {activeMine}
+              </span>
+            )}
           </div>
 
           <div className="relative w-full sm:w-64">
@@ -362,4 +406,3 @@ export function FinancialReportViewer() {
     </div>
   );
 }
-

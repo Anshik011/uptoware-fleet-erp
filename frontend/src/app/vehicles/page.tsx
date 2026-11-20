@@ -1,20 +1,25 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageContainer } from '@/components/ui/PageContainer';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { VehicleTable } from '@/components/vehicles/VehicleTable';
 import { AddVehicleModal } from '@/components/vehicles/AddVehicleModal';
+import { ShiftAllocationModal } from '@/components/shifts/ShiftAllocationModal';
 import { VehicleDrawer } from '@/components/vehicles/VehicleDrawer';
+import { DriverDrawer } from '@/components/drivers/DriverDrawer';
 import { Vehicle } from '@/types/fleet';
 import { Truck, CheckCircle2, Wrench, ShieldAlert, Loader2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { useMine } from '@/context/MineContext';
 
 function VehiclesTableSection() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const { currentMine } = useMine();
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +34,8 @@ function VehiclesTableSection() {
   // Modal & Drawer State
   const [isAddModalOpen, setIsAddModalOpen] = useState(searchParams.get('action') === 'new');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [allocatingVehicleId, setAllocatingVehicleId] = useState<string | null>(null);
 
   const fetchVehicles = useCallback(async () => {
     try {
@@ -39,6 +46,7 @@ function VehiclesTableSection() {
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
       if (selectedStatus !== 'ALL') params.set('status', selectedStatus);
       if (selectedCompliance !== 'ALL') params.set('compliance', selectedCompliance);
+      if (currentMine && currentMine !== 'ALL') params.set('mine_site', currentMine);
 
       const res = await fetch(`/api/vehicles?${params.toString()}`);
       const json = await res.json();
@@ -67,7 +75,7 @@ function VehiclesTableSection() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, selectedStatus, selectedCompliance, sortBy]);
+  }, [searchQuery, selectedStatus, selectedCompliance, sortBy, currentMine]);
 
   useEffect(() => {
     fetchVehicles();
@@ -174,6 +182,8 @@ function VehiclesTableSection() {
         vehicles={vehicles}
         onSelectVehicle={(id) => setSelectedVehicleId(id)}
         onOpenAddVehicle={() => setIsAddModalOpen(true)}
+        onAllocateDriver={(id) => setAllocatingVehicleId(id)}
+        onSelectDriver={(driverId) => setSelectedDriverId(driverId)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedStatus={selectedStatus}
@@ -204,6 +214,25 @@ function VehiclesTableSection() {
         vehicleId={selectedVehicleId}
         onClose={() => setSelectedVehicleId(null)}
       />
+
+      {/* Driver Profile Drawer */}
+      <DriverDrawer
+        driverId={selectedDriverId}
+        onClose={() => setSelectedDriverId(null)}
+      />
+
+      {/* Direct Shift/Driver Allocation Modal */}
+      {allocatingVehicleId && (
+        <ShiftAllocationModal
+          isOpen={Boolean(allocatingVehicleId)}
+          initialVehicle={allocatingVehicleId}
+          onClose={() => setAllocatingVehicleId(null)}
+          onSuccess={() => {
+            setAllocatingVehicleId(null);
+            fetchVehicles();
+          }}
+        />
+      )}
     </>
   );
 }

@@ -5,6 +5,11 @@ import { MiningTrip } from '@/types/fleet';
 import { Badge, BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
+  formatVehicleDisplay,
+  formatDriverDisplay,
+  formatMineSiteDisplay,
+} from '@/lib/displayFormatters';
+import {
   Scale,
   Search,
   CheckCircle2,
@@ -128,7 +133,7 @@ export function WeighbridgeTable({
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by trip, vehicle, driver, challan..."
+              placeholder="Search by vehicle, driver, challan, material..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               data-testid="input-weighbridge-search"
@@ -178,7 +183,7 @@ export function WeighbridgeTable({
         >
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <th className="py-3 px-4 sm:px-6">Trip ID / Challan</th>
+              <th className="py-3 px-4 sm:px-6">Challan / Material</th>
               <th className="py-3 px-4">Vehicle & Driver</th>
               <th className="py-3 px-4">Pit & Material</th>
               <th className="py-3 px-4 text-right">Gross Wt (T)</th>
@@ -219,30 +224,30 @@ export function WeighbridgeTable({
                     onClick={() => onSelectTrip(trip)}
                     data-testid={`row-weighbridge-${trip.id}`}
                   >
-                    {/* Trip ID & Challan */}
+                    {/* Challan & Material */}
                     <td className="py-3.5 px-4 sm:px-6 font-medium text-slate-900">
-                      <div className="font-mono text-xs font-bold text-blue-900">
-                        {trip.id}
+                      <div className="text-xs font-bold text-slate-900">
+                        {trip.challanNumber ? `Challan #${trip.challanNumber}` : trip.materialType || 'Mineral Haul'}
                       </div>
-                      <div className="text-[11px] font-mono text-slate-500">
-                        {trip.challanNumber ? `Challan: ${trip.challanNumber}` : 'Pending slip'}
+                      <div className="text-[11px] text-slate-500 font-medium">
+                        {trip.dispatchDateTime ? trip.dispatchDateTime.slice(0, 16) : 'Scale Dispatch'}
                       </div>
                     </td>
 
                     {/* Vehicle & Driver */}
                     <td className="py-3.5 px-4">
                       <div className="font-mono font-bold text-slate-900 text-xs">
-                        {trip.vehicle}
+                        {formatVehicleDisplay(trip.vehicle)}
                       </div>
                       <div className="text-[11px] text-slate-500">
-                        {trip.driverName || trip.driver}
+                        {formatDriverDisplay(trip.driver, trip.driverName)}
                       </div>
                     </td>
 
                     {/* Pit & Material */}
                     <td className="py-3.5 px-4">
-                      <div className="font-medium text-slate-900 text-xs">
-                        {trip.mineSiteName || trip.mineSite}
+                      <div className="font-medium text-slate-900 text-xs" title={formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}>
+                        {formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}
                       </div>
                       <div className="text-[11px] font-semibold text-slate-500">
                         {trip.materialType}

@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useMine } from '@/context/MineContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageContainer } from '@/components/ui/PageContainer';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -9,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ShiftAllocationModal } from '@/components/shifts/ShiftAllocationModal';
 import { VehicleDriverShiftAllocation, ShiftTypeOption, ShiftAllocationStatus } from '@/types/fleet';
+import { toLocalDateTimeString } from '@/lib/datetime';
 import {
   Clock,
   Calendar,
@@ -24,8 +27,16 @@ import {
   Loader2,
 } from 'lucide-react';
 
-export default function ShiftsPage() {
+function ShiftsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const paramVehicle = searchParams.get('vehicle') || undefined;
+  const paramDriver = searchParams.get('driver') || undefined;
+  const paramAction = searchParams.get('action');
+  const returnUrl = searchParams.get('returnUrl') || undefined;
+
   const { hasRole } = useAuth();
+  const { currentMine } = useMine();
   const canManage = hasRole(['Fleet Manager', 'Dispatcher', 'Administrator']);
 
   const [allocations, setAllocations] = useState<VehicleDriverShiftAllocation[]>([]);
@@ -38,14 +49,17 @@ export default function ShiftsPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(paramAction === 'new' || Boolean(paramVehicle) || Boolean(paramDriver));
+  const [editingAllocation, setEditingAllocation] = useState<VehicleDriverShiftAllocation | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const loadShifts = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await fetch('/api/shifts?limit=200&include_test=true');
+      const params = new URLSearchParams({ limit: '200', include_test: 'true' });
+      if (currentMine && currentMine !== 'ALL') params.set('mine_site', currentMine);
+      const res = await fetch(`/api/shifts?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Failed to fetch shift allocations.');
@@ -57,7 +71,7 @@ export default function ShiftsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentMine]);
 
   useEffect(() => {
     loadShifts();
@@ -66,7 +80,7 @@ export default function ShiftsPage() {
   const handleUpdateStatus = async (allocId: string, newStatus: string) => {
     try {
       setActionLoading(allocId);
-      const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const nowStr = toLocalDateTimeString();
       const res = await fetch(`/api/shifts/${encodeURIComponent(allocId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -280,25 +294,25 @@ export default function ShiftsPage() {
                       <td className="py-3 px-4">
                         <div className="font-mono font-bold text-slate-900 flex items-center gap-2">
                           <Truck className="w-4 h-4 text-blue-900 shrink-0" />
-                          <span>{alloc.licensePlate || alloc.vehicle}</span>
+                          <span>{alloc.licensePlate || 'Fleet Asset'}</span>
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                          {alloc.vehicle}
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          Assigned Fleet Asset
                         </div>
                       </td>
 
                       <td className="py-3 px-4">
                         <div className="font-semibold text-slate-800 flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{alloc.driverName || alloc.driver}</span>
+                          <span>{alloc.driverName || 'Designated Driver'}</span>
                           {alloc.isPrimary && (
                             <span className="px-1.5 py-0.2 text-[9px] bg-blue-100 text-blue-800 font-semibold rounded">
                               Primary
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                          {alloc.driver}
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          Roster Assignment
                         </div>
                       </td>
 
@@ -328,6 +342,17 @@ export default function ShiftsPage() {
                       <td className="py-3 px-4 text-right">
                         {canManage && (alloc.status === 'Active' || alloc.status === 'Scheduled') && (
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingAllocation(alloc);
+                                setIsModalOpen(true);
+                              }}
+                              className="px-2.5 py-1 bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 rounded text-[11px] font-medium transition-colors"
+                              title="Edit Shift Allocation"
+                            >
+                              Edit
+                            </button>
                             {alloc.status === 'Scheduled' && (
                               <button
                                 type="button"
@@ -368,10 +393,38 @@ export default function ShiftsPage() {
         {/* Modal */}
         <ShiftAllocationModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSuccess={loadShifts}
+          initialVehicle={paramVehicle}
+          initialDriver={paramDriver}
+          initialAllocation={editingAllocation}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingAllocation(null);
+          }}
+          onSuccess={() => {
+            loadShifts();
+            setIsModalOpen(false);
+            setEditingAllocation(null);
+            if (returnUrl) {
+              router.push(returnUrl);
+            }
+          }}
         />
       </PageContainer>
     </AppShell>
+  );
+}
+
+export default function ShiftsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-3">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          <span className="text-xs font-medium">Loading shift allocations...</span>
+        </div>
+      }
+    >
+      <ShiftsContent />
+    </Suspense>
   );
 }

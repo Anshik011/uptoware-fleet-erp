@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMiningTrips, createMiningTrip, getMiningTripMaterialOptions } from '@/lib/frappe';
-import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { resolveUserMineScope, validateAndResolveMineFilter, validateWriteMineSite, MineAuthorizationError } from '@/lib/mineAuth';
 import { CreateMiningTripInput, TripStatus } from '@/types/fleet';
+import { toLocalDateTimeString } from '@/lib/datetime';
 
 const PERMITTED_STATUSES: (TripStatus | 'ALL')[] = [
   'ALL',
@@ -49,7 +51,13 @@ export async function GET(request: NextRequest) {
     const vehicle = searchParams.get('vehicle') || '';
     const driver = searchParams.get('driver') || '';
     const material = searchParams.get('material') || 'ALL';
-    const includeTest = searchParams.get('include_test') === 'true';
+    if (searchParams.get('include_test') === 'true' && !isAuthorizedForTestRecords(auth.user)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Access to test records requires Administrator or System Manager privileges.' },
+        { status: 403 }
+      );
+    }
+    const includeTest = isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
     if (!PERMITTED_STATUSES.includes(status as any)) {
       return NextResponse.json(
@@ -68,13 +76,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const mineScope = await resolveUserMineScope(request);
+    const mineFilter = validateAndResolveMineFilter(mineScope, searchParams.get('mine_site'));
+
     let trips = await getMiningTrips(auth.sid, includeTest, {
       status: status !== 'ALL' ? status : undefined,
-      mineSite: mineSite || undefined,
+      mineSite: mineFilter.filterType === 'single' ? mineFilter.targetMine : undefined,
       vehicle: vehicle || undefined,
       driver: driver || undefined,
       material: material !== 'ALL' ? material : undefined,
     });
+
+    if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      trips = trips.filter((t) => mineFilter.targetMines!.includes(t.mineSite));
+    }
 
     if (query) {
       trips = trips.filter(
@@ -101,6 +116,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('API /trips GET error:', error?.message || 'Error');
     const status = error.status || 500;
     return NextResponse.json(
@@ -171,6 +192,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const mineScope = await resolveUserMineScope(request);
+    validateWriteMineSite(mineScope, mineSite);
+
     if (!destination || typeof destination !== 'string' || !destination.trim()) {
       return NextResponse.json(
         { success: false, error: 'Destination is mandatory for trip creation.' },
@@ -202,16 +226,28 @@ export async function POST(request: NextRequest) {
       mineSite: mineSite.trim(),
       destination: destination.trim(),
       materialType: materialType.trim(),
-      dispatchDateTime: dispatchDateTime || new Date().toISOString().replace('T', ' ').substring(0, 19),
+      dispatchDateTime: dispatchDateTime || toLocalDateTimeString(),
       ratePerTon: ratePerTon != null ? Number(ratePerTon) : undefined,
       openingOdometer: openingOdometer != null ? Number(openingOdometer) : undefined,
       challanNumber: challanNumber ? String(challanNumber).trim() : undefined,
       isTestRecord: Boolean(isTestRecord),
+      lead: body.lead ? String(body.lead).trim() : undefined,
+      leadKm: body.leadKm != null ? Number(body.leadKm) : undefined,
+      leadRate: body.leadRate != null ? Number(body.leadRate) : undefined,
+      tripCount: body.tripCount != null ? Number(body.tripCount) : undefined,
+      averageTonnage: body.averageTonnage != null ? Number(body.averageTonnage) : undefined,
+      shift: body.shift || undefined,
     };
 
     const newTrip = await createMiningTrip(auth.sid, input);
     return NextResponse.json({ success: true, data: newTrip }, { status: 201 });
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('API /trips POST error:', error?.message || 'Error');
     const msg = error?.message || '';
     const status =

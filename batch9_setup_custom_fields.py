@@ -18,6 +18,7 @@ def run():
                 "label": "Mining Trip",
                 "fieldtype": "Link",
                 "options": "Mining Trip",
+                "unique": 1,
                 "insert_after": "custom_fleet_section"
             },
             {
@@ -63,6 +64,56 @@ def run():
                 "fieldtype": "Link",
                 "options": "Mine Site",
                 "insert_after": "custom_vehicle"
+            }
+        ],
+        "Contract": [
+            {
+                "fieldname": "custom_fleet_billing_section",
+                "label": "Fleet Billing Authority",
+                "fieldtype": "Section Break",
+                "insert_after": "end_date"
+            },
+            {
+                "fieldname": "custom_mine_site",
+                "label": "Mine Site",
+                "fieldtype": "Link",
+                "options": "Mine Site",
+                "insert_after": "custom_fleet_billing_section"
+            },
+            {
+                "fieldname": "custom_rate_per_ton",
+                "label": "Approved Rate per Ton",
+                "fieldtype": "Currency",
+                "insert_after": "custom_mine_site",
+                "description": "No default. Enter only the commercially approved contract rate."
+            },
+            {
+                "fieldname": "custom_service_item",
+                "label": "Sales Service Item",
+                "fieldtype": "Link",
+                "options": "Item",
+                "insert_after": "custom_rate_per_ton",
+                "description": "Existing enabled ERPNext sales Item authorized for this contract."
+            },
+            {
+                "fieldname": "custom_billing_approved",
+                "label": "Approved for Fleet Billing",
+                "fieldtype": "Check",
+                "default": "0",
+                "insert_after": "custom_service_item"
+            },
+            {
+                "fieldname": "custom_billing_approved_by",
+                "label": "Billing Approved By",
+                "fieldtype": "Link",
+                "options": "User",
+                "insert_after": "custom_billing_approved"
+            },
+            {
+                "fieldname": "custom_billing_approved_on",
+                "label": "Billing Approved On",
+                "fieldtype": "Datetime",
+                "insert_after": "custom_billing_approved_by"
             }
         ]
     }

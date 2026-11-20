@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMiningTripById } from '@/lib/frappe';
-import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 
 export async function GET(
   request: NextRequest,
@@ -43,7 +44,13 @@ export async function GET(
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const includeTest = searchParams.get('include_test') === 'true';
+    if (searchParams.get('include_test') === 'true' && !isAuthorizedForTestRecords(auth.user)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Access to test records requires Administrator or System Manager privileges.' },
+        { status: 403 }
+      );
+    }
+    const includeTest = isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
     const details = await getMiningTripById(auth.sid, id, includeTest);
     if (!details || !details.trip) {
@@ -52,6 +59,9 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, details.trip.mineSite);
 
     return NextResponse.json(
       { success: true, data: details },
@@ -63,6 +73,12 @@ export async function GET(
       }
     );
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('API /trips/[id] GET error:', error?.message || 'Error');
     const status = error.status || 500;
     return NextResponse.json(

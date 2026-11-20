@@ -76,6 +76,8 @@ export default function FuelPage() {
         if (selectedVehicle !== 'ALL') params.set('vehicle', selectedVehicle);
         if (selectedSource !== 'ALL') params.set('source', selectedSource);
         if (searchQuery.trim()) params.set('q', searchQuery.trim());
+        const isTestMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('include_test') === 'true';
+        if (isTestMode) params.set('include_test', 'true');
 
         const res = await fetch(`/api/fuel?${params.toString()}`);
         const json = await res.json();
@@ -107,6 +109,34 @@ export default function FuelPage() {
     setIsLoading(true);
     setRefreshIndex((prev) => prev + 1);
   }, []);
+
+  const handleBulkApprove = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    if (!confirm(`Are you sure you want to approve ${ids.length} selected fuel logs in batch?`)) return;
+
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doctype: 'Fuel Log',
+          ids,
+          action: 'Approve',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to bulk approve fuel logs.');
+      }
+
+      fetchFuelData();
+    } catch (err: any) {
+      alert(`Bulk approval error: ${err.message}`);
+      setIsLoading(false);
+    }
+  }, [fetchFuelData]);
 
   return (
     <AppShell
@@ -181,6 +211,7 @@ export default function FuelPage() {
         onSelectLog={(log) => setSelectedLogId(log.id)}
         onOpenAddFuel={() => setIsAddModalOpen(true)}
         onOpenApprovalModal={(log, action) => setApprovalModalState({ log, action })}
+        onBulkApprove={handleBulkApprove}
         canManage={canManage}
       />
 

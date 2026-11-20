@@ -5,6 +5,12 @@ import { VehicleBreakdown, RepairStatus, BreakdownSeverity } from '@/types/fleet
 import { Badge, BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
+  formatVehicleDisplay,
+  formatDriverDisplay,
+  formatMineSiteDisplay,
+  formatItemDisplay,
+} from '@/lib/displayFormatters';
+import {
   Wrench,
   X,
   Truck,
@@ -116,8 +122,8 @@ export function BreakdownDrawer({
         <div className="p-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between sticky top-0 z-10">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-base font-bold text-blue-900">
-                {breakdownId}
+              <span className="text-base font-bold text-slate-900">
+                {breakdown ? `${breakdown.breakdownType} · ${formatVehicleDisplay(breakdown.vehicle)}` : 'Breakdown Details'}
               </span>
               {breakdown && (
                 <>
@@ -160,6 +166,11 @@ export function BreakdownDrawer({
 
           {breakdown && !isLoading && (
             <>
+              {/* Provisional Role Authority Notice */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
+                <span className="font-semibold">Provisional Role Authorization:</span> Driver (Report), Workshop Supervisor (Inspection/Repair/Parts), Fleet Manager (Approve/Close) — Formal delegation of authority (DOA) pending client sign-off.
+              </div>
+
               {/* Rejection notice if present */}
               {breakdown.rejectionReason && (
                 <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
@@ -180,21 +191,23 @@ export function BreakdownDrawer({
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Vehicle</span>
-                    <span className="font-mono font-bold text-slate-900">{breakdown.vehicle}</span>
+                    <span className="text-slate-500 block text-[11px]">Vehicle Registration</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      {formatVehicleDisplay(breakdown.vehicle, undefined, { includeModel: true })}
+                    </span>
                   </div>
 
                   <div>
                     <span className="text-slate-500 block text-[11px]">Assigned Driver</span>
                     <span className="text-slate-900">
-                      {breakdown.driverName || breakdown.driver || 'None / Unassigned'}
+                      {formatDriverDisplay(undefined, breakdown.driverName)}
                     </span>
                   </div>
 
                   <div>
                     <span className="text-slate-500 block text-[11px]">Mine Site</span>
                     <span className="text-slate-900">
-                      {breakdown.mineSiteName || breakdown.mineSite || 'On-road / Transit'}
+                      {formatMineSiteDisplay(breakdown.mineSite, breakdown.mineSiteName) || 'On-road / Transit'}
                     </span>
                   </div>
 
@@ -237,7 +250,7 @@ export function BreakdownDrawer({
                   <div>
                     <span className="text-slate-500 block text-[11px]">Assigned Workshop</span>
                     <span className="text-slate-900">
-                      {breakdown.assignedWorkshopName || breakdown.assignedWorkshop || 'Internal Workshop'}
+                      {breakdown.assignedWorkshopName || 'Internal Workshop'}
                     </span>
                   </div>
 
@@ -327,9 +340,13 @@ export function BreakdownDrawer({
                         {breakdown.parts.map((p, idx) => (
                           <tr key={idx} className="hover:bg-slate-50">
                             <td className="py-2 px-3 font-sans">
-                              <span className="font-semibold text-slate-900 block">{p.itemCode}</span>
-                              {p.itemName && p.itemName !== p.itemCode && (
-                                <span className="text-[11px] text-slate-500 block">{p.itemName}</span>
+                              <span className="font-semibold text-slate-900 block">
+                                {formatItemDisplay(p.itemCode, p.itemName)}
+                              </span>
+                              {p.itemCode && (
+                                <span className="text-[11px] text-slate-500 font-mono block">
+                                  Code: {p.itemCode}
+                                </span>
                               )}
                             </td>
                             <td className="py-2 px-3 text-right">
@@ -389,6 +406,80 @@ export function BreakdownDrawer({
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* Section: Inspection, Parts Logistics & Handover Trace */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  Supervisor Inspection, Parts Procurement & Handover
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Parts Status</span>
+                    <span className="font-semibold text-slate-900">
+                      {breakdown.partsAvailabilityStatus || 'In Stock'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Requisition / PO</span>
+                    <span className="font-mono text-slate-900">
+                      {breakdown.purchaseRequest || 'Direct Requisition'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Authorized By</span>
+                    <span className="text-slate-900">
+                      {breakdown.purchaseAuthorizedBy || 'Workshop Supervisor'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Delivery Agent</span>
+                    <span className="text-slate-900">
+                      {breakdown.deliveryPersonName || 'Direct Store Receipt'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Challan / Inv No</span>
+                    <span className="font-mono text-slate-900">
+                      {breakdown.deliveryChallanNo || '—'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Driver Handover</span>
+                    <span className="text-slate-900">
+                      {breakdown.acknowledgementSignature || 'Pending Handover'}
+                    </span>
+                  </div>
+                </div>
+
+                {breakdown.inspectionNotes && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <span className="text-[11px] font-semibold text-slate-500 block">
+                      Supervisor Inspection Notes
+                    </span>
+                    <p className="text-xs text-slate-800 mt-0.5 whitespace-pre-wrap">
+                      {breakdown.inspectionNotes}
+                    </p>
+                  </div>
+                )}
+
+                {breakdown.repairCompletionEvidence && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <span className="text-[11px] font-semibold text-slate-500 block">
+                      Repair Completion Proof / Evidence
+                    </span>
+                    <p className="text-xs text-blue-900 font-mono mt-0.5">
+                      {breakdown.repairCompletionEvidence}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Section 5: Audit & Compliance */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getExpenseDetails, updateExpense } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 import { UpdateExpenseInput } from '@/types/fleet';
 
 export async function GET(
@@ -32,6 +33,15 @@ export async function GET(
     }
 
     const expense = await getExpenseDetails(auth.sid, id);
+    if (!expense) {
+      return NextResponse.json(
+        { success: false, error: `Expense '${id}' not found.` },
+        { status: 404 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, expense.mineSite);
 
     return NextResponse.json(
       {
@@ -46,6 +56,12 @@ export async function GET(
       }
     );
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /expenses/[id] GET error:', err?.message || 'Error');
     const status = err?.status || 500;
@@ -84,6 +100,17 @@ export async function PATCH(
       );
     }
 
+    const existing = await getExpenseDetails(auth.sid, id);
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: `Expense '${id}' not found.` },
+        { status: 404 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, existing.mineSite);
+
     let body: UpdateExpenseInput = {};
     try {
       body = (await request.json()) as UpdateExpenseInput;
@@ -102,6 +129,12 @@ export async function PATCH(
       expense: updated,
     });
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /expenses/[id] PATCH error:', err?.message || 'Error');
     const status = err?.status || 500;

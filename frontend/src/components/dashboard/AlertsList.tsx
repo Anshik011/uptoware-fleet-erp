@@ -1,6 +1,7 @@
 import React from 'react';
 import { FleetAlert } from '@/types/fleet';
 import { AlertCircle, AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface AlertsListProps {
   alerts: FleetAlert[];
@@ -96,7 +97,7 @@ export function AlertsList({ alerts }: AlertsListProps) {
                 )}
                 <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
                   <span className="font-mono text-slate-700 font-medium">
-                    {alert.vehicle ? `Vehicle: ${alert.vehicle}` : alert.category}
+                    {alert.vehicle ? `Vehicle: ${formatVehicleDisplay(alert.vehicle)}` : alert.category}
                   </span>
                   <span>{formatDate(alert.timestamp)}</span>
                 </div>

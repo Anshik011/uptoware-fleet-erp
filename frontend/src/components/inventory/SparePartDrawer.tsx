@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SparePartItem } from '@/types/fleet';
 import { X, Package, Warehouse, History, ArrowDownRight, IndianRupee, Truck, AlertTriangle } from 'lucide-react';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface SparePartDrawerProps {
   itemId: string | null;
@@ -52,8 +53,8 @@ export function SparePartDrawer({ itemId, onClose }: SparePartDrawerProps) {
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-xl font-bold text-slate-900 font-mono">
-                  {item ? item.itemCode : itemId}
+                <h2 className="text-xl font-bold text-slate-900">
+                  {item ? item.itemName || item.itemCode : 'Spare Part Profile'}
                 </h2>
                 {item && (
                   <span
@@ -352,7 +353,9 @@ export function SparePartDrawer({ itemId, onClose }: SparePartDrawerProps) {
                           {item.consumptionHistory.map((c: any, idx: number) => (
                             <tr key={idx} className="hover:bg-slate-50">
                               <td className="py-2.5 px-3 text-slate-600">{c.postingDate}</td>
-                              <td className="py-2.5 px-3 font-semibold text-slate-900">{c.vehicle}</td>
+                              <td className="py-2.5 px-3 font-semibold text-slate-900 font-mono">
+                                {formatVehicleDisplay(c.vehicle)}
+                              </td>
                               <td className="py-2.5 px-3 font-mono text-blue-600">{c.breakdown || '—'}</td>
                               <td className="py-2.5 px-3 text-right font-mono font-semibold">
                                 {c.qty} {c.uom}

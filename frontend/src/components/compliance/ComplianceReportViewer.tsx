@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FleetReportColumn, FleetReportResult } from '@/types/fleet';
+import { useMine } from '@/context/MineContext';
 import {
   FileSpreadsheet,
   Play,
@@ -13,6 +14,7 @@ import {
   Truck,
   Building,
   ShieldCheck,
+  MapPin,
 } from 'lucide-react';
 
 interface ComplianceReportViewerProps {
@@ -62,6 +64,8 @@ export function ComplianceReportViewer({
   vehicles = [],
   insuranceCompanies = [],
 }: ComplianceReportViewerProps) {
+  const { currentMine } = useMine();
+  const activeMine = currentMine && currentMine !== 'ALL' ? currentMine : undefined;
   const [selectedReport, setSelectedReport] = useState('Vehicle Insurance Register');
   const [fromDate, setFromDate] = useState('2026-01-01');
   const [toDate, setToDate] = useState('2026-12-31');
@@ -84,6 +88,7 @@ export function ComplianceReportViewer({
         show_all: 1,
       };
 
+      if (activeMine) filters.mine_site = activeMine;
       if (selectedVehicle) filters.vehicle = selectedVehicle;
       if (selectedCompany) filters.insurance_company = selectedCompany;
       if (daysThreshold) {
@@ -121,7 +126,7 @@ export function ComplianceReportViewer({
 
   useEffect(() => {
     executeReport(selectedReport);
-  }, [selectedReport]);
+  }, [selectedReport, currentMine]);
 
   const handleExportCSV = () => {
     if (!reportResult || !reportResult.result.length) return;
@@ -153,9 +158,17 @@ export function ComplianceReportViewer({
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex-1 max-w-xl">
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Select Native ERPNext Compliance Report (7 Available)
-            </label>
+            <div className="flex items-center gap-2 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700">
+                Select Native ERPNext Compliance Report (7 Available)
+              </label>
+              {activeMine && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <MapPin className="w-2.5 h-2.5" />
+                  {activeMine}
+                </span>
+              )}
+            </div>
             <select
               value={selectedReport}
               onChange={(e) => setSelectedReport(e.target.value)}
@@ -290,6 +303,11 @@ export function ComplianceReportViewer({
             <h3 className="text-xs font-bold text-slate-900 font-mono uppercase tracking-wider">
               {reportResult?.reportName || selectedReport}
             </h3>
+            {activeMine && (
+              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                {activeMine}
+              </span>
+            )}
           </div>
           <div className="text-xs text-slate-500 font-mono">
             {reportResult ? `${reportResult.result.length} records returned` : 'Ready to execute'}
@@ -375,4 +393,3 @@ export function ComplianceReportViewer({
     </div>
   );
 }
-

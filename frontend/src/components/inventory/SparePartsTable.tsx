@@ -146,7 +146,7 @@ export function SparePartsTable({
         <table className="w-full text-left border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-xs tracking-wider uppercase">
-              <th className="py-3.5 px-4">Part Code & OEM Ref</th>
+              <th className="py-3.5 px-4">Part Name & OEM</th>
               <th className="py-3.5 px-4">Part Description</th>
               <th className="py-3.5 px-4">Category</th>
               <th className="py-3.5 px-4 text-center">Status</th>
@@ -182,15 +182,15 @@ export function SparePartsTable({
               paginatedItems.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3.5 px-4">
-                    <div className="font-semibold text-slate-900">{item.itemCode}</div>
+                    <div className="font-semibold text-slate-900">{item.itemName}</div>
                     {item.partNumber && (
                       <div className="text-xs text-slate-500 font-mono">OEM: {item.partNumber}</div>
                     )}
                   </td>
                   <td className="py-3.5 px-4">
-                    <div className="font-medium text-slate-900">{item.itemName}</div>
-                    {item.compatibleModel && (
-                      <div className="text-xs text-slate-500">Fit: {item.compatibleModel}</div>
+                    <div className="font-medium text-slate-900">{item.compatibleModel ? `Fit: ${item.compatibleModel}` : 'Universal Fitting'}</div>
+                    {item.preferredSupplier && (
+                      <div className="text-xs text-slate-500">Vendor: {item.preferredSupplier}</div>
                     )}
                   </td>
                   <td className="py-3.5 px-4 text-slate-600">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applyTripTransition } from '@/lib/frappe';
-import { getAuthenticatedUser } from '@/lib/auth';
+import { applyTripTransition, getMiningTripById } from '@/lib/frappe';
+import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 import { TripTransitionInput } from '@/types/fleet';
 
 const VALID_ACTIONS = [
@@ -24,6 +25,13 @@ export async function POST(
       );
     }
 
+    if (!checkPermission(auth.user, 'trips', 'manage')) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Insufficient permissions to execute trip transitions.' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     if (!id || typeof id !== 'string') {
       return NextResponse.json(
@@ -31,6 +39,17 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const tripDetails = await getMiningTripById(auth.sid, id, true);
+    if (!tripDetails || !tripDetails.trip) {
+      return NextResponse.json(
+        { success: false, error: `Mining trip '${id}' not found.` },
+        { status: 404 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, tripDetails.trip.mineSite);
 
     let body: any;
     try {
@@ -142,6 +161,12 @@ export async function POST(
     const updatedTrip = await applyTripTransition(auth.sid, id, input);
     return NextResponse.json({ success: true, data: updatedTrip });
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('API /trips/[id]/transition error:', error?.message || 'Error');
     const msg = error?.message || '';
     const status =

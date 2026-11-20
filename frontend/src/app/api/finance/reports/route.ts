@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeFleetReport } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, MineAuthorizationError } from '@/lib/mineAuth';
 
 const ALLOWED_FINANCE_REPORTS = [
   'Trip-wise Revenue and Profitability',
@@ -15,6 +16,16 @@ const ALLOWED_FINANCE_REPORTS = [
   'Unallocated Cost Register',
   'Accounts Receivable',
   'Gross Profit',
+  'Daily Fleet Income and Expense Summary',
+  'Monthly Fleet Income and Expense Summary',
+  'Vehicle Earning Summary Report',
+  'HSD Fuel Price Escalation Report',
+  'Fleet Lead Haulage Report',
+  'Employee Attendance Summary Report',
+];
+
+const COMPANY_GLOBAL_FINANCE_REPORTS = [
+  'Customer-wise Revenue',
 ];
 
 export async function GET(request: NextRequest) {
@@ -76,7 +87,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const mineScope = await resolveUserMineScope(request);
     const filters = body.filters || {};
+
+    if (!COMPANY_GLOBAL_FINANCE_REPORTS.includes(reportName) && !mineScope.isAllMines) {
+      if (mineScope.isUnassigned) {
+        return NextResponse.json(
+          { success: false, error: 'Access Denied: Operational user has no assigned mine sites (Default-Deny).' },
+          { status: 403, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+      const requestedMine = filters.mine_site;
+      if (requestedMine && !mineScope.allowedMines.includes(requestedMine)) {
+        return NextResponse.json(
+          { success: false, error: `Access Denied: You are not authorized for Mine Site '${requestedMine}'.` },
+          { status: 403, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+      if (!requestedMine) {
+        filters.mine_site = mineScope.allowedMines[0];
+      }
+    }
+
     const reportData = await executeFleetReport(auth.sid, reportName, filters);
 
     return NextResponse.json({
@@ -87,6 +119,12 @@ export async function POST(request: NextRequest) {
       rowCount: reportData.result.length,
     });
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     console.error('Error executing finance report:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Internal server error while executing finance report' },
@@ -102,4 +140,3 @@ export async function PUT() {
 export async function DELETE() {
   return NextResponse.json({ success: false, error: 'Method Not Allowed' }, { status: 405, headers: { Allow: 'GET, POST' } });
 }
-

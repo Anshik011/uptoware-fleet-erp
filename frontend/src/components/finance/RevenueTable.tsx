@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import { formatCurrency, formatDate } from '@/config/branding';
-import { SalesInvoiceRecord } from '@/lib/frappe';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
+import { SalesInvoiceRecord, PaymentEntryRecord } from '@/lib/frappe';
 import { InvoiceDetailDrawer } from './InvoiceDetailDrawer';
-import { Search, Filter, ExternalLink, FileText, CheckCircle, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
+import { PaymentRecordingModal } from './PaymentRecordingModal';
+import { Search, Filter, ExternalLink, FileText, CheckCircle, Clock, AlertTriangle, RotateCcw, CreditCard } from 'lucide-react';
 
 interface RevenueTableProps {
   invoices: SalesInvoiceRecord[];
@@ -16,6 +18,21 @@ export function RevenueTable({ invoices, loading, onRefresh }: RevenueTableProps
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [paymentModalInvoice, setPaymentModalInvoice] = useState<SalesInvoiceRecord | null>(null);
+
+  const handlePaymentCreated = (payment: PaymentEntryRecord) => {
+    // Refresh data to reflect updated outstanding amounts
+    onRefresh?.();
+    setPaymentModalInvoice(null);
+  };
+
+  const handleOpenPaymentModal = (invoice: SalesInvoiceRecord) => {
+    setPaymentModalInvoice(invoice);
+  };
+
+  const handleClosePaymentModal = () => {
+    setPaymentModalInvoice(null);
+  };
 
   const filteredInvoices = invoices.filter((inv) => {
     const matchesSearch =
@@ -88,7 +105,7 @@ export function RevenueTable({ invoices, loading, onRefresh }: RevenueTableProps
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by invoice ID, customer, vehicle, trip..."
+            placeholder="Search by customer, vehicle, trip..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
@@ -118,7 +135,7 @@ export function RevenueTable({ invoices, loading, onRefresh }: RevenueTableProps
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
             <tr>
-              <th className="px-4 py-3">Invoice Number</th>
+              <th className="px-4 py-3">Billing Reference</th>
               <th className="px-4 py-3">Customer Client</th>
               <th className="px-4 py-3">Posting Date</th>
               <th className="px-4 py-3">Due Date</th>
@@ -159,19 +176,23 @@ export function RevenueTable({ invoices, loading, onRefresh }: RevenueTableProps
                   onClick={() => setSelectedInvoiceId(inv.id)}
                   className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                 >
-                  <td className="px-4 py-3 font-semibold text-blue-700 font-mono group-hover:underline">
-                    {inv.id}
+                  <td className="px-4 py-3 font-semibold text-slate-900 group-hover:underline">
+                    <div>Commercial Invoice</div>
+                    <div className="text-[11px] text-slate-500 font-normal">Sales Billing</div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-slate-900">{inv.customerName}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">{inv.customer}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{formatDate(inv.postingDate)}</td>
                   <td className="px-4 py-3 text-slate-600">{formatDate(inv.dueDate)}</td>
                   <td className="px-4 py-3">
-                    {inv.vehicle && <div className="text-slate-800 font-medium">{inv.vehicle}</div>}
+                    {inv.vehicle && (
+                      <div className="text-slate-800 font-medium font-mono">
+                        {formatVehicleDisplay(inv.vehicle)}
+                      </div>
+                    )}
                     {inv.miningTrip && (
-                      <div className="text-[11px] text-slate-500 font-mono">{inv.miningTrip}</div>
+                      <div className="text-[11px] text-slate-500 font-medium">Linked Mineral Trip</div>
                     )}
                     {!inv.vehicle && !inv.miningTrip && <span className="text-slate-400">—</span>}
                   </td>
@@ -185,16 +206,30 @@ export function RevenueTable({ invoices, loading, onRefresh }: RevenueTableProps
                     {getStatusBadge(inv.status, inv.isReturn)}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedInvoiceId(inv.id);
-                      }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-200"
-                    >
-                      <span>View</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      {inv.outstandingAmount > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenPaymentModal(inv);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors border border-emerald-200"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>Record</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedInvoiceId(inv.id);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-200"
+                      >
+                        <span>View</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -214,7 +249,17 @@ export function RevenueTable({ invoices, loading, onRefresh }: RevenueTableProps
       <InvoiceDetailDrawer
         invoiceId={selectedInvoiceId}
         onClose={() => setSelectedInvoiceId(null)}
+        onRecordPayment={handleOpenPaymentModal}
       />
+      {/* Payment Recording Modal */}
+      {paymentModalInvoice && (
+        <PaymentRecordingModal
+          isOpen={true}
+          invoice={paymentModalInvoice}
+          onClose={handleClosePaymentModal}
+          onPaymentCreated={handlePaymentCreated}
+        />
+      )}
     </div>
   );
 }

@@ -5,7 +5,8 @@ export type OperationalRole =
   | 'Dispatcher'
   | 'Workshop Supervisor'
   | 'Accountant'
-  | 'Administrator';
+  | 'Administrator'
+  | 'Unauthorized';
 
 export interface AuthUser {
   id: string;
@@ -14,6 +15,9 @@ export interface AuthUser {
   roles: string[];
   role: OperationalRole;
   department?: string;
+  isAllMines: boolean;
+  allowedMines: string[];
+  isUnassigned: boolean;
 }
 
 export const AUTH_COOKIE_NAME = 'uptoware_sid';
@@ -23,7 +27,7 @@ export const AUTH_COOKIE_NAME = 'uptoware_sid';
  * Resolves deterministically according to operational hierarchy.
  */
 export function mapFrappeRolesToOperationalRole(roles: string[]): OperationalRole {
-  if (roles.includes('System Manager') || roles.includes('Administrator')) {
+  if (roles.includes('System Manager') || roles.includes('Administrator') || roles.includes('Fleet Head Office Admin')) {
     return 'Administrator';
   }
   if (roles.includes('Fleet Manager')) {
@@ -38,7 +42,7 @@ export function mapFrappeRolesToOperationalRole(roles: string[]): OperationalRol
   if (roles.includes('Accountant') || roles.includes('Accounts Manager')) {
     return 'Accountant';
   }
-  return 'Fleet Manager';
+  return 'Unauthorized';
 }
 
 export type PermissionAction = 'view' | 'manage' | 'full';
@@ -321,6 +325,14 @@ export async function getAuthenticatedUser(
 
     const roles: string[] = msg.roles || [];
     const primaryRole = mapFrappeRolesToOperationalRole(roles);
+    const isAllMines = Boolean(
+      msg.is_all_mines ||
+      primaryRole === 'Administrator' ||
+      roles.includes('System Manager') ||
+      roles.includes('Fleet Head Office Admin')
+    );
+    const allowedMines: string[] = Array.isArray(msg.allowed_mines) ? msg.allowed_mines : [];
+    const isUnassigned = !isAllMines && allowedMines.length === 0;
 
     const department =
       primaryRole === 'Accountant'
@@ -329,7 +341,9 @@ export async function getAuthenticatedUser(
           ? 'Workshop & Fleet Maintenance'
           : primaryRole === 'Dispatcher'
             ? 'Dispatch & Weighbridge Operations'
-            : 'Fleet Operations';
+            : primaryRole === 'Unauthorized'
+              ? 'Restricted Access'
+              : 'Fleet Operations';
 
     return {
       user: {
@@ -339,6 +353,9 @@ export async function getAuthenticatedUser(
         roles,
         role: primaryRole,
         department,
+        isAllMines,
+        allowedMines,
+        isUnassigned,
       },
       sid,
     };

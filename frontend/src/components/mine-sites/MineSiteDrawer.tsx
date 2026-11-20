@@ -21,19 +21,20 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { formatVehicleDisplay, formatDriverDisplay } from '@/lib/displayFormatters';
 
 interface MineSiteDrawerProps {
   siteId: string | null;
   onClose: () => void;
-  onEditSite: (site: MineSite) => void;
-  canManage: boolean;
+  onEditSite?: (site: MineSite) => void;
+  canManage?: boolean;
 }
 
 export function MineSiteDrawer({
   siteId,
   onClose,
   onEditSite,
-  canManage,
+  canManage = false,
 }: MineSiteDrawerProps) {
   const [site, setSite] = useState<MineSite | null>(null);
   const [trips, setTrips] = useState<MiningTrip[]>([]);
@@ -126,12 +127,12 @@ export function MineSiteDrawer({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-                  {site?.siteName || siteId}
+                  {site?.siteName || 'Mine Site Details'}
                 </h2>
                 {site && getStatusBadge(site.status)}
               </div>
-              <p className="text-xs font-mono text-slate-500 font-medium">
-                {siteId} {site?.isTestRecord ? '· [Test Record]' : ''}
+              <p className="text-xs text-slate-500 font-medium">
+                {site?.location ? `Location: ${site.location}` : 'Mining Leasehold'}
               </p>
             </div>
           </div>
@@ -269,7 +270,7 @@ export function MineSiteDrawer({
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-semibold text-slate-500 uppercase sticky top-0">
                           <tr>
-                            <th className="py-2 px-3">Trip ID</th>
+                            <th className="py-2 px-3">Cargo / Material</th>
                             <th className="py-2 px-3">Vehicle</th>
                             <th className="py-2 px-3">Driver</th>
                             <th className="py-2 px-3 text-right">Net Wt</th>
@@ -279,14 +280,14 @@ export function MineSiteDrawer({
                         <tbody className="divide-y divide-slate-100">
                           {trips.map((t) => (
                             <tr key={t.id} className="hover:bg-slate-50/50">
-                              <td className="py-2 px-3 font-mono font-medium text-blue-900">
-                                {t.id}
+                              <td className="py-2.5 px-3 font-medium text-slate-900">
+                                {t.materialType || 'Bulk Mineral Cargo'}
                               </td>
-                              <td className="py-2 px-3 font-medium text-slate-900">
-                                {t.vehicle}
+                              <td className="py-2.5 px-3 font-medium text-slate-900 font-mono">
+                                {formatVehicleDisplay(t.vehicle)}
                               </td>
-                              <td className="py-2 px-3 text-slate-600 truncate max-w-[120px]">
-                                {t.driverName || t.driver}
+                              <td className="py-2.5 px-3 text-slate-600 truncate max-w-[120px]">
+                                {formatDriverDisplay(t.driver, t.driverName)}
                               </td>
                               <td className="py-2 px-3 text-right tabular-nums font-semibold text-slate-900">
                                 {t.netWeightTons} MT
@@ -319,7 +320,7 @@ export function MineSiteDrawer({
             Close
           </Button>
 
-          {canManage && site && (
+          {canManage && site && onEditSite && (
             <Button
               variant="primary"
               size="sm"

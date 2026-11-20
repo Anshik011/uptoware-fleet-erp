@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { BrandingProvider } from '@/context/BrandingContext';
 import { AuthProvider } from '@/context/AuthContext';
+import { MineProvider } from '@/context/MineContext';
 import { branding } from '@/config/branding';
 
 export const metadata: Metadata = {
@@ -27,7 +28,9 @@ export default function RootLayout({
       <body className="h-full antialiased bg-slate-50 text-slate-900 overflow-hidden">
         <BrandingProvider>
           <AuthProvider>
-            {children}
+            <MineProvider>
+              {children}
+            </MineProvider>
           </AuthProvider>
         </BrandingProvider>
       </body>

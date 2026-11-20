@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageContainer } from '@/components/ui/PageContainer';
 import { FinancialReportViewer } from '@/components/finance/FinancialReportViewer';
-import { FileSpreadsheet } from 'lucide-react';
+import { FileSpreadsheet, Loader2 } from 'lucide-react';
 
 export default function ReportsPage() {
   return (
@@ -27,7 +27,14 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <FinancialReportViewer />
+        <Suspense fallback={
+          <div className="flex items-center justify-center p-12 text-slate-500 gap-2">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            <span>Loading report viewer...</span>
+          </div>
+        }>
+          <FinancialReportViewer />
+        </Suspense>
       </PageContainer>
     </AppShell>
   );

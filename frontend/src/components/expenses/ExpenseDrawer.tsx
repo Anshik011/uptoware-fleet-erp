@@ -114,8 +114,8 @@ export function ExpenseDrawer({
         <div className="p-6 border-b border-slate-200 bg-slate-50 flex items-center justify-between sticky top-0 z-10">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-base font-bold text-blue-900">
-                {expenseId}
+              <span className="text-base font-bold text-slate-900">
+                {expense ? `${expense.expenseCategory} · ${expense.vehicle || 'Fleet General'}` : 'Expense Dossier'}
               </span>
               {expense && (
                 <>

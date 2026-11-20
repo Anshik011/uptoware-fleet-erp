@@ -4,6 +4,7 @@ import React from 'react';
 import { VehicleBreakdown, BreakdownSeverity, RepairStatus } from '@/types/fleet';
 import { Badge, BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { formatVehicleDisplay, formatDriverDisplay } from '@/lib/displayFormatters';
 import {
   Wrench,
   Search,
@@ -202,7 +203,7 @@ export function BreakdownTable({
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search incident ID, vehicle, driver, workshop..."
+              placeholder="Search vehicle, driver, workshop, or issue..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               data-testid="input-breakdown-search"
@@ -268,7 +269,7 @@ export function BreakdownTable({
         >
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <th className="py-3 px-4 sm:px-6">Incident ID / Date</th>
+              <th className="py-3 px-4 sm:px-6">Date & Time</th>
               <th className="py-3 px-4">Vehicle & Driver</th>
               <th className="py-3 px-4">Type & Severity</th>
               <th className="py-3 px-4">Location / Workshop</th>
@@ -303,23 +304,23 @@ export function BreakdownTable({
                     onClick={() => onSelectBreakdown(b)}
                     data-testid={`row-breakdown-${b.id}`}
                   >
-                    {/* ID & Date */}
+                    {/* Date & Time */}
                     <td className="py-3.5 px-4 sm:px-6 font-medium text-slate-900">
-                      <div className="font-mono text-xs font-bold text-blue-900">
-                        {b.id}
+                      <div className="text-xs font-bold text-slate-900">
+                        {b.breakdownDate}
                       </div>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        {b.breakdownDate} {b.breakdownTime ? `at ${b.breakdownTime}` : ''}
+                      <div className="text-[11px] text-slate-500 font-medium">
+                        {b.breakdownTime ? `at ${b.breakdownTime}` : 'Reported'}
                       </div>
                     </td>
 
                     {/* Vehicle & Driver */}
                     <td className="py-3.5 px-4">
                       <div className="font-mono font-bold text-slate-900 text-xs">
-                        {b.vehicle}
+                        {formatVehicleDisplay(b.vehicle, vehicles)}
                       </div>
                       <div className="text-[11px] text-slate-500">
-                        {b.driverName || b.driver || 'Driver unassigned'}
+                        {formatDriverDisplay(undefined, b.driverName)}
                       </div>
                     </td>
 
@@ -339,7 +340,7 @@ export function BreakdownTable({
                         {b.breakdownLocation || 'On-site'}
                       </div>
                       <div className="text-[11px] text-slate-500">
-                        {b.assignedWorkshopName || b.assignedWorkshop || 'Internal Workshop'}
+                        {b.assignedWorkshopName || 'Internal Workshop'}
                       </div>
                     </td>
 

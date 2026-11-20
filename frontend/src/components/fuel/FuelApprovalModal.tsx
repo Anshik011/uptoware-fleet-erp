@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { FuelLog } from '@/types/fleet';
 import { Button } from '@/components/ui/Button';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import { CheckCircle2, XCircle, RotateCcw, AlertCircle, X, Fuel, Truck } from 'lucide-react';
 
 interface FuelApprovalModalProps {
@@ -92,8 +93,8 @@ export function FuelApprovalModal({
                 {isReject && 'Reject Fuel Dispensation Entry'}
                 {isReopen && 'Re-open Fuel Log to Draft'}
               </h2>
-              <p className="text-xs text-slate-500 font-mono">
-                {log.id} · {log.vehicle}
+              <p className="text-xs text-slate-500">
+                Refuel · {formatVehicleDisplay(log.vehicle)} ({log.fuelDate})
               </p>
             </div>
           </div>
@@ -123,7 +124,7 @@ export function FuelApprovalModal({
                 <Truck className="w-3.5 h-3.5" /> Vehicle
               </span>
               <span className="font-semibold text-slate-900 font-mono">
-                {log.vehicle}
+                {formatVehicleDisplay(log.vehicle, undefined, { includeModel: true })}
               </span>
             </div>
             <div>

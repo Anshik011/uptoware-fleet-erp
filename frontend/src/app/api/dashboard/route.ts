@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDashboardData } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import {
+  resolveUserMineScope,
+  validateAndResolveMineFilter,
+  MineAuthorizationError,
+} from '@/lib/mineAuth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,7 +43,11 @@ export async function GET(request: NextRequest) {
     const includeTest =
       isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
-    const data = await getDashboardData(auth.sid, includeTest);
+    const mineScope = await resolveUserMineScope(request);
+    const mineFilter = validateAndResolveMineFilter(mineScope, searchParams.get('mine_site') || undefined);
+    const targetMine = mineFilter.filterType === 'single' ? mineFilter.targetMine : undefined;
+
+    const data = await getDashboardData(auth.sid, includeTest, targetMine);
 
     return NextResponse.json(
       {
@@ -63,6 +72,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     console.error('API /dashboard error:', error?.message || 'Error');
     const status = error.status || 500;
     return NextResponse.json(

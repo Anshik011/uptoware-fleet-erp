@@ -149,8 +149,8 @@ export function EditMineSiteModal({
               <h2 className="text-base font-bold text-slate-900">
                 Edit Mine Site: {site.siteName}
               </h2>
-              <p className="text-xs text-slate-500 font-mono">
-                Site ID: {site.id}
+              <p className="text-xs text-slate-500 font-medium">
+                Location: {site.location || 'Operational Mining Leasehold'}
               </p>
             </div>
           </div>

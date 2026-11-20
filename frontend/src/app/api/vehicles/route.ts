@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVehicles, createVehicle } from '@/lib/frappe';
+import { getVehicles, createVehicle, updateVehicle } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { validateAndResolveMineFilter, assertMineAccess, MineAuthorizationError } from '@/lib/mineAuth';
 import { CreateVehicleInput } from '@/types/fleet';
 
-const PERMITTED_STATUSES = ['Active', 'Breakdown', 'Under Maintenance', 'Out of Service'];
+const PERMITTED_STATUSES = ['Active', 'On Trip', 'Breakdown', 'Under Maintenance', 'Out of Service', 'Withdrawn'];
 const PERMITTED_COMPLIANCE = ['ALL', 'VALID', 'EXPIRING_SOON', 'EXPIRED'];
 const PERMITTED_FUEL_TYPES = ['Diesel', 'Petrol', 'Electric', 'CNG', 'Hybrid'];
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -52,8 +53,20 @@ export async function GET(request: NextRequest) {
     const query = (searchParams.get('q') || '').toLowerCase().trim();
     const status = searchParams.get('status') || 'ALL';
     const compliance = searchParams.get('compliance') || 'ALL';
+    const requestedMine = searchParams.get('mine_site') || searchParams.get('mineSite');
     const includeTest =
       isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
+
+    // 3. Resolve multi-mine filter boundary
+    let mineFilter;
+    try {
+      mineFilter = validateAndResolveMineFilter(auth.user, requestedMine);
+    } catch (err: any) {
+      if (err instanceof MineAuthorizationError) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+      }
+      throw err;
+    }
 
     // Validate query parameters
     if (status !== 'ALL' && !PERMITTED_STATUSES.includes(status)) {
@@ -71,6 +84,13 @@ export async function GET(request: NextRequest) {
     }
 
     let vehicles = await getVehicles(auth.sid, includeTest);
+
+    // Filter by mine authorization scope
+    if (mineFilter.filterType === 'single' && mineFilter.targetMine) {
+      vehicles = vehicles.filter((v) => v.customMineSite === mineFilter.targetMine);
+    } else if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      vehicles = vehicles.filter((v) => v.customMineSite && mineFilter.targetMines!.includes(v.customMineSite));
+    }
 
     // Filter by search query
     if (query) {
@@ -268,6 +288,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 9. Operational Mine Site validation & authorization
+    const mineSite = (body.customMineSite || body.mineSite || (auth.user.allowedMines.length === 1 ? auth.user.allowedMines[0] : '')).trim();
+    if (!mineSite) {
+      return NextResponse.json(
+        { success: false, error: 'Operational mine site is required.' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      assertMineAccess(auth.user, mineSite);
+    } catch (err: any) {
+      if (err instanceof MineAuthorizationError) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+      }
+      throw err;
+    }
+
     const sanitizedInput: CreateVehicleInput = {
       licensePlate,
       make,
@@ -276,6 +314,15 @@ export async function POST(request: NextRequest) {
       payloadCapacityTons,
       lastOdometer,
       fuelType,
+      customMineSite: mineSite,
+      mineSite,
+      vehicleType: body.vehicleType || undefined,
+      ownerName: body.ownerName || undefined,
+      chassisNumber: body.chassisNumber || undefined,
+      engineNumber: body.engineNumber || undefined,
+      registrationDate: body.registrationDate || undefined,
+      withdrawnDate: body.withdrawnDate || undefined,
+      withdrawnReason: body.withdrawnReason || undefined,
       assignedDriverId: body.assignedDriverId || null,
       insuranceExpiryDate: body.insuranceExpiryDate || null,
       fitnessExpiryDate: body.fitnessExpiryDate || null,
@@ -299,23 +346,68 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  try {
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Valid operational session required.' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    if (!checkPermission(auth.user, 'vehicles', 'manage')) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Insufficient permissions to update vehicles.' },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    const body = await request.json().catch(() => null);
+    if (!body || !body.id) {
+      return NextResponse.json(
+        { success: false, error: 'Missing mandatory vehicle identifier (id).' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    if (body.status && !PERMITTED_STATUSES.includes(body.status)) {
+      return NextResponse.json(
+        { success: false, error: `Invalid vehicle status. Permitted: ${PERMITTED_STATUSES.join(', ')}.` },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    const updated = await updateVehicle(auth.sid, body.id, {
+      status: body.status,
+      vehicleType: body.vehicleType,
+      withdrawnDate: body.withdrawnDate,
+      withdrawnReason: body.withdrawnReason,
+      assignedDriverId: body.assignedDriverId,
+      customMineSite: body.customMineSite || body.mineSite,
+    });
+
+    return NextResponse.json({ success: true, data: updated }, { status: 200 });
+  } catch (error: any) {
+    console.error('API /vehicles PATCH error:', error?.message || 'Error');
+    const status = error.status || 500;
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Failed to update vehicle.' },
+      { status, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+}
+
 export async function PUT() {
   return NextResponse.json(
     { success: false, error: 'Method Not Allowed' },
-    { status: 405, headers: { Allow: 'GET, POST' } }
+    { status: 405, headers: { Allow: 'GET, POST, PATCH' } }
   );
 }
 
 export async function DELETE() {
   return NextResponse.json(
     { success: false, error: 'Method Not Allowed' },
-    { status: 405, headers: { Allow: 'GET, POST' } }
-  );
-}
-
-export async function PATCH() {
-  return NextResponse.json(
-    { success: false, error: 'Method Not Allowed' },
-    { status: 405, headers: { Allow: 'GET, POST' } }
+    { status: 405, headers: { Allow: 'GET, POST, PATCH' } }
   );
 }

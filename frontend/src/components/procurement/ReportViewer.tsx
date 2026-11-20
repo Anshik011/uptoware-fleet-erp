@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FleetReportColumn, FleetReportResult } from '@/types/fleet';
-import { FileSpreadsheet, Play, RefreshCw, Calendar, Download, Filter, AlertCircle } from 'lucide-react';
+import { useMine } from '@/context/MineContext';
+import { FileSpreadsheet, Play, RefreshCw, Calendar, Download, Filter, AlertCircle, MapPin } from 'lucide-react';
 
 interface ReportViewerProps {
   warehouses: Array<{ id: string; name: string }>;
@@ -31,6 +32,8 @@ export const ALL_16_REPORTS = [
 ];
 
 export function ReportViewer({ warehouses, suppliers, vehicles }: ReportViewerProps) {
+  const { currentMine } = useMine();
+  const activeMine = currentMine && currentMine !== 'ALL' ? currentMine : undefined;
   const [selectedReport, setSelectedReport] = useState('Spare Parts Stock Register');
   const [fromDate, setFromDate] = useState('2026-01-01');
   const [toDate, setToDate] = useState('2026-12-31');
@@ -52,6 +55,7 @@ export function ReportViewer({ warehouses, suppliers, vehicles }: ReportViewerPr
         to_date: toDate,
         show_all: '1',
       };
+      if (activeMine) filters.mine_site = activeMine;
       if (selectedWarehouse) filters.warehouse = selectedWarehouse;
       if (selectedSupplier) filters.supplier = selectedSupplier;
       if (selectedVehicle) filters.vehicle = selectedVehicle;
@@ -84,7 +88,7 @@ export function ReportViewer({ warehouses, suppliers, vehicles }: ReportViewerPr
 
   useEffect(() => {
     executeReport(selectedReport);
-  }, [selectedReport]);
+  }, [selectedReport, currentMine]);
 
   const isNumericField = (fieldtype: string) => {
     const ft = (fieldtype || '').toLowerCase();
@@ -101,9 +105,17 @@ export function ReportViewer({ warehouses, suppliers, vehicles }: ReportViewerPr
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
-                Fleet Script Reports Engine (16 Standard Reports)
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900">
+                  Fleet Script Reports Engine (16 Standard Reports)
+                </h3>
+                {activeMine && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <MapPin className="w-2.5 h-2.5" />
+                    {activeMine}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500">
                 Native Frappe Desk Script Reports executed with live audit data
               </p>
@@ -296,4 +308,3 @@ export function ReportViewer({ warehouses, suppliers, vehicles }: ReportViewerPr
     </div>
   );
 }
-

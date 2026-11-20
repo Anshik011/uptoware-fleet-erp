@@ -16,6 +16,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { VehicleComplianceRecord, StatutoryDocDetail, StatutoryHealth } from '@/types/fleet';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import Link from 'next/link';
 
 interface VehicleComplianceDrawerProps {
@@ -178,11 +179,10 @@ export function VehicleComplianceDrawer({
                 </span>
               </div>
               <h2 className="text-xl font-bold text-slate-900 mt-1 font-mono tracking-tight">
-                {record.vehicle}
+                {record.licensePlate || formatVehicleDisplay(record.vehicle)}
               </h2>
-              <div className="text-xs text-slate-500 font-mono mt-0.5">
-                Plate: <span className="font-semibold text-slate-800">{record.licensePlate || 'N/A'}</span>
-                {record.make && ` • ${record.make} ${record.model || ''}`}
+              <div className="text-xs text-slate-500 mt-0.5">
+                {record.make ? `${record.make} ${record.model || ''}` : formatVehicleDisplay(record.vehicle, undefined, { includeModel: true })}
               </div>
               <div className="mt-2.5">
                 <span

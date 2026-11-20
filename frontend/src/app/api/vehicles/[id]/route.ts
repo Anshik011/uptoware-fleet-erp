@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVehicleDetails } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { assertMineAccess, MineAuthorizationError } from '@/lib/mineAuth';
 
 export async function GET(
   request: NextRequest,
@@ -53,6 +54,23 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Vehicle not found' }, { status: 404 });
     }
 
+    // Enforce mine authorization boundary
+    if (data.vehicle.customMineSite) {
+      try {
+        assertMineAccess(auth.user, data.vehicle.customMineSite);
+      } catch (err: any) {
+        if (err instanceof MineAuthorizationError) {
+          return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+        }
+        throw err;
+      }
+    } else if (auth.user.isUnassigned) {
+      return NextResponse.json(
+        { success: false, error: 'Access Denied: You have no active mine assignments.' },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json(
       { success: true, data },
       {
@@ -82,6 +100,17 @@ export async function POST() {
 export async function PUT() {
   return NextResponse.json(
     { success: false, error: 'Method Not Allowed' },
+    { status: 405, headers: { Allow: 'GET' } }
+  );
+}
+
+export async function PATCH() {
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        'Direct driver modification is restricted. Use the official Shift Allocation workflow (/api/shifts) to ensure shift validation, overlap prevention, and audit compliance.',
+    },
     { status: 405, headers: { Allow: 'GET' } }
   );
 }

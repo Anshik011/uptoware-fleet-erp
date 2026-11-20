@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applyFuelTransition } from '@/lib/frappe';
+import { applyFuelTransition, getFuelLogDetails } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 
 const VALID_ACTIONS = ['Approve', 'Reject', 'Re-open'];
 
@@ -31,6 +32,16 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const { log } = await getFuelLogDetails(auth.sid, id);
+    if (!log) {
+      return NextResponse.json(
+        { success: false, error: `Fuel log '${id}' not found.` },
+        { status: 404 }
+      );
+    }
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, log.mineSite);
 
     let body: Record<string, unknown> = {};
     try {
@@ -96,6 +107,12 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: updatedLog });
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /fuel/[id]/transition error:', err?.message || 'Error');
     const msg = err?.message || '';

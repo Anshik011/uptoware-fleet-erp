@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useBranding } from '@/context/BrandingContext';
 import { useAuth } from '@/context/AuthContext';
+import { useMine } from '@/context/MineContext';
 import {
   Menu,
   Bell,
@@ -14,6 +15,7 @@ import {
   ChevronDown,
   Shield,
   LogOut,
+  MapPin,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -31,6 +33,16 @@ export function Header({
 }: HeaderProps) {
   const { branding } = useBranding();
   const { user, role, roles, logout } = useAuth();
+  const {
+    currentMine,
+    setCurrentMine,
+    allowedMines,
+    isAllMines,
+    isSingleMine,
+    isUnassigned,
+    mineOptions,
+    activeMineLabel,
+  } = useMine();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [liveAlertsCount, setLiveAlertsCount] = useState<number>(unreadAlertsCount);
 
@@ -116,7 +128,52 @@ export function Header({
         </div>
 
         {/* Right Section: Controls, Status, Search, Alerts, Profile */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mine Context Selector / Static Badge */}
+          {user && (
+            <div className="flex items-center">
+              {isSingleMine ? (
+                <div
+                  data-testid="header-mine-badge"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-semibold text-blue-900"
+                  title={`Assigned Operating Mine: ${activeMineLabel}`}
+                >
+                  <MapPin className="w-3.5 h-3.5 text-blue-700 flex-shrink-0" />
+                  <span className="truncate max-w-[130px] sm:max-w-[200px]">{activeMineLabel}</span>
+                </div>
+              ) : isUnassigned ? (
+                <div
+                  data-testid="header-mine-unassigned-badge"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
+                  <span>Unassigned</span>
+                </div>
+              ) : (
+                <div className="relative flex items-center">
+                  <MapPin className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 pointer-events-none" />
+                  <select
+                    data-testid="header-mine-select"
+                    value={currentMine}
+                    onChange={(e) => setCurrentMine(e.target.value)}
+                    className="pl-8 pr-7 py-1.5 text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors cursor-pointer appearance-none max-w-[150px] sm:max-w-[220px] truncate"
+                    aria-label="Select Operating Mine Site"
+                  >
+                    {isAllMines && <option value="ALL">All Mines (Enterprise)</option>}
+                    {mineOptions
+                      .filter((opt) => isAllMines || allowedMines.includes(opt.value))
+                      .map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 pointer-events-none" />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Operational Status Pill (Desktop only) */}
           <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700">
             <Activity className="w-3.5 h-3.5 text-blue-600" />

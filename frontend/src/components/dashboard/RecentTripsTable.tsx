@@ -2,6 +2,7 @@ import React from 'react';
 import { MiningTrip } from '@/types/fleet';
 import { Truck, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
+import { formatVehicleDisplay, formatMineSiteDisplay } from '@/lib/displayFormatters';
 
 interface RecentTripsTableProps {
   trips: MiningTrip[];
@@ -61,9 +62,9 @@ export function RecentTripsTable({ trips }: RecentTripsTableProps) {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <th scope="col" className="px-6 py-3.5 text-left">Trip ID</th>
+              <th scope="col" className="px-6 py-3.5 text-left">Material & Cargo</th>
               <th scope="col" className="px-6 py-3.5 text-left">Vehicle Plate</th>
-              <th scope="col" className="px-6 py-3.5 text-left">Mine Route & Material</th>
+              <th scope="col" className="px-6 py-3.5 text-left">Mine Route & Challan</th>
               <th scope="col" className="px-6 py-3.5 text-right">Net Weight</th>
               <th scope="col" className="px-6 py-3.5 text-right">Dispatch Time</th>
               <th scope="col" className="px-6 py-3.5 text-right">Operational Status</th>
@@ -80,7 +81,7 @@ export function RecentTripsTable({ trips }: RecentTripsTableProps) {
               trips.map((trip) => (
                 <tr key={trip.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-6 py-4 font-semibold text-slate-900 text-left">
-                    {trip.id}
+                    {trip.materialType || 'Bulk Mineral Cargo'}
                   </td>
                   <td className="px-6 py-4 text-left">
                     <div className="flex items-center gap-2">
@@ -88,16 +89,16 @@ export function RecentTripsTable({ trips }: RecentTripsTableProps) {
                         <Truck className="w-3.5 h-3.5" />
                       </div>
                       <span className="font-semibold text-slate-800 tracking-wide font-mono">
-                        {trip.vehicle}
+                        {formatVehicleDisplay(trip.vehicle)}
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-left">
                     <div className="font-medium text-slate-900">
-                      {trip.mineSite} → {trip.destination}
+                      {formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)} → {trip.destination}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
-                      {trip.materialType}
+                      {trip.challanNumber ? `Challan #${trip.challanNumber}` : 'Direct Pit Haul'}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right font-semibold text-slate-900">

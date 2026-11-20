@@ -1,13 +1,24 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { navigationSections } from '@/config/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import {
+  clientNavigationSections,
+  administrationNavSection,
+  ClientNavSection,
+} from '@/config/navigation';
 import { useBranding } from '@/context/BrandingContext';
 import { useAuth } from '@/context/AuthContext';
-import { X, ChevronRight, ShieldCheck } from 'lucide-react';
+import {
+  X,
+  ChevronDown,
+  ChevronRight,
+  ShieldCheck,
+  Settings2,
+  Home,
+} from 'lucide-react';
 
 interface MobileNavProps {
   isOpen: boolean;
@@ -16,10 +27,52 @@ interface MobileNavProps {
 
 export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { branding } = useBranding();
   const { hasRole } = useAuth();
 
+  // Collapsed by default: all groups closed until user taps to expand
+  const [openSectionId, setOpenSectionId] = useState<string | null>(null);
+
+  const toggleSection = (sectionId: string) => {
+    setOpenSectionId((prev) => (prev === sectionId ? null : sectionId));
+  };
+
+  const isLinkActive = useCallback((href: string): boolean => {
+    if (!href) return false;
+    const [targetPath, targetQuery] = href.split('?');
+
+    if (pathname !== targetPath) {
+      return false;
+    }
+
+    if (!targetQuery) {
+      if (searchParams.toString() === '') return true;
+      if (searchParams.get('action') || searchParams.get('status') || searchParams.get('tab') || searchParams.get('report')) {
+        return false;
+      }
+      return true;
+    }
+
+    const targetParams = new URLSearchParams(targetQuery);
+    for (const [key, value] of targetParams.entries()) {
+      if (searchParams.get(key) !== value) {
+        return false;
+      }
+    }
+    return true;
+  }, [pathname, searchParams]);
+
+  const isSectionActive = useCallback((section: ClientNavSection): boolean => {
+    if (pathname === section.href && searchParams.toString() === '') return true;
+    if (section.items?.some((item) => isLinkActive(item.href))) return true;
+    if (section.groups?.some((grp) => grp.items.some((item) => isLinkActive(item.href)))) return true;
+    return false;
+  }, [pathname, searchParams, isLinkActive]);
+
   if (!isOpen) return null;
+
+  const isHomeActive = pathname === '/' && searchParams.toString() === '';
 
   return (
     <div
@@ -33,7 +86,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Brand & Close Button */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <Link href="/" onClick={onClose} className="flex items-center gap-2">
             <div className="relative w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 bg-white/10 p-1">
               <Image
@@ -49,7 +102,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
                 {branding.shortName}
               </div>
               <div className="text-[10px] text-blue-400 font-medium tracking-wider uppercase">
-                Customer Portal
+                Fleet Management ERP
               </div>
             </div>
           </Link>
@@ -57,7 +110,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             aria-label="Close navigation"
           >
             <X className="w-5 h-5" />
@@ -65,67 +118,183 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         </div>
 
         {/* Scrollable Navigation */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-          {navigationSections.map((section, sIdx) => {
-            const accessibleItems = section.items.filter((item) => hasRole(item.roles));
-            if (accessibleItems.length === 0) return null;
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+          {/* Quick Link to Main Home Dashboard */}
+          <div>
+            <Link
+              href="/"
+              onClick={onClose}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors ${
+                isHomeActive
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Home className="w-4 h-4 text-blue-400" />
+              <span>HOME DASHBOARD</span>
+            </Link>
+          </div>
+
+          {/* Client's Exact Nine Main Sections (Closed by default; Single-open Accordion) */}
+          {clientNavigationSections.map((section: ClientNavSection) => {
+            const isExpanded = openSectionId === section.id;
+            const currentActive = isSectionActive(section);
+            const Icon = section.icon;
 
             return (
-              <div key={sIdx}>
-                <div className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                  {section.title}
-                </div>
-                <nav className="space-y-1">
-                  {accessibleItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+              <div
+                key={section.id}
+                className={`rounded-lg border transition-colors overflow-hidden ${
+                  currentActive
+                    ? 'border-blue-500/50 bg-slate-950/60'
+                    : 'border-slate-800/80 bg-slate-950/40'
+                }`}
+              >
+                {/* Entire Section Header Button */}
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors cursor-pointer select-none ${
+                    currentActive
+                      ? 'bg-slate-800/90 text-blue-300 font-bold border-l-2 border-blue-500'
+                      : 'bg-slate-800/50 hover:bg-slate-800 text-slate-200'
+                  }`}
+                  aria-expanded={isExpanded}
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Icon
+                      className={`w-4 h-4 flex-shrink-0 ${
+                        currentActive ? 'text-blue-400' : 'text-slate-400'
+                      }`}
+                    />
+                    <span className="text-xs font-bold tracking-tight truncate">
+                      {section.title}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                    {currentActive && !isExpanded && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400" title="Active Section" />
+                    )}
+                    {isExpanded ? (
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    ) : (
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    )}
+                  </div>
+                </button>
 
-                    if (item.disabled) {
-                      return (
-                        <div
-                          key={item.name}
-                          className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-500 cursor-not-allowed select-none opacity-80"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Icon className="w-4 h-4 text-slate-500" />
-                            <span>{item.name}</span>
+                {/* Submenu Items (Displayed only when tapped) */}
+                {isExpanded && (
+                  <div className="px-2 py-1.5 space-y-0.5 bg-slate-900/60 border-t border-slate-800/60">
+                    {section.items && (
+                      <div className="space-y-0.5">
+                        {section.items.map((subItem) => {
+                          const active = isLinkActive(subItem.href);
+                          return (
+                            <Link
+                              key={subItem.name}
+                              href={subItem.href}
+                              onClick={onClose}
+                              className={`flex items-center justify-between px-3 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                                active
+                                  ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                              }`}
+                            >
+                              <span className="truncate">{subItem.name}</span>
+                              {active && <ChevronRight className="w-3 h-3 text-blue-200 ml-1" />}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {section.groups && (
+                      <div className="space-y-2 py-1">
+                        {section.groups.map((group) => (
+                          <div key={group.title} className="space-y-0.5">
+                            <div className="px-2 pt-1 pb-0.5 text-[10px] font-bold tracking-wider uppercase text-blue-400/90 border-b border-slate-800/60 mb-0.5">
+                              {group.title}
+                            </div>
+                            {group.items.map((subItem) => {
+                              const active = isLinkActive(subItem.href);
+                              return (
+                                <Link
+                                  key={`${group.title}-${subItem.name}`}
+                                  href={subItem.href}
+                                  onClick={onClose}
+                                  className={`flex items-center justify-between px-3 py-1.5 rounded text-[11px] font-medium transition-colors pl-3 ${
+                                    active
+                                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                  }`}
+                                >
+                                  <span className="truncate">{subItem.name}</span>
+                                  {active && <ChevronRight className="w-3 h-3 text-blue-200 ml-1" />}
+                                </Link>
+                              );
+                            })}
                           </div>
-                          {item.badge && (
-                            <span className="text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                              {item.badge}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        onClick={onClose}
-                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                          isActive
-                            ? 'bg-blue-600 text-white shadow-xs'
-                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                          <span>{item.name}</span>
-                        </div>
-                        {isActive && <ChevronRight className="w-3.5 h-3.5 text-blue-200" />}
-                      </Link>
-                    );
-                  })}
-                </nav>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
+
+          {/* Technical Administration Controls (Collapsed by default) */}
+          {hasRole(administrationNavSection.roles) && (
+            <div className="pt-2">
+              <div className="rounded-lg border border-slate-800 bg-slate-950/60 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleSection('admin-section')}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-slate-800/40 hover:bg-slate-800 transition-colors text-left cursor-pointer"
+                  aria-expanded={openSectionId === 'admin-section'}
+                >
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                    <Settings2 className="w-4 h-4 text-slate-400" />
+                    <span className="text-[11px] uppercase tracking-wider">{administrationNavSection.title}</span>
+                  </div>
+                  {openSectionId === 'admin-section' ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  )}
+                </button>
+
+                {openSectionId === 'admin-section' && (
+                  <div className="px-2 py-1.5 space-y-0.5 bg-slate-900/40 border-t border-slate-800/60">
+                    {administrationNavSection.items.map((item) => {
+                      const active = pathname === item.href;
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          onClick={onClose}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                            active
+                              ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="truncate">{item.name}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40">
+        <div className="p-3 border-t border-slate-800 bg-slate-950/40">
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <ShieldCheck className="w-4 h-4 text-blue-400 flex-shrink-0" />
             <span className="text-[11px]">Uptoware Cloud Architecture v16</span>
@@ -135,4 +304,3 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
     </div>
   );
 }
-

@@ -5,6 +5,8 @@ import { Vehicle } from '@/types/fleet';
 import {
   Truck,
   User,
+  UserPlus,
+  ExternalLink,
   Search,
   Filter,
   ArrowUpDown,
@@ -18,6 +20,8 @@ interface VehicleTableProps {
   vehicles: Vehicle[];
   onSelectVehicle: (id: string) => void;
   onOpenAddVehicle: () => void;
+  onAllocateDriver?: (vehicleId: string) => void;
+  onSelectDriver?: (driverId: string) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   selectedStatus: string;
@@ -32,6 +36,8 @@ export function VehicleTable({
   vehicles,
   onSelectVehicle,
   onOpenAddVehicle,
+  onAllocateDriver,
+  onSelectDriver,
   searchQuery,
   onSearchChange,
   selectedStatus,
@@ -51,6 +57,8 @@ export function VehicleTable({
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'Breakdown':
         return 'bg-rose-50 text-rose-700 border-rose-200';
+      case 'Withdrawn':
+        return 'bg-zinc-100 text-zinc-600 border-zinc-300';
       case 'Out of Service':
       default:
         return 'bg-slate-100 text-slate-700 border-slate-200';
@@ -129,6 +137,7 @@ export function VehicleTable({
                 <option value="Under Maintenance">Under Maintenance</option>
                 <option value="Breakdown">In Breakdown</option>
                 <option value="Out of Service">Out of Service</option>
+                <option value="Withdrawn">Withdrawn (Decommissioned)</option>
               </select>
             </div>
 
@@ -225,23 +234,65 @@ export function VehicleTable({
                           <div className="font-bold text-slate-900 font-mono tracking-wide text-sm">
                             {v.licensePlate}
                           </div>
-                          <div className="text-[11px] text-slate-500 font-medium">
-                            {v.make} · {v.model}
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              {v.make} · {v.model}
+                            </span>
+                            {v.vehicleType && (
+                              <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                                {v.vehicleType}
+                              </span>
+                            )}
                           </div>
+                          {(v.ownerName || v.chassisNumber) && (
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              {v.ownerName && <span>Owner: {v.ownerName}</span>}
+                              {v.ownerName && v.chassisNumber && <span> · </span>}
+                              {v.chassisNumber && <span>Chassis: {v.chassisNumber}</span>}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
 
                     {/* Assigned Driver (Left) */}
                     <td className="px-6 py-4 text-left">
-                      <div className="flex items-center gap-2">
-                        <User className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-medium text-slate-800">
-                          {v.assignedDriverName || (
-                            <span className="text-slate-400 italic">Unassigned</span>
-                          )}
-                        </span>
-                      </div>
+                      {v.assignedDriverName ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (v.assignedDriverId && onSelectDriver) {
+                              onSelectDriver(v.assignedDriverId);
+                            } else {
+                              window.location.href = `/drivers`;
+                            }
+                          }}
+                          className="group inline-flex items-center gap-1.5 font-medium text-slate-800 hover:text-blue-600 transition-colors text-left"
+                          title="View driver details"
+                        >
+                          <User className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500" />
+                          <span className="group-hover:underline">{v.assignedDriverName}</span>
+                          <ExternalLink className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onAllocateDriver) {
+                              onAllocateDriver(v.id);
+                            } else {
+                              window.location.href = `/shifts?vehicle=${encodeURIComponent(v.id)}&action=new&returnUrl=/vehicles`;
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-900 border border-amber-200/80 transition-colors shadow-2xs"
+                          title="Click to allocate a driver to this vehicle"
+                        >
+                          <UserPlus className="w-3.5 h-3.5 text-amber-600" />
+                          <span>No Driver Allocated</span>
+                        </button>
+                      )}
                     </td>
 
                     {/* Operational Status (Left) */}

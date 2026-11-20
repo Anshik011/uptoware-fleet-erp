@@ -1,0 +1,212 @@
+'use client';
+
+import React, { useState } from 'react';
+import { PurchaseOrder } from '@/types/fleet';
+import { Button } from '@/components/ui/Button';
+import {
+  PackageCheck,
+  X,
+  AlertCircle,
+  Truck,
+  Building2,
+  Calendar,
+  Layers,
+  ArrowRight,
+  Info,
+} from 'lucide-react';
+
+interface ReceiveGoodsModalProps {
+  isOpen: boolean;
+  order: PurchaseOrder | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export function ReceiveGoodsModal({
+  isOpen,
+  order,
+  onClose,
+  onSuccess,
+}: ReceiveGoodsModalProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen || !order) return null;
+
+  const totalQuantity = (order.items || []).reduce((sum, item) => sum + (item.qty || 0), 0);
+  const primaryWarehouse = order.items?.[0]?.warehouse || 'Stores - U';
+
+  async function handleConfirmReceipt() {
+    if (!order) return;
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/procurement/receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchaseOrder: order.name }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to generate Purchase Receipt in ERPNext.');
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error generating Purchase Receipt.';
+      setError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
+      data-testid="modal-receive-goods"
+    >
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-xl overflow-hidden border border-slate-200">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800">
+              <PackageCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-slate-900">
+                Confirm Goods Receipt (Purchase Receipt)
+              </h3>
+              <p className="text-xs text-slate-500 font-mono">
+                Order: {order.name} • {order.supplier}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Modal Content */}
+        <div className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-2.5 text-xs text-rose-800">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Operational Context Card */}
+          <div className="grid grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+            <div>
+              <span className="text-slate-500 block mb-0.5">Supplier</span>
+              <span className="font-semibold text-slate-900 truncate block">
+                {order.supplierName || order.supplier}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5">Target Warehouse</span>
+              <span className="font-semibold text-slate-900 font-mono block">
+                {primaryWarehouse}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5">Total Line Items</span>
+              <span className="font-semibold text-slate-900">
+                {order.items?.length || 0} line(s) ({totalQuantity} Units)
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5">Order Status</span>
+              <span className="font-semibold text-emerald-700">
+                {order.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Items Summary Table */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Items to Inward into Inventory
+            </label>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200">
+              <table className="min-w-full divide-y divide-slate-200 text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-medium">
+                  <tr>
+                    <th className="py-2 px-3 text-left">Item Code & Name</th>
+                    <th className="py-2 px-3 text-right">Qty</th>
+                    <th className="py-2 px-3 text-right">Rate</th>
+                    <th className="py-2 px-3 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {(order.items || []).map((item, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/60">
+                      <td className="py-2 px-3">
+                        <div className="font-medium text-slate-900">{item.itemName}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">{item.itemCode}</div>
+                      </td>
+                      <td className="py-2 px-3 text-right font-semibold text-slate-900 font-mono">
+                        {item.qty} {item.uom || 'Nos'}
+                      </td>
+                      <td className="py-2 px-3 text-right text-slate-700 font-mono">
+                        ₹{(item.rate || 0).toLocaleString()}
+                      </td>
+                      <td className="py-2 px-3 text-right font-medium text-slate-900 font-mono">
+                        ₹{(item.amount || 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Operational Impact Notice */}
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2.5 text-xs text-amber-900">
+            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold mb-0.5">Operational Stock Impact</p>
+              <p className="text-amber-800 text-[11px] leading-relaxed">
+                Confirming will create and submit an official Purchase Receipt in ERPNext, increment physical stock balances in warehouse <span className="font-mono font-medium">{primaryWarehouse}</span>, and update this Purchase Order’s receipt percentage to 100%.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            icon={PackageCheck}
+            onClick={handleConfirmReceipt}
+            disabled={isSubmitting}
+            data-testid="btn-confirm-receipt"
+            className="bg-emerald-700 hover:bg-emerald-800 text-white"
+          >
+            {isSubmitting ? 'Inwarding Goods...' : 'Confirm Goods Receipt'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

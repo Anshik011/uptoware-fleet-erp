@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applyBreakdownWorkflow } from '@/lib/frappe';
+import { applyBreakdownWorkflow, getBreakdownDetails } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 import { BreakdownWorkflowAction } from '@/types/fleet';
 
 const VALID_ACTIONS: BreakdownWorkflowAction[] = [
@@ -41,6 +42,16 @@ export async function POST(
       );
     }
 
+    const breakdown = await getBreakdownDetails(auth.sid, id);
+    if (!breakdown) {
+      return NextResponse.json(
+        { success: false, error: `Breakdown '${id}' not found.` },
+        { status: 404 }
+      );
+    }
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, breakdown.mineSite);
+
     let body: Record<string, unknown> = {};
     try {
       body = (await request.json()) as Record<string, unknown>;
@@ -51,7 +62,22 @@ export async function POST(
       );
     }
 
-    const { action, repairDetails, laborCost, parts, rejectionReason } = body;
+    const {
+      action,
+      repairDetails,
+      laborCost,
+      parts,
+      rejectionReason,
+      breakdownEvidenceImage,
+      inspectionNotes,
+      partsAvailabilityStatus,
+      purchaseRequest,
+      purchaseAuthorizedBy,
+      deliveryPersonName,
+      deliveryChallanNo,
+      repairCompletionEvidence,
+      acknowledgementSignature,
+    } = body;
 
     if (!action || typeof action !== 'string' || !VALID_ACTIONS.includes(action.trim() as BreakdownWorkflowAction)) {
       return NextResponse.json(
@@ -83,6 +109,15 @@ export async function POST(
       laborCost: laborCost != null ? Number(laborCost) : undefined,
       parts: Array.isArray(parts) ? parts : undefined,
       rejectionReason: rejectionReason ? String(rejectionReason).trim() : undefined,
+      breakdownEvidenceImage: breakdownEvidenceImage ? String(breakdownEvidenceImage) : undefined,
+      inspectionNotes: inspectionNotes ? String(inspectionNotes) : undefined,
+      partsAvailabilityStatus: partsAvailabilityStatus ? String(partsAvailabilityStatus) : undefined,
+      purchaseRequest: purchaseRequest ? String(purchaseRequest) : undefined,
+      purchaseAuthorizedBy: purchaseAuthorizedBy ? String(purchaseAuthorizedBy) : undefined,
+      deliveryPersonName: deliveryPersonName ? String(deliveryPersonName) : undefined,
+      deliveryChallanNo: deliveryChallanNo ? String(deliveryChallanNo) : undefined,
+      repairCompletionEvidence: repairCompletionEvidence ? String(repairCompletionEvidence) : undefined,
+      acknowledgementSignature: acknowledgementSignature ? String(acknowledgementSignature) : undefined,
     });
 
     return NextResponse.json({
@@ -91,6 +126,12 @@ export async function POST(
       breakdown: updated,
     });
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /breakdowns/[id]/transition POST error:', err?.message || 'Error');
     const status = err?.status || 500;

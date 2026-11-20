@@ -4,6 +4,7 @@ import React from 'react';
 import { OperationalExpense, ExpenseApprovalStatus, ExpenseAccountingStatus } from '@/types/fleet';
 import { Badge, BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { formatVehicleDisplay, formatMineSiteDisplay } from '@/lib/displayFormatters';
 import {
   IndianRupee,
   Search,
@@ -166,7 +167,7 @@ export function ExpenseTable({
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search ID, payee, bill ref, vehicle, trip, category..."
+              placeholder="Search payee, bill reference, vehicle, trip, or category..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               data-testid="input-expense-search"
@@ -216,7 +217,7 @@ export function ExpenseTable({
         >
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <th className="py-3 px-4 sm:px-6">Expense ID / Date</th>
+              <th className="py-3 px-4 sm:px-6">Date & Category</th>
               <th className="py-3 px-4">Category</th>
               <th className="py-3 px-4">Attribution (Vehicle / Site / Trip)</th>
               <th className="py-3 px-4">Payee & Method</th>
@@ -253,13 +254,13 @@ export function ExpenseTable({
                     onClick={() => onSelectExpense(e)}
                     data-testid={`row-expense-${e.id}`}
                   >
-                    {/* Expense ID & Date */}
+                    {/* Date & Category */}
                     <td className="py-3.5 px-4 sm:px-6 font-medium text-slate-900">
-                      <div className="font-mono text-xs font-bold text-blue-900">
-                        {e.id}
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono">
+                      <div className="text-xs font-bold text-slate-900">
                         {e.expenseDate}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-medium">
+                        {e.paymentMethod ? `${e.paymentMethod} Payment` : 'Disbursement'}
                       </div>
                     </td>
 
@@ -280,18 +281,18 @@ export function ExpenseTable({
                       {e.vehicle ? (
                         <div className="font-mono font-bold text-slate-900 text-xs flex items-center gap-1">
                           <Truck className="w-3.5 h-3.5 text-slate-400" />
-                          {e.vehicle}
+                          {formatVehicleDisplay(e.vehicle, vehicles)}
                         </div>
                       ) : null}
                       {e.miningTrip ? (
-                        <div className="text-[11px] font-mono text-blue-800">
-                          Trip: {e.miningTrip}
+                        <div className="text-[11px] text-blue-800">
+                          Linked Trip Haul
                         </div>
                       ) : null}
                       {e.mineSite ? (
                         <div className="text-[11px] text-slate-500 flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-slate-400" />
-                          {e.mineSite}
+                          {formatMineSiteDisplay(e.mineSite)}
                         </div>
                       ) : null}
                       {!e.vehicle && !e.miningTrip && !e.mineSite && (
@@ -302,7 +303,7 @@ export function ExpenseTable({
                     {/* Payee & Method */}
                     <td className="py-3.5 px-4">
                       <div className="text-xs text-slate-800 font-medium">
-                        {e.payeeName || e.supplierName || e.supplier || 'Direct Expense'}
+                        {e.payeeName || e.supplierName || 'Direct Expense'}
                       </div>
                       <div className="text-[11px] text-slate-500">
                         {e.paymentMethod || 'Cash'}

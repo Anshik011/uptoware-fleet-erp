@@ -53,7 +53,7 @@ export function SupplierDetailDrawer({ supplierId, onClose }: SupplierDetailDraw
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className="text-xl font-bold text-slate-900">
-                  {supplier ? supplier.supplierName : supplierId}
+                  {supplier ? supplier.supplierName : 'Supplier Profile'}
                 </h2>
                 {supplier?.isPreferred && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
@@ -141,7 +141,7 @@ export function SupplierDetailDrawer({ supplierId, onClose }: SupplierDetailDraw
                       <table className="w-full text-left text-xs divide-y divide-slate-200">
                         <thead className="bg-slate-50 text-slate-700 font-semibold uppercase">
                           <tr>
-                            <th className="py-2.5 px-3">PO Number</th>
+                            <th className="py-2.5 px-3">Order Type</th>
                             <th className="py-2.5 px-3">Date</th>
                             <th className="py-2.5 px-3">Status</th>
                             <th className="py-2.5 px-3 text-right">Amount (₹)</th>
@@ -150,8 +150,8 @@ export function SupplierDetailDrawer({ supplierId, onClose }: SupplierDetailDraw
                         <tbody className="divide-y divide-slate-200 text-slate-800">
                           {supplier.orders.map((o: PurchaseOrder) => (
                             <tr key={o.id} className="hover:bg-slate-50">
-                              <td className="py-2.5 px-3 font-mono font-semibold text-slate-900">
-                                {o.name}
+                              <td className="py-2.5 px-3 font-semibold text-slate-900">
+                                {o.procurementType || 'Replenishment Order'}
                               </td>
                               <td className="py-2.5 px-3 text-slate-600">{o.transactionDate}</td>
                               <td className="py-2.5 px-3">

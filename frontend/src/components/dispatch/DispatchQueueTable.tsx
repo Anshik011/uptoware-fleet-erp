@@ -17,6 +17,11 @@ import {
 } from 'lucide-react';
 import { MiningTrip, MineSite, TripStatus } from '@/types/fleet';
 import { Button } from '@/components/ui/Button';
+import {
+  formatVehicleDisplay,
+  formatDriverDisplay,
+  formatMineSiteDisplay,
+} from '@/lib/displayFormatters';
 
 interface DispatchQueueTableProps {
   queue: MiningTrip[];
@@ -150,7 +155,7 @@ export function DispatchQueueTable({
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search Trip ID, vehicle, driver, pit, material..."
+            placeholder="Search vehicle, driver, pit, material, or challan..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900"
@@ -184,7 +189,7 @@ export function DispatchQueueTable({
         <table className="w-full text-left border-collapse" data-testid="table-dispatch-queue">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-              <th className="py-3 px-4 sm:px-6">Trip ID & Material</th>
+              <th className="py-3 px-4 sm:px-6">Cargo & Challan</th>
               <th className="py-3 px-4">Vehicle & Driver</th>
               <th className="py-3 px-4">Route (Pit &rarr; Dest)</th>
               <th className="py-3 px-4 text-right">Net Tonnage</th>
@@ -227,33 +232,28 @@ export function DispatchQueueTable({
                     onClick={() => onSelectTrip(trip.id)}
                     data-testid={`dispatch-row-${trip.id}`}
                   >
-                    {/* Trip ID & Material */}
+                    {/* Cargo & Challan */}
                     <td className="py-4 px-4 sm:px-6">
                       <div className="flex flex-col">
-                        <span className="font-mono font-bold text-blue-900 group-hover:underline text-xs">
-                          {trip.id}
+                        <span className="font-semibold text-slate-900 group-hover:underline text-xs">
+                          {trip.materialType || 'Bulk Mineral Cargo'}
                         </span>
-                        <span className="text-xs text-slate-600 font-medium mt-0.5">
-                          {trip.materialType}
+                        <span className="text-[11px] text-slate-500 font-medium mt-0.5">
+                          {trip.challanNumber ? `Challan: ${trip.challanNumber}` : 'Direct Pit Haul'}
                         </span>
-                        {trip.challanNumber && (
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            Challan: {trip.challanNumber}
-                          </span>
-                        )}
                       </div>
                     </td>
 
                     {/* Vehicle & Driver */}
                     <td className="py-4 px-4">
                       <div className="flex flex-col space-y-0.5">
-                        <span className="font-semibold text-slate-900 text-xs flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-900 text-xs flex items-center gap-1.5 font-mono">
                           <Truck className="w-3.5 h-3.5 text-blue-900 shrink-0" />
-                          {trip.vehicle}
+                          {formatVehicleDisplay(trip.vehicle)}
                         </span>
                         <span className="text-xs text-slate-600 flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          {trip.driverName || trip.driver}
+                          {formatDriverDisplay(trip.driver, trip.driverName)}
                         </span>
                       </div>
                     </td>
@@ -261,8 +261,8 @@ export function DispatchQueueTable({
                     {/* Route */}
                     <td className="py-4 px-4 text-xs">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-slate-800 truncate max-w-[120px]">
-                          {trip.mineSiteName || trip.mineSite}
+                        <span className="font-medium text-slate-800 truncate max-w-[130px]" title={formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}>
+                          {formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}
                         </span>
                         <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
                         <span className="text-slate-600 truncate max-w-[120px]">

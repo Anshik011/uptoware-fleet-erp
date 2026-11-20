@@ -10,8 +10,11 @@ import { DriverTable } from '@/components/drivers/DriverTable';
 import { AddDriverModal } from '@/components/drivers/AddDriverModal';
 import { EditDriverModal } from '@/components/drivers/EditDriverModal';
 import { DriverDrawer } from '@/components/drivers/DriverDrawer';
+import { ShiftAllocationModal } from '@/components/shifts/ShiftAllocationModal';
+import { VehicleDrawer } from '@/components/vehicles/VehicleDrawer';
 import { Driver } from '@/types/fleet';
 import { useAuth } from '@/context/AuthContext';
+import { useMine } from '@/context/MineContext';
 import { checkPermission } from '@/lib/auth';
 import { UserCheck, CheckCircle2, Truck, ShieldAlert, PlusCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -19,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 function DriversTableSection() {
   const searchParams = useSearchParams();
   const { user, hasRole } = useAuth();
+  const { currentMine } = useMine();
   const canManage = hasRole(['Fleet Manager', 'Administrator']);
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -36,6 +40,8 @@ function DriversTableSection() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(searchParams.get('action') === 'new');
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [allocatingDriverId, setAllocatingDriverId] = useState<string | null>(null);
+  const [viewVehicleId, setViewVehicleId] = useState<string | null>(null);
 
   const fetchDrivers = useCallback(async () => {
     try {
@@ -47,6 +53,7 @@ function DriversTableSection() {
       if (selectedStatus !== 'ALL') params.set('status', selectedStatus);
       if (selectedAvailability !== 'ALL') params.set('availability', selectedAvailability);
       if (selectedCompliance !== 'ALL') params.set('compliance', selectedCompliance);
+      if (currentMine && currentMine !== 'ALL') params.set('mine_site', currentMine);
 
       const res = await fetch(`/api/drivers?${params.toString()}`);
       const json = await res.json();
@@ -79,7 +86,7 @@ function DriversTableSection() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, selectedStatus, selectedAvailability, selectedCompliance, sortBy]);
+  }, [searchQuery, selectedStatus, selectedAvailability, selectedCompliance, sortBy, currentMine]);
 
   useEffect(() => {
     fetchDrivers();
@@ -99,102 +106,90 @@ function DriversTableSection() {
         title="Driver & Transport Operator Directory"
         subtitle="Operational driver roster, licensing compliance, vehicle assignments, and safety ratings"
         actions={
-          canManage ? (
+          canManage && (
             <Button
               variant="primary"
               size="md"
               icon={PlusCircle}
               onClick={() => setIsAddModalOpen(true)}
-              data-testid="btn-register-driver-header"
+              data-testid="btn-register-driver"
             >
-              Register Transport Operator
+              Register Driver
             </Button>
-          ) : undefined
+          )
         }
       />
 
-      {/* Driver Asset Metric Strip - 100% Dynamic from ERPNext */}
+      {/* KPI Stats Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {/* Total Drivers */}
-        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-center shrink-0">
-            <UserCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Total Roster
             </span>
-            <div className="text-2xl font-bold text-slate-900 font-mono" data-testid="metric-total-drivers">
-              {isLoading ? '—' : totalCount}
-            </div>
-            <span className="text-[11px] text-slate-400">Registered Operators</span>
+            <UserCheck className="w-4 h-4 text-slate-400" />
           </div>
+          <div className="mt-2 text-2xl font-bold text-slate-900">{totalCount}</div>
+          <span className="text-[11px] text-slate-400 mt-1 block">Registered operators</span>
         </div>
 
-        {/* Active Drivers */}
-        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Active Operators
             </span>
-            <div className="text-2xl font-bold text-emerald-600 font-mono" data-testid="metric-active-drivers">
-              {isLoading ? '—' : activeCount}
-            </div>
-            <span className="text-[11px] text-emerald-600 font-medium">
-              {totalCount > 0 ? `${Math.round((activeCount / totalCount) * 100)}% Available` : '0%'}
-            </span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
+          <div className="mt-2 text-2xl font-bold text-emerald-900">{activeCount}</div>
+          <span className="text-[11px] text-slate-400 mt-1 block">Eligible for dispatch</span>
         </div>
 
-        {/* Assigned Drivers */}
-        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0">
-            <Truck className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Vehicle Assigned
+        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Assigned to Unit
             </span>
-            <div className="text-2xl font-bold text-indigo-600 font-mono" data-testid="metric-assigned-drivers">
-              {isLoading ? '—' : assignedCount}
-            </div>
-            <span className="text-[11px] text-slate-400">
-              {totalCount > 0 ? `${totalCount - assignedCount} on Standby` : '0 Standby'}
-            </span>
+            <Truck className="w-4 h-4 text-blue-900" />
           </div>
+          <div className="mt-2 text-2xl font-bold text-blue-950">{assignedCount}</div>
+          <span className="text-[11px] text-slate-400 mt-1 block">
+            {totalCount - assignedCount} standby operators
+          </span>
         </div>
 
-        {/* Compliance Warning */}
-        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
-            <ShieldAlert className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              License Warnings
+        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Compliance Alerts
             </span>
-            <div
-              className={`text-2xl font-bold font-mono ${
-                complianceWarningCount > 0 ? 'text-amber-600' : 'text-slate-900'
+            <ShieldAlert
+              className={`w-4 h-4 ${
+                complianceWarningCount > 0 ? 'text-amber-500' : 'text-slate-400'
               }`}
-              data-testid="metric-license-warnings"
-            >
-              {isLoading ? '—' : complianceWarningCount}
-            </div>
-            <span className="text-[11px] text-amber-600 font-medium">
-              {complianceWarningCount > 0 ? 'Action Required' : 'All Compliant'}
-            </span>
+            />
           </div>
+          <div
+            className={`mt-2 text-2xl font-bold ${
+              complianceWarningCount > 0 ? 'text-amber-600' : 'text-slate-900'
+            }`}
+          >
+            {complianceWarningCount}
+          </div>
+          <span className="text-[11px] text-slate-400 mt-1 block">
+            {complianceWarningCount > 0 ? 'License expiring / expired' : 'All licenses compliant'}
+          </span>
         </div>
       </div>
 
-      {/* Main Table or Error State */}
-      {error ? (
+      {/* Main Table or Loading/Error State */}
+      {isLoading && drivers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white rounded-xl border border-slate-200">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
+          <p className="text-xs text-slate-500 font-medium">Loading driver directory...</p>
+        </div>
+      ) : error ? (
         <ErrorState
-          title="Could Not Load Drivers"
+          title="Failed to load driver roster"
           message={error}
           onRetry={fetchDrivers}
         />
@@ -215,6 +210,8 @@ function DriversTableSection() {
           onComplianceChange={setSelectedCompliance}
           sortBy={sortBy}
           onSortChange={setSortBy}
+          onAllocateVehicle={(driverId) => setAllocatingDriverId(driverId)}
+          onViewVehicle={(vehicleId) => setViewVehicleId(vehicleId)}
         />
       )}
 
@@ -227,6 +224,9 @@ function DriversTableSection() {
           setEditingDriver(driver);
         }}
         canManage={canManage}
+        onAllocateVehicle={(driverId) => setAllocatingDriverId(driverId)}
+        onViewVehicle={(vehicleId) => setViewVehicleId(vehicleId)}
+        onAllocationChange={fetchDrivers}
       />
 
       {/* Register Driver Modal */}
@@ -251,6 +251,25 @@ function DriversTableSection() {
           }}
         />
       )}
+
+      {/* Contextual Shift Allocation Modal for Driver */}
+      {allocatingDriverId && (
+        <ShiftAllocationModal
+          isOpen={Boolean(allocatingDriverId)}
+          initialDriver={allocatingDriverId}
+          onClose={() => setAllocatingDriverId(null)}
+          onSuccess={() => {
+            setAllocatingDriverId(null);
+            fetchDrivers();
+          }}
+        />
+      )}
+
+      {/* Contextual Vehicle Details Drawer */}
+      <VehicleDrawer
+        vehicleId={viewVehicleId}
+        onClose={() => setViewVehicleId(null)}
+      />
     </>
   );
 }

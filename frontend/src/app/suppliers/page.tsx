@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Supplier, ProcurementMetrics } from '@/types/fleet';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
@@ -9,11 +10,14 @@ import { SuppliersTable } from '@/components/procurement/SuppliersTable';
 import { AddSupplierModal } from '@/components/procurement/AddSupplierModal';
 import { SupplierDetailDrawer } from '@/components/procurement/SupplierDetailDrawer';
 import { Button } from '@/components/ui/Button';
-import { Users, PlusCircle, RefreshCw, AlertCircle, Star, IndianRupee, ShoppingCart } from 'lucide-react';
+import { Users, PlusCircle, RefreshCw, AlertCircle, Star, IndianRupee, ShoppingCart, Loader2 } from 'lucide-react';
 
-export default function SuppliersPage() {
+function SuppliersContent() {
+  const searchParams = useSearchParams();
   const { hasRole } = useAuth();
   const canManage = hasRole(['Fleet Manager', 'Accountant', 'Administrator']);
+
+  const actionParam = searchParams.get('action');
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +36,12 @@ export default function SuppliersPage() {
   const [preferredOnly, setPreferredOnly] = useState(false);
   const [groups, setGroups] = useState<string[]>(['All Supplier Groups', 'Automotive Spares', 'Lubricants & Fuel', 'Workshop Services']);
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(actionParam === 'new');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (actionParam === 'new') setIsAddModalOpen(true);
+  }, [actionParam]);
 
   const loadSuppliers = useCallback(async () => {
     setIsLoading(true);
@@ -206,6 +214,25 @@ export default function SuppliersPage() {
         )}
       </PageContainer>
     </AppShell>
+  );
+}
+
+export default function SuppliersPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell>
+          <PageContainer>
+            <div className="flex items-center justify-center p-12 text-slate-500 gap-2">
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+              <span>Loading Suppliers & Vendors...</span>
+            </div>
+          </PageContainer>
+        </AppShell>
+      }
+    >
+      <SuppliersContent />
+    </Suspense>
   );
 }
 

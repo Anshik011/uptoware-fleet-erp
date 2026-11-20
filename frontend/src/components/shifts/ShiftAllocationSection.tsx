@@ -6,22 +6,26 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ShiftAllocationModal } from './ShiftAllocationModal';
 import { VehicleDriverShiftAllocation } from '@/types/fleet';
+import { toLocalDateTimeString } from '@/lib/datetime';
 
 interface ShiftAllocationSectionProps {
   vehicleId?: string;
   driverId?: string;
   canManage: boolean;
+  onAllocationChange?: () => void;
 }
 
 export function ShiftAllocationSection({
   vehicleId,
   driverId,
   canManage,
+  onAllocationChange,
 }: ShiftAllocationSectionProps) {
   const [allocations, setAllocations] = useState<VehicleDriverShiftAllocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [editingAllocation, setEditingAllocation] = useState<VehicleDriverShiftAllocation | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const loadAllocations = async () => {
@@ -55,7 +59,7 @@ export function ShiftAllocationSection({
   const handleUpdateStatus = async (allocId: string, newStatus: string) => {
     try {
       setActionLoading(allocId);
-      const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      const nowStr = toLocalDateTimeString();
       const res = await fetch(`/api/shifts/${encodeURIComponent(allocId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -189,12 +193,12 @@ export function ShiftAllocationSection({
                       {vehicleId ? (
                         <div className="font-medium text-slate-800 flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{alloc.driverName || alloc.driver}</span>
+                          <span>{alloc.driverName || 'Designated Driver'}</span>
                         </div>
                       ) : (
                         <div className="font-mono font-medium text-slate-800 flex items-center gap-1.5">
                           <Truck className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{alloc.licensePlate || alloc.vehicle}</span>
+                          <span>{alloc.licensePlate || 'Fleet Asset'}</span>
                         </div>
                       )}
                     </td>
@@ -213,6 +217,17 @@ export function ShiftAllocationSection({
                     <td className="py-2.5 px-3 text-right">
                       {canManage && (alloc.status === 'Active' || alloc.status === 'Scheduled') && (
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingAllocation(alloc);
+                              setShowModal(true);
+                            }}
+                            className="px-2 py-0.5 bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 rounded text-[11px] font-medium transition-colors"
+                            title="Edit Shift Allocation"
+                          >
+                            Edit
+                          </button>
                           {alloc.status === 'Scheduled' && (
                             <button
                               type="button"
@@ -255,10 +270,19 @@ export function ShiftAllocationSection({
 
       <ShiftAllocationModal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        onSuccess={loadAllocations}
+        onClose={() => {
+          setShowModal(false);
+          setEditingAllocation(null);
+        }}
+        onSuccess={() => {
+          loadAllocations();
+          onAllocationChange?.();
+          setShowModal(false);
+          setEditingAllocation(null);
+        }}
         initialVehicle={vehicleId}
         initialDriver={driverId}
+        initialAllocation={editingAllocation}
       />
     </div>
   );

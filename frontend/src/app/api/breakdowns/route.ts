@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBreakdowns, createBreakdown } from '@/lib/frappe';
-import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { resolveUserMineScope, validateAndResolveMineFilter, validateWriteMineSite, MineAuthorizationError } from '@/lib/mineAuth';
 import { CreateBreakdownInput, BreakdownType, BreakdownSeverity } from '@/types/fleet';
 
 export async function GET(request: NextRequest) {
@@ -26,7 +27,13 @@ export async function GET(request: NextRequest) {
     const severity = searchParams.get('severity') || undefined;
     const breakdownType = searchParams.get('breakdown_type') || undefined;
     const query = searchParams.get('q')?.toLowerCase().trim();
-    const includeTest = searchParams.get('include_test') === 'true';
+    if (searchParams.get('include_test') === 'true' && !isAuthorizedForTestRecords(auth.user)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Access to test records requires Administrator or System Manager privileges.' },
+        { status: 403 }
+      );
+    }
+    const includeTest = isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
     const { breakdowns, metrics } = await getBreakdowns(auth.sid, {
       status: status !== 'ALL' ? status : undefined,
@@ -36,7 +43,15 @@ export async function GET(request: NextRequest) {
       includeTest,
     });
 
+    const mineScope = await resolveUserMineScope(request);
+    const mineFilter = validateAndResolveMineFilter(mineScope, searchParams.get('mine_site'));
+
     let filtered = breakdowns;
+    if (mineFilter.filterType === 'single') {
+      filtered = filtered.filter((b) => b.mineSite === mineFilter.targetMine);
+    } else if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      filtered = filtered.filter((b) => b.mineSite && mineFilter.targetMines!.includes(b.mineSite));
+    }
     if (query) {
       filtered = filtered.filter(
         (b) =>
@@ -47,6 +62,7 @@ export async function GET(request: NextRequest) {
           (b.breakdownLocation && b.breakdownLocation.toLowerCase().includes(query)) ||
           (b.reportedByName && b.reportedByName.toLowerCase().includes(query)) ||
           (b.assignedWorkshopName && b.assignedWorkshopName.toLowerCase().includes(query)) ||
+          (b.driverName && b.driverName.toLowerCase().includes(query)) ||
           (b.description && b.description.toLowerCase().includes(query))
       );
     }
@@ -66,6 +82,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /breakdowns GET error:', err?.message || 'Error');
     const status = err?.status || 500;
@@ -128,6 +150,16 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    if (!mineSite || typeof mineSite !== 'string' || !mineSite.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Mine Site is strictly mandatory for breakdown incident.' },
+        { status: 400 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateWriteMineSite(mineScope, mineSite);
 
     if (!breakdownDate || typeof breakdownDate !== 'string' || !breakdownDate.trim()) {
       return NextResponse.json(
@@ -202,6 +234,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /breakdowns POST error:', err?.message || 'Error');
     const status = err?.status || 500;

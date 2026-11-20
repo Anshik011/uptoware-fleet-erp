@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFuelLogDetails } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 
 export async function GET(
   request: NextRequest,
@@ -31,8 +32,24 @@ export async function GET(
     }
 
     const { log, recentVehicleLogs } = await getFuelLogDetails(auth.sid, id);
+    if (!log) {
+      return NextResponse.json(
+        { success: false, error: `Fuel log '${id}' not found.` },
+        { status: 404 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, log.mineSite);
+
     return NextResponse.json({ success: true, data: { log, recentVehicleLogs } });
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /fuel/[id] GET error:', err?.message || 'Error');
     const status = err?.status || 500;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { applyExpenseWorkflow } from '@/lib/frappe';
+import { applyExpenseWorkflow, getExpenseDetails } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 import { ExpenseWorkflowAction } from '@/types/fleet';
 
 const VALID_ACTIONS: ExpenseWorkflowAction[] = [
@@ -37,6 +38,16 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const expense = await getExpenseDetails(auth.sid, id);
+    if (!expense) {
+      return NextResponse.json(
+        { success: false, error: `Expense '${id}' not found.` },
+        { status: 404 }
+      );
+    }
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, expense.mineSite);
 
     let body: Record<string, unknown> = {};
     try {
@@ -85,6 +96,12 @@ export async function POST(
       expense: updated,
     });
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /expenses/[id]/transition POST error:', err?.message || 'Error');
     const status = err?.status || 500;

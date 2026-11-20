@@ -10,6 +10,9 @@ export interface User {
   roles: string[];
   role: string;
   department?: string;
+  isAllMines?: boolean;
+  allowedMines?: string[];
+  isUnassigned?: boolean;
 }
 
 interface AuthContextType {

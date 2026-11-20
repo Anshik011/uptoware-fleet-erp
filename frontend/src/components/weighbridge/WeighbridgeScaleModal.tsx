@@ -5,6 +5,11 @@ import { MiningTrip } from '@/types/fleet';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Scale, AlertCircle, X, CheckCircle, Truck, User, MapPin } from 'lucide-react';
+import {
+  formatVehicleDisplay,
+  formatDriverDisplay,
+  formatMineSiteDisplay,
+} from '@/lib/displayFormatters';
 
 interface WeighbridgeScaleModalProps {
   isOpen: boolean;
@@ -101,8 +106,8 @@ export function WeighbridgeScaleModal({
               <h2 className="text-base font-bold text-slate-900">
                 Confirm Scale Weights & Slip
               </h2>
-              <p className="text-xs text-slate-500 font-mono">
-                {trip.id} · {trip.materialType}
+              <p className="text-xs text-slate-500">
+                {formatVehicleDisplay(trip.vehicle)} · {trip.materialType || 'Bulk Mineral Cargo'}
               </p>
             </div>
           </div>
@@ -132,7 +137,7 @@ export function WeighbridgeScaleModal({
                 <Truck className="w-3.5 h-3.5" /> Vehicle
               </span>
               <span className="font-semibold text-slate-900 font-mono">
-                {trip.vehicle}
+                {formatVehicleDisplay(trip.vehicle, undefined, { includeModel: true })}
               </span>
             </div>
             <div>
@@ -140,7 +145,7 @@ export function WeighbridgeScaleModal({
                 <User className="w-3.5 h-3.5" /> Driver
               </span>
               <span className="font-semibold text-slate-900">
-                {trip.driverName || trip.driver}
+                {formatDriverDisplay(trip.driver, trip.driverName)}
               </span>
             </div>
             <div>
@@ -148,7 +153,7 @@ export function WeighbridgeScaleModal({
                 <MapPin className="w-3.5 h-3.5" /> Pit / Site
               </span>
               <span className="font-semibold text-slate-900">
-                {trip.mineSiteName || trip.mineSite}
+                {formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}
               </span>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStockMovements, createStockEntry } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { validateAndResolveMineFilter, assertMineAccess, MineAuthorizationError } from '@/lib/mineAuth';
 import { CreateStockEntryInput } from '@/types/fleet';
 
 export async function GET(request: NextRequest) {
@@ -20,13 +21,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = new URL(request.url).searchParams;
     const search = searchParams.get('q') || undefined;
     const entryType = searchParams.get('entry_type') || undefined;
     const vehicle = searchParams.get('vehicle') || undefined;
     const breakdown = searchParams.get('breakdown') || undefined;
     const warehouse = searchParams.get('warehouse') || undefined;
+    const requestedMine = searchParams.get('mine_site') || searchParams.get('mineSite');
     const showTestRecords = searchParams.get('include_test') === 'true';
+
+    let mineFilter;
+    try {
+      mineFilter = validateAndResolveMineFilter(auth.user, requestedMine);
+    } catch (err: any) {
+      if (err instanceof MineAuthorizationError) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+      }
+      throw err;
+    }
 
     const { movements, totalCount } = await getStockMovements(auth.sid, {
       search,
@@ -34,6 +46,7 @@ export async function GET(request: NextRequest) {
       vehicle,
       breakdown,
       warehouse,
+      mineSite: mineFilter.filterType === 'single' ? mineFilter.targetMine : undefined,
       showTestRecords,
     });
 
@@ -69,6 +82,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CreateStockEntryInput = await request.json();
+
+    if (body.mineSite) {
+      try {
+        assertMineAccess(auth.user, body.mineSite);
+      } catch (err: any) {
+        if (err instanceof MineAuthorizationError) {
+          return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+        }
+        throw err;
+      }
+    }
 
     if (!body.entryType) {
       return NextResponse.json(

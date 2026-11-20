@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { formatCurrency, formatNumber } from '@/config/branding';
 import { VehicleProfitabilityRecord } from '@/lib/frappe';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import { Search, Truck, TrendingUp, TrendingDown, Scale } from 'lucide-react';
 
 interface VehicleProfitabilityTableProps {
@@ -29,7 +30,7 @@ export function VehicleProfitabilityTable({ vehicles, loading }: VehicleProfitab
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search vehicle ID, make, model..."
+            placeholder="Search vehicle registration, make, or model..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
@@ -82,7 +83,9 @@ export function VehicleProfitabilityTable({ vehicles, loading }: VehicleProfitab
                 return (
                   <tr key={v.vehicle} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="font-bold text-slate-900 font-mono">{v.vehicle}</div>
+                      <div className="font-bold text-slate-900 font-mono">
+                        {formatVehicleDisplay(v.vehicle)}
+                      </div>
                       <div className="text-[11px] text-slate-400">
                         {v.make} {v.model}
                       </div>

@@ -1,19 +1,20 @@
 Sequence Number,Record to Create,Navigation Page,Required Prerequisite,Sample Name / ID,Completion Status,Next Record Action
-1,Mine Site,/mine-sites,None (Base Master),Kalinga Mining Site,[ ],Create Vehicle Master
-2,Vehicle Master,/vehicles,None (Independent),OD-02-AB-4589,[ ],Create Driver Profile
-3,Driver Profile,/drivers,Vehicle OD-02-AB-4589,Amit Kumar,[ ],Create Shift Allocation
-4,Shift Allocation,/shifts,Vehicle + Driver,Morning Shift (06:00 - 14:00),[ ],Dispatch Haulage Trip
-5,Trip Dispatch,/dispatch,Active Shift Allocation,TRIP-2026-00413,[ ],Capture Weighbridge Scale
-6,Weighbridge Scale Ticket,/weighbridge,Dispatched Trip,Gross: 50.40 MT | Net: 32.40 MT,[ ],Complete Trip Delivery
-7,Trip Delivery Closeout,/dispatch or /trips,Weighbridge Confirmed Trip,Closing Odometer: 104240 km,[ ],Log Fuel Dispensation
-8,Fuel Dispensation Log,/fuel,Vehicle OD-02-AB-4589,120.0 L @ ₹92.50 = ₹11100.00,[ ],Report Breakdown Incident
-9,Breakdown Incident,/breakdowns,Vehicle OD-02-AB-4589,Hydraulic Pump Rupture,[ ],Workshop Repair Closeout
-10,Workshop Repair Closeout,/breakdowns,Active Breakdown,Repaired (Labour: ₹1200.00),[ ],Create Purchase Order
-11,Purchase Order (PO),/purchases,Supplier + Breakdown,PO-2026-00046 (₹6000.00),[ ],Log Operational Expense
-12,Operational Expense,/expenses,Vehicle OD-02-AB-4589,Highway Toll: ₹1450.00,[ ],Executive Approval
-13,Executive Approval,/approvals,Submitted Expense,Approved (MD Digital Stamp),[ ],Verify Revenue & Billing
-14,Revenue & Billing Audit,/revenue,Completed Weighbridge Trip,32.40 MT @ ₹450 = ₹14580.00,[ ],Reconcile Collections
-15,Collections Reconciliation,/collections,Billed Sales Invoice,Client Settlement: ₹14580.00,[ ],Check Compliance Watchlist
-16,Compliance & Expiries,/compliance,Vehicle Statutory Expiries,Fitness / PUC / Permit Watchlist,[ ],Inspect Reports & Alerts
-17,Reports & Alerts Console,/reports & /alerts,System Operational Events,Daily Tonnage vs Target (1500 MT),[ ],Audit Fleet Profitability
-18,Single-Truck Profitability P&L,/profitability,Revenue less Operating Costs,Net Daily Profit: +₹830.00,[ ],COMPLETE
+1,Mine Site Master,/mine-sites,None (Base Master),Kalinga Mining Site,[ ],Register Vehicle Master
+2,Vehicle Master,/vehicles,None (Base Master),OD-02-AB-4589,[ ],Register Active Insurance Policy
+3,Vehicle Insurance Policy,/insurance,Vehicle OD-02-AB-4589,POL-KLG-2026-001,[ ],Register Driver Profile
+4,Driver Profile,/drivers,Vehicle OD-02-AB-4589,Amit Kumar,[ ],Create Shift Allocation
+5,Shift Allocation,/shifts,Vehicle + Driver,Morning Shift (06:00 - 14:00),[ ],Dispatch Haulage Trip
+6,Trip Dispatch,/dispatch,Shift Allocation + Site + Insurance,TRIP-2026-00413,[ ],Capture Weighbridge Scale Ticket
+7,Weighbridge Scale Ticket,/weighbridge,Dispatched Trip,Gross: 50.40 MT | Net: 32.40 MT,[ ],Complete Trip Delivery Closeout
+8,Trip Delivery Closeout,/dispatch or /trips,Weighbridge Confirmed Trip,Closing Odometer: 104240 km,[ ],Log Fuel Dispensation
+9,Fuel Dispensation Log,/fuel,Vehicle OD-02-AB-4589,120.0 L @ ₹92.50 = ₹11100.00,[ ],Report Breakdown Incident
+10,Breakdown Incident,/breakdowns,Vehicle OD-02-AB-4589,Hydraulic Pump Rupture,[ ],Workshop Repair Closeout
+11,Workshop Repair Closeout,/breakdowns,Active Breakdown,Repaired (Labour: ₹1200.00 - Tracked),[ ],Create Purchase Order
+12,Purchase Order (PO),/purchases,Supplier Master,PO-2026-00046 (₹6000.00 - Commitment),[ ],Log Operational Expense
+13,Operational Expense,/expenses,Vehicle OD-02-AB-4589,Highway Toll: ₹1450.00,[ ],Review & Approve Expense
+14,Expense Approval,/approvals,Submitted Expense (> ₹1000),Approved (Fleet Mgr / System Mgr),[ ],Create Sales Invoice in Desk
+15,Sales Invoice & Haulage Revenue,ERP Desk / /revenue,Delivered Trip + Customer,32.40 MT @ ₹450 = ₹14580.00,[ ],Record Payment Entry in Desk
+16,Payment Entry Collection,ERP Desk / /collections,Submitted Sales Invoice,Bank Wire Reference: UTR-TATA-20261110,[ ],Check Statutory Compliance
+17,Compliance & Expiries,/compliance,Vehicle Statutory Expiries,Fitness / PUC / Permit Watchlist,[ ],Inspect Reports & Alerts
+18,Reports & Alerts Console,/reports & /alerts,Operational Transactions,Daily Tonnage vs Target (1500 MT),[ ],Audit Fleet Profitability
+19,Single-Truck Profitability P&L,/profitability,Revenue less Operating Debits,Net Daily Operating Profit: +₹2030.00 (13.92%),[ ],DEMO COMPLETE

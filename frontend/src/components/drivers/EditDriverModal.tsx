@@ -144,6 +144,12 @@ export function EditDriverModal({ isOpen, driver, onClose, onSuccess }: EditDriv
       });
 
       const json = await res.json();
+      if (res.status === 202 && json.warning) {
+        // Partial success: driver exists but some fields were not saved
+        setError(`Partial Update: ${json.warning}`);
+        setIsSubmitting(false);
+        return;
+      }
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Failed to update driver profile.');
       }
@@ -178,8 +184,8 @@ export function EditDriverModal({ isOpen, driver, onClose, onSuccess }: EditDriv
                 </h2>
               </div>
               <div className="flex items-center gap-2 mt-1">
-                <span data-testid="driver-id-badge" className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                  Driver ID: {driver.id}
+                <span data-testid="driver-id-badge" className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                  {driver.licenseNumber ? `License: ${driver.licenseNumber}` : 'Commercial Operator'}
                 </span>
                 <Badge variant={getStatusBadgeVariant(driver.status)} size="sm">
                   {driver.status}

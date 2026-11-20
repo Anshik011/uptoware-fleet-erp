@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPendingApprovals, executeApprovalAction } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, MineAuthorizationError } from '@/lib/mineAuth';
 import { ApprovalDocType } from '@/types/fleet';
 
 const VALID_DOCTYPES: ApprovalDocType[] = [
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { doctype, id, action, rejectionReason, notes } = body;
+    const { doctype, id, ids, action, rejectionReason, notes } = body;
 
     if (!doctype || !VALID_DOCTYPES.includes(doctype as ApprovalDocType)) {
       return NextResponse.json(
@@ -110,9 +111,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!id || typeof id !== 'string') {
+    const targetIds: string[] = Array.isArray(ids) ? ids : (id && typeof id === 'string' ? [id] : []);
+    if (targetIds.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Document ID parameter is required.' },
+        { success: false, error: 'Document ID or array of IDs parameter is required.' },
         { status: 400 }
       );
     }
@@ -175,24 +177,81 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = await executeApprovalAction(
-      auth.sid,
-      {
-        email: auth.user.email,
-        role: auth.user.role,
-        roles: auth.user.roles,
-      },
-      {
-        doctype: doctype as ApprovalDocType,
-        id,
-        action: trimmedAction,
-        rejectionReason: rejectionReason ? String(rejectionReason).trim() : undefined,
-        notes: notes ? String(notes).trim() : undefined,
-      }
-    );
+    const mineScope = await resolveUserMineScope(request);
+    const results: any[] = [];
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+    let firstFailStatus = 500;
 
-    return NextResponse.json(result);
+    for (const docId of targetIds) {
+      try {
+        const result = await executeApprovalAction(
+          auth.sid,
+          {
+            email: auth.user.email,
+            role: auth.user.role,
+            roles: auth.user.roles,
+            isAllMines: mineScope.isAllMines,
+            allowedMines: mineScope.allowedMines,
+          },
+          {
+            doctype: doctype as ApprovalDocType,
+            id: docId,
+            action: trimmedAction,
+            rejectionReason: rejectionReason ? String(rejectionReason).trim() : undefined,
+            notes: notes ? String(notes).trim() : undefined,
+          }
+        );
+        results.push({ id: docId, success: true, result });
+        successCount++;
+      } catch (err: any) {
+        failCount++;
+        const errMsg = err?.message || 'Approval failed';
+        let statusCode = err?.status || 500;
+        if (/workflow action|not a valid workflow|already approved|already submitted|invalid state|cannot be transitioned/i.test(errMsg)) {
+          statusCode = 409;
+        } else if (/not found|does not exist/i.test(errMsg)) {
+          statusCode = 404;
+        } else if (/access denied|not authorized|forbidden|permission|mine site/i.test(errMsg)) {
+          statusCode = 403;
+        } else if (/mandatory|required|bad request/i.test(errMsg)) {
+          statusCode = 400;
+        }
+        if (failCount === 1) {
+          firstFailStatus = statusCode;
+        }
+        errors.push(`${docId}: ${errMsg}`);
+        results.push({ id: docId, success: false, error: errMsg, status: statusCode });
+      }
+    }
+
+    if (targetIds.length === 1) {
+      if (failCount > 0) {
+        return NextResponse.json(
+          { success: false, error: errors[0] },
+          { status: firstFailStatus }
+        );
+      }
+      return NextResponse.json(results[0].result);
+    }
+
+    return NextResponse.json({
+      success: failCount === 0,
+      message: `Batch ${trimmedAction} completed: ${successCount} processed, ${failCount} failed.`,
+      processedCount: targetIds.length,
+      successCount,
+      failCount,
+      errors: errors.length > 0 ? errors : undefined,
+      results,
+    });
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /approvals POST error:', err?.message || 'Error');
     return NextResponse.json(

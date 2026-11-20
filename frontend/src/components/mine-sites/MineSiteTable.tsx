@@ -287,7 +287,7 @@ export function MineSiteTable({
                       <div className="flex items-center gap-1.5">
                         <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="font-medium text-slate-800 truncate max-w-[160px]">
-                          {site.clientName || site.client}
+                          {site.clientName || 'Direct Mining Client'}
                         </span>
                       </div>
                     ) : (

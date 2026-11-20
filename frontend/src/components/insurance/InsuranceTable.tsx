@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { VehicleInsurancePolicy } from '@/types/fleet';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import {
   Shield,
   ShieldCheck,
@@ -210,8 +211,8 @@ export function InsuranceTable({
                           <div className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                             {p.policyNo}
                           </div>
-                          <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                            {p.name}
+                          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                            {p.policyType || 'Comprehensive Motor Cover'}
                             {p.isRenewal && (
                               <span className="ml-1.5 px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 font-sans text-[10px] font-semibold border border-indigo-200">
                                 Renewal
@@ -225,7 +226,7 @@ export function InsuranceTable({
                     {/* Vehicle */}
                     <td className="py-3.5 px-4">
                       <span className="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-mono">
-                        {p.vehicle}
+                        {formatVehicleDisplay(p.vehicle)}
                       </span>
                     </td>
 

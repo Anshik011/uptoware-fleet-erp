@@ -17,8 +17,20 @@ export default function ComplianceReportsPage() {
         const res = await fetch('/api/insurance/options');
         const json = await res.json();
         if (res.ok && json.success) {
-          if (json.vehicles) setVehicles(json.vehicles);
-          if (json.companies) setInsuranceCompanies(json.companies);
+          if (Array.isArray(json.vehicles)) {
+            setVehicles(
+              json.vehicles.map((v: any) => {
+                const id = v.name || v.id;
+                const plate = v.license_plate || v.licensePlate;
+                return {
+                  name: id,
+                  license_plate: plate && plate !== id ? plate : '',
+                };
+              })
+            );
+          }
+          const companies = json.insuranceCompanies || json.companies;
+          if (Array.isArray(companies)) setInsuranceCompanies(companies);
         }
       } catch (err) {
         console.warn('Could not load compliance report options:', err);

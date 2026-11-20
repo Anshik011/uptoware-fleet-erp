@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { formatCurrency, formatDate, formatNumber } from '@/config/branding';
 import { TripProfitabilityRecord } from '@/lib/frappe';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import { Search, Compass, AlertCircle, TrendingUp, TrendingDown, FileText } from 'lucide-react';
 
 interface TripProfitabilityTableProps {
@@ -15,7 +16,8 @@ export function TripProfitabilityTable({ trips, loading }: TripProfitabilityTabl
 
   const filtered = trips.filter((t) => {
     return (
-      t.tripId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.materialType && t.materialType.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (t.challanNumber && t.challanNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
       t.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.driver.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.mineSite.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -45,7 +47,7 @@ export function TripProfitabilityTable({ trips, loading }: TripProfitabilityTabl
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search trip ID, vehicle, driver, site, client..."
+              placeholder="Search vehicle, driver, site, client, or challan..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
@@ -61,7 +63,7 @@ export function TripProfitabilityTable({ trips, loading }: TripProfitabilityTabl
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3">Trip ID</th>
+                <th className="px-4 py-3">Cargo & Challan</th>
                 <th className="px-4 py-3">Dispatch Date</th>
                 <th className="px-4 py-3">Asset & Client</th>
                 <th className="px-4 py-3 text-right">Net Tons</th>
@@ -97,12 +99,19 @@ export function TripProfitabilityTable({ trips, loading }: TripProfitabilityTabl
                   const isPositive = t.contribution >= 0;
                   return (
                     <tr key={t.tripId} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-blue-700 font-mono">
-                        {t.tripId}
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-900">{t.materialType || 'Bulk Mineral Cargo'}</div>
+                        {t.challanNumber ? (
+                          <div className="text-[11px] text-slate-500 font-mono">Challan: {t.challanNumber}</div>
+                        ) : (
+                          <div className="text-[11px] text-slate-400">Verified Manifest</div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-600">{formatDate(t.dispatchDate)}</td>
                       <td className="px-4 py-3">
-                        <div className="font-bold text-slate-900 font-mono">{t.vehicle}</div>
+                        <div className="font-bold text-slate-900 font-mono">
+                          {formatVehicleDisplay(t.vehicle)}
+                        </div>
                         <div className="text-[11px] text-slate-500">{t.client}</div>
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-slate-800 font-mono">

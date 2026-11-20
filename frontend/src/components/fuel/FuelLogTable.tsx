@@ -4,6 +4,7 @@ import React from 'react';
 import { FuelLog } from '@/types/fleet';
 import { Badge, BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { formatVehicleDisplay, formatDriverDisplay } from '@/lib/displayFormatters';
 import {
   Fuel,
   Search,
@@ -30,6 +31,7 @@ interface FuelLogTableProps {
   onSelectLog: (log: FuelLog) => void;
   onOpenAddFuel: () => void;
   onOpenApprovalModal: (log: FuelLog, action: 'Approve' | 'Reject' | 'Re-open') => void;
+  onBulkApprove?: (ids: string[]) => void;
   canManage: boolean;
 }
 
@@ -48,8 +50,28 @@ export function FuelLogTable({
   onSelectLog,
   onOpenAddFuel,
   onOpenApprovalModal,
+  onBulkApprove,
   canManage,
 }: FuelLogTableProps) {
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+
+  const draftLogs = logs.filter((l) => l.approvalStatus === 'Draft');
+  const allDraftsSelected = draftLogs.length > 0 && draftLogs.every((l) => selectedIds.includes(l.id));
+
+  const toggleSelectAll = () => {
+    if (allDraftsSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(draftLogs.map((l) => l.id));
+    }
+  };
+
+  const toggleSelectOne = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
   function getStatusBadgeVariant(status: string): BadgeVariant {
     switch (status) {
       case 'Approved':
@@ -187,6 +209,38 @@ export function FuelLogTable({
             </select>
           </div>
         </div>
+
+        {/* Bulk Action Bar */}
+        {selectedIds.length > 0 && canManage && (
+          <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-600" />
+              <span className="text-xs font-semibold text-blue-900">
+                {selectedIds.length} pending fuel log{selectedIds.length > 1 ? 's' : ''} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="px-2.5 py-1 text-xs font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onBulkApprove?.(selectedIds);
+                  setSelectedIds([]);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Bulk Approve Selected ({selectedIds.length})</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Table */}
@@ -197,7 +251,19 @@ export function FuelLogTable({
         >
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <th className="py-3 px-4 sm:px-6">Log ID / Date</th>
+              {canManage && (
+                <th className="py-3 px-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={allDraftsSelected}
+                    onChange={toggleSelectAll}
+                    disabled={draftLogs.length === 0}
+                    className="rounded border-slate-300 text-blue-900 focus:ring-blue-900"
+                    title="Select all draft logs"
+                  />
+                </th>
+              )}
+              <th className="py-3 px-4 sm:px-6">Refuel Date & Time</th>
               <th className="py-3 px-4">Vehicle & Driver</th>
               <th className="py-3 px-4">Source / Station</th>
               <th className="py-3 px-4 text-right">Odometer (KM)</th>
@@ -212,7 +278,7 @@ export function FuelLogTable({
           <tbody className="divide-y divide-slate-200 bg-white">
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-slate-500">
+                <td colSpan={canManage ? 11 : 10} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Fuel className="w-8 h-8 text-slate-300" />
                     <p className="text-sm font-semibold text-slate-700">No fuel logs found</p>
@@ -227,31 +293,53 @@ export function FuelLogTable({
             ) : (
               logs.map((log) => {
                 const isDraft = log.approvalStatus === 'Draft';
+                const isSelected = selectedIds.includes(log.id);
 
                 return (
                   <tr
                     key={log.id}
-                    className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                    className={`hover:bg-slate-50/80 transition-colors group cursor-pointer ${
+                      isSelected ? 'bg-blue-50/50' : ''
+                    }`}
                     onClick={() => onSelectLog(log)}
                     data-testid={`row-fuel-log-${log.id}`}
                   >
-                    {/* Log ID & Date */}
+                    {/* Bulk Selection Checkbox */}
+                    {canManage && (
+                      <td
+                        className="py-3.5 px-3 w-10 text-center"
+                        onClick={(e) => isDraft && toggleSelectOne(log.id, e)}
+                      >
+                        {isDraft ? (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => toggleSelectOne(log.id, e as any)}
+                            className="rounded border-slate-300 text-blue-900 focus:ring-blue-900"
+                          />
+                        ) : (
+                          <span className="w-4 h-4 inline-block text-slate-300 text-xs">•</span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* Refuel Date & Time */}
                     <td className="py-3.5 px-4 sm:px-6 font-medium text-slate-900">
-                      <div className="font-mono text-xs font-bold text-blue-900">
-                        {log.id}
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono">
+                      <div className="text-xs font-bold text-slate-900">
                         {log.fuelDate}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-medium">
+                        {log.quantityLitres.toFixed(1)} L Refuel
                       </div>
                     </td>
 
                     {/* Vehicle & Driver */}
                     <td className="py-3.5 px-4">
                       <div className="font-mono font-bold text-slate-900 text-xs">
-                        {log.vehicle}
+                        {formatVehicleDisplay(log.vehicle, vehicles)}
                       </div>
                       <div className="text-[11px] text-slate-500">
-                        {log.driverName || log.driver || 'Unspecified'}
+                        {formatDriverDisplay(undefined, log.driverName)}
                       </div>
                     </td>
 

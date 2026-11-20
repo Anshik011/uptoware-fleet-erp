@@ -172,6 +172,15 @@ export async function POST(request: NextRequest) {
             ? 'Dispatch & Weighbridge Operations'
             : 'Fleet Operations';
 
+    const isAllMines = Boolean(
+      profile.is_all_mines ||
+      primaryRole === 'Administrator' ||
+      roles.includes('System Manager') ||
+      roles.includes('Fleet Head Office Admin')
+    );
+    const allowedMines: string[] = Array.isArray(profile.allowed_mines) ? profile.allowed_mines : [];
+    const isUnassigned = !isAllMines && allowedMines.length === 0;
+
     const userPayload = {
       id: profile.user,
       name: profile.full_name || profile.user,
@@ -179,6 +188,9 @@ export async function POST(request: NextRequest) {
       roles,
       role: primaryRole,
       department,
+      isAllMines,
+      allowedMines,
+      isUnassigned,
     };
 
     const response = NextResponse.json(

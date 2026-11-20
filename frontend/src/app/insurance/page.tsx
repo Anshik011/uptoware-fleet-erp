@@ -60,9 +60,23 @@ export default function InsurancePage() {
 
       if (optionsRes.ok) {
         const optionsJson = await optionsRes.json();
-        if (optionsJson.vehicles) setVehicles(optionsJson.vehicles);
-        if (optionsJson.companies) setInsuranceCompanies(optionsJson.companies);
-        if (optionsJson.policyTypes) setPolicyTypes(optionsJson.policyTypes);
+        if (Array.isArray(optionsJson.vehicles)) {
+          setVehicles(
+            optionsJson.vehicles.map((v: any) => {
+              const id = v.name || v.id;
+              const plate = v.license_plate || v.licensePlate;
+              return {
+                name: id,
+                license_plate: plate && plate !== id ? plate : '',
+                make: v.make,
+                model: v.model,
+              };
+            })
+          );
+        }
+        const companies = optionsJson.insuranceCompanies || optionsJson.companies;
+        if (Array.isArray(companies)) setInsuranceCompanies(companies);
+        if (Array.isArray(optionsJson.policyTypes)) setPolicyTypes(optionsJson.policyTypes);
       }
     } catch (err: any) {
       setError(err.message || 'Error loading insurance data');

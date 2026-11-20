@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getExpenses, createExpense } from '@/lib/frappe';
-import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { resolveUserMineScope, validateAndResolveMineFilter, validateWriteMineSite, MineAuthorizationError } from '@/lib/mineAuth';
 import { CreateExpenseInput, ExpenseCategory } from '@/types/fleet';
 
 export async function GET(request: NextRequest) {
@@ -29,20 +30,32 @@ export async function GET(request: NextRequest) {
     const fromDate = searchParams.get('from_date') || undefined;
     const toDate = searchParams.get('to_date') || undefined;
     const query = searchParams.get('q')?.toLowerCase().trim();
-    const includeTest = searchParams.get('include_test') === 'true';
+    if (searchParams.get('include_test') === 'true' && !isAuthorizedForTestRecords(auth.user)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Access to test records requires Administrator or System Manager privileges.' },
+        { status: 403 }
+      );
+    }
+    const includeTest = isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
+
+    const mineScope = await resolveUserMineScope(request);
+    const mineFilter = validateAndResolveMineFilter(mineScope, searchParams.get('mine_site'));
 
     const { expenses, metrics } = await getExpenses(auth.sid, {
       status: status !== 'ALL' ? status : undefined,
       category: category && category !== 'ALL' ? category : undefined,
       vehicle: vehicle && vehicle !== 'ALL' ? vehicle : undefined,
       miningTrip: miningTrip && miningTrip !== 'ALL' ? miningTrip : undefined,
-      mineSite: mineSite && mineSite !== 'ALL' ? mineSite : undefined,
+      mineSite: mineFilter.filterType === 'single' ? mineFilter.targetMine : undefined,
       fromDate,
       toDate,
       includeTest,
     });
 
     let filtered = expenses;
+    if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      filtered = filtered.filter((e) => e.mineSite && mineFilter.targetMines!.includes(e.mineSite));
+    }
     if (query) {
       filtered = filtered.filter(
         (e) =>
@@ -74,6 +87,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /expenses GET error:', err?.message || 'Error');
     const status = err?.status || 500;
@@ -111,8 +130,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const expenseCategory = body.expenseCategory || body.category;
     const {
-      expenseCategory,
       amount,
       expenseDate,
       vehicle,
@@ -153,6 +172,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!mineSite || typeof mineSite !== 'string' || !mineSite.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Mine Site is strictly mandatory for operational expense.' },
+        { status: 400 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateWriteMineSite(mineScope, mineSite);
+
     const input: CreateExpenseInput = {
       expenseCategory: expenseCategory.trim() as ExpenseCategory,
       amount: Number(amount),
@@ -184,6 +213,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /expenses POST error:', err?.message || 'Error');
     const status = err?.status || 500;

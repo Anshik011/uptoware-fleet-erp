@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { OperationalExpense, ExpenseWorkflowAction } from '@/types/fleet';
 import { Button } from '@/components/ui/Button';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import {
   IndianRupee,
   X,
@@ -96,8 +97,8 @@ export function ExpenseApprovalModal({
               <h3 className="text-base font-semibold text-slate-900">
                 {action} Operational Expense
               </h3>
-              <p className="text-xs text-slate-500 font-mono">
-                {expense.id} • ₹{expense.amount.toLocaleString('en-IN')}
+              <p className="text-xs text-slate-500 font-medium">
+                {expense.expenseCategory} • ₹{expense.amount.toLocaleString('en-IN')}
               </p>
             </div>
           </div>
@@ -140,7 +141,7 @@ export function ExpenseApprovalModal({
             <div className="flex justify-between">
               <span className="text-slate-500">Attribution:</span>
               <span className="text-slate-900">
-                {expense.vehicle ? `Vehicle: ${expense.vehicle}` : 'General Fleet'}
+                {expense.vehicle ? `Vehicle: ${formatVehicleDisplay(expense.vehicle, undefined, { includeModel: true })}` : 'General Fleet'}
               </span>
             </div>
           </div>

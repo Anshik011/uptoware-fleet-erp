@@ -6,6 +6,11 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useAuth } from '@/context/AuthContext';
 import { ApprovalItem, ApprovalMetrics, ApprovalDocType } from '@/types/fleet';
 import {
+  formatVehicleDisplay,
+  formatDriverDisplay,
+  formatMineSiteDisplay,
+} from '@/lib/displayFormatters';
+import {
   CheckSquare,
   CheckCircle2,
   XCircle,
@@ -65,6 +70,7 @@ export default function ApprovalsPage() {
   const [rejectingItem, setRejectingItem] = useState<ApprovalItem | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const fetchApprovals = async () => {
     setLoading(true);
@@ -184,6 +190,43 @@ export default function ApprovalsPage() {
     }
   };
 
+  const handleBulkApprove = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Are you sure you want to approve ${selectedIds.length} selected items?`)) return;
+
+    setIsSubmittingAction(true);
+    try {
+      const byDoctype = new Map<string, string[]>();
+      for (const id of selectedIds) {
+        const itm = items.find((i) => i.id === id);
+        if (itm && !itm.isCurrentUserOwner) {
+          const list = byDoctype.get(itm.doctype) || [];
+          list.push(itm.id);
+          byDoctype.set(itm.doctype, list);
+        }
+      }
+
+      for (const [docType, ids] of byDoctype.entries()) {
+        await fetch('/api/approvals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            doctype: docType,
+            ids,
+            action: 'Approve',
+          }),
+        });
+      }
+
+      setSelectedIds([]);
+      await fetchApprovals();
+    } catch (err: any) {
+      alert(`Bulk approval error: ${err.message}`);
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
   const getDocTypeIcon = (doctype: ApprovalDocType) => {
     switch (doctype) {
       case 'Mining Trip':
@@ -260,6 +303,25 @@ export default function ApprovalsPage() {
       item.submitter.toLowerCase().includes(q)
     );
   });
+
+  const eligibleItems = filteredItems.filter((i) => !i.isCurrentUserOwner);
+  const allEligibleSelected =
+    eligibleItems.length > 0 && eligibleItems.every((i) => selectedIds.includes(i.id));
+
+  const toggleSelectAll = () => {
+    if (allEligibleSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(eligibleItems.map((i) => i.id));
+    }
+  };
+
+  const toggleSelectOne = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
 
   return (
     <AppShell
@@ -387,7 +449,7 @@ export default function ApprovalsPage() {
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search by ID, vehicle plate, or submitter..."
+                placeholder="Search by vehicle registration, submitter, or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
@@ -407,7 +469,7 @@ export default function ApprovalsPage() {
 
         {/* Approvals Table */}
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <CheckSquare className="w-4 h-4 text-blue-600" />
               <span>Pending Authorizations</span>
@@ -415,6 +477,27 @@ export default function ApprovalsPage() {
                 ({filteredItems.length} items)
               </span>
             </h2>
+
+            {selectedIds.length > 0 && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds([])}
+                  className="px-2.5 py-1 text-xs font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                >
+                  Clear Selection
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkApprove}
+                  disabled={isSubmittingAction}
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Bulk Approve ({selectedIds.length})</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -442,6 +525,16 @@ export default function ApprovalsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={allEligibleSelected}
+                        onChange={toggleSelectAll}
+                        disabled={eligibleItems.length === 0}
+                        className="rounded border-slate-300 text-blue-900 focus:ring-blue-900"
+                        title="Select all eligible items"
+                      />
+                    </th>
                     <th className="py-3 px-4">Item & Module</th>
                     <th className="py-3 px-4">Submitter</th>
                     <th className="py-3 px-4">Asset / Entity</th>
@@ -453,13 +546,30 @@ export default function ApprovalsPage() {
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {filteredItems.map((item) => {
                     const isSelf = item.isCurrentUserOwner;
+                    const isSelected = selectedIds.includes(item.id);
                     return (
                       <tr
                         key={item.id}
                         className={`hover:bg-slate-50/70 transition-colors ${
-                          isSelf ? 'bg-amber-50/15' : ''
+                          isSelected ? 'bg-blue-50/50' : isSelf ? 'bg-amber-50/15' : ''
                         }`}
                       >
+                        {/* Checkbox */}
+                        <td
+                          className="py-3.5 px-3 w-10 text-center"
+                          onClick={(e) => !isSelf && toggleSelectOne(item.id, e)}
+                        >
+                          {!isSelf ? (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => toggleSelectOne(item.id, e as any)}
+                              className="rounded border-slate-300 text-blue-900 focus:ring-blue-900"
+                            />
+                          ) : (
+                            <span className="text-[10px] text-amber-600 font-bold" title="Self-approval prohibited">•</span>
+                          )}
+                        </td>
                         {/* Item & Module */}
                         <td className="py-3.5 px-4">
                           <div className="flex items-start gap-2.5">
@@ -468,10 +578,10 @@ export default function ApprovalsPage() {
                             </div>
                             <div>
                               <div className="font-bold text-slate-900 leading-tight">
-                                {item.id}
+                                {item.title || item.doctype}
                               </div>
-                              <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-                                {item.title}
+                              <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1 font-medium">
+                                Submitted for authorization
                               </div>
                               <div className="mt-1 flex items-center gap-1.5">
                                 {getDocTypeBadge(item.doctype)}
@@ -502,19 +612,21 @@ export default function ApprovalsPage() {
                           {item.vehicle ? (
                             <Link
                               href="/vehicles"
-                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 font-mono"
                             >
                               <Truck className="w-3.5 h-3.5" />
-                              <span>{item.vehicle}</span>
+                              <span>{formatVehicleDisplay(item.vehicle)}</span>
                             </Link>
                           ) : item.mineSite ? (
-                            <span className="font-medium text-slate-800">{item.mineSite}</span>
+                            <span className="font-medium text-slate-800">
+                              {formatMineSiteDisplay(item.mineSite)}
+                            </span>
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}
                           {item.driver && (
                             <div className="text-[11px] text-slate-500 mt-0.5">
-                              Driver: {item.driver}
+                              Driver: {formatDriverDisplay(item.driver)}
                             </div>
                           )}
                         </td>
@@ -607,8 +719,8 @@ export default function ApprovalsPage() {
                   <span>{selectedItem.doctype} Review</span>
                   {getDocTypeBadge(selectedItem.doctype)}
                 </h3>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">
-                  ID: {selectedItem.id}
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Reference: {selectedItem.title || selectedItem.doctype}
                 </p>
               </div>
               <button
@@ -655,8 +767,8 @@ export default function ApprovalsPage() {
                 {selectedItem.vehicle && (
                   <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="text-slate-400 font-medium">Target Vehicle</div>
-                    <div className="font-semibold text-slate-900 mt-0.5">
-                      {selectedItem.vehicle}
+                    <div className="font-semibold text-slate-900 mt-0.5 font-mono">
+                      {formatVehicleDisplay(selectedItem.vehicle, undefined, { includeModel: true })}
                     </div>
                   </div>
                 )}
@@ -735,8 +847,8 @@ export default function ApprovalsPage() {
                   <XCircle className="w-4 h-4" />
                   <span>Reject {rejectingItem.doctype}</span>
                 </h3>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">
-                  ID: {rejectingItem.id}
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Reference: {rejectingItem.title || rejectingItem.doctype}
                 </p>
               </div>
               <button

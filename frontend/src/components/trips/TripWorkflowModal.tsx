@@ -13,6 +13,11 @@ import {
   Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import {
+  formatVehicleDisplay,
+  formatDriverDisplay,
+  formatMineSiteDisplay,
+} from '@/lib/displayFormatters';
 
 interface TripWorkflowModalProps {
   isOpen: boolean;
@@ -163,7 +168,7 @@ export function TripWorkflowModal({
             <div>
               <h3 className="text-base font-bold text-slate-900">{getModalTitle()}</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Trip: <strong className="text-slate-700">{trip.id}</strong> &bull; Vehicle: {trip.vehicle}
+                Material: <strong className="text-slate-700">{trip.materialType || 'Bulk Mineral Cargo'}</strong> &bull; Vehicle: {formatVehicleDisplay(trip.vehicle)}
               </p>
             </div>
           </div>
@@ -329,7 +334,7 @@ export function TripWorkflowModal({
           {action === 'Approve' && (
             <div className="space-y-3">
               <p className="text-xs text-slate-600">
-                You are about to approve Mining Trip <strong className="text-slate-900">{trip.id}</strong>.
+                You are about to approve Mining Trip for vehicle <strong className="text-slate-900">{formatVehicleDisplay(trip.vehicle)}</strong> ({trip.materialType || 'Bulk Mineral Cargo'}).
               </p>
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 space-y-1">
                 <p>Net Hauled Weight: <strong className="text-slate-900">{trip.netWeightTons.toFixed(3)} T</strong></p>
@@ -345,9 +350,9 @@ export function TripWorkflowModal({
           {action === 'Dispatch' && (
             <div className="space-y-3">
               <p className="text-xs text-slate-600">
-                Dispatch vehicle <strong className="text-slate-900">{trip.vehicle}</strong> driven by{' '}
-                <strong className="text-slate-900">{trip.driverName || trip.driver}</strong> from pit{' '}
-                <strong className="text-slate-900">{trip.mineSite}</strong> to{' '}
+                Dispatch vehicle <strong className="text-slate-900">{formatVehicleDisplay(trip.vehicle)}</strong> driven by{' '}
+                <strong className="text-slate-900">{formatDriverDisplay(trip.driver, trip.driverName)}</strong> from pit{' '}
+                <strong className="text-slate-900">{formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}</strong> to{' '}
                 <strong className="text-slate-900">{trip.destination}</strong>?
               </p>
               <p className="text-xs text-slate-500">

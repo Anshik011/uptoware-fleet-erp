@@ -73,6 +73,8 @@ export default function WeighbridgePage() {
         if (selectedMineSite !== 'ALL') params.set('mine_site', selectedMineSite);
         if (selectedMaterial !== 'ALL') params.set('material', selectedMaterial);
         if (searchQuery.trim()) params.set('q', searchQuery.trim());
+        const isTestMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('include_test') === 'true';
+        if (isTestMode) params.set('include_test', 'true');
 
         const res = await fetch(`/api/weighbridge?${params.toString()}`);
         const json = await res.json();

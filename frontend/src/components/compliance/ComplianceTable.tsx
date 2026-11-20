@@ -19,6 +19,7 @@ import {
   FileClock,
   HelpCircle,
 } from 'lucide-react';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface ComplianceTableProps {
   records: VehicleComplianceRecord[];
@@ -257,11 +258,10 @@ export function ComplianceTable({
                         </div>
                         <div>
                           <div className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors font-mono">
-                            {r.vehicle}
+                            {r.licensePlate || formatVehicleDisplay(r.vehicle)}
                           </div>
-                          <div className="text-[11px] text-slate-500 font-mono">
-                            {r.licensePlate || 'No Plate'}
-                            {r.make && ` • ${r.make}`}
+                          <div className="text-[11px] text-slate-500">
+                            {r.make ? `${r.make}${r.model ? ` · ${r.model}` : ''}` : formatVehicleDisplay(r.vehicle, undefined, { includeModel: true })}
                           </div>
                         </div>
                       </div>

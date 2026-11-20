@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMineSiteDetails, updateMineSite, getCustomers } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 import { UpdateMineSiteInput, MineSiteStatus, MineralType } from '@/types/fleet';
 
 const PERMITTED_STATUSES: MineSiteStatus[] = ['Operational', 'Inactive'];
@@ -65,6 +66,9 @@ export async function GET(
       );
     }
 
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, details.site.id);
+
     return NextResponse.json(
       { success: true, data: details },
       {
@@ -75,6 +79,12 @@ export async function GET(
       }
     );
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('API /mine-sites/[id] GET error:', error?.message || 'Error');
     const status = error.status || 500;
     return NextResponse.json(
@@ -114,6 +124,9 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, id);
 
     let body: any;
     try {
@@ -237,6 +250,12 @@ export async function PATCH(
     const updated = await updateMineSite(auth.sid, id, updatePayload);
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('API /mine-sites/[id] PATCH error:', error?.message || 'Error');
     const status = error.status || 500;
     const cleanError =

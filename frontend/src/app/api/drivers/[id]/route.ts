@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDriverDetails, updateDriver } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { assertMineAccess, MineAuthorizationError } from '@/lib/mineAuth';
 import { UpdateDriverInput, DriverStatus } from '@/types/fleet';
 
 const PERMITTED_STATUSES: DriverStatus[] = ['Active', 'Suspended', 'Left'];
@@ -66,6 +67,23 @@ export async function GET(
       );
     }
 
+    // Enforce mine authorization boundary
+    if (details.driver.customMineSite) {
+      try {
+        assertMineAccess(auth.user, details.driver.customMineSite);
+      } catch (err: any) {
+        if (err instanceof MineAuthorizationError) {
+          return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+        }
+        throw err;
+      }
+    } else if (auth.user.isUnassigned) {
+      return NextResponse.json(
+        { success: false, error: 'Access Denied: You have no active mine assignments.' },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json(
       { success: true, data: details },
       {
@@ -120,6 +138,39 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: 'Malformed JSON payload.' },
         { status: 400 }
+      );
+    }
+
+    const existingDetails = await getDriverDetails(auth.sid, id, true);
+    if (!existingDetails || !existingDetails.driver) {
+      return NextResponse.json({ success: false, error: `Driver '${id}' not found.` }, { status: 404 });
+    }
+
+    if (existingDetails.driver.customMineSite) {
+      try {
+        assertMineAccess(auth.user, existingDetails.driver.customMineSite);
+      } catch (err: any) {
+        if (err instanceof MineAuthorizationError) {
+          return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+        }
+        throw err;
+      }
+    } else if (auth.user.isUnassigned) {
+      return NextResponse.json(
+        { success: false, error: 'Access Denied: You have no active mine assignments.' },
+        { status: 403 }
+      );
+    }
+
+    const submittedMine = (body.customMineSite || body.mineSite || '').trim();
+    if (submittedMine && existingDetails.driver.customMineSite && submittedMine !== existingDetails.driver.customMineSite) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Direct modification of assigned mine site is restricted. Use the official Fleet Mine Transfer Log workflow (/api/transfers) to relocate drivers between mine sites.',
+        },
+        { status: 403 }
       );
     }
 

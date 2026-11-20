@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMineSites, createMineSite, getCustomers } from '@/lib/frappe';
-import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { resolveUserMineScope, MineAuthorizationError } from '@/lib/mineAuth';
 import { CreateMineSiteInput, MineSiteStatus, MineralType } from '@/types/fleet';
 
 const PERMITTED_STATUSES: MineSiteStatus[] = ['Operational', 'Inactive'];
@@ -47,7 +48,13 @@ export async function GET(request: NextRequest) {
     const query = (searchParams.get('q') || '').toLowerCase().trim();
     const status = searchParams.get('status') || 'ALL';
     const mineral = searchParams.get('mineral') || 'ALL';
-    const includeTest = searchParams.get('include_test') === 'true';
+    if (searchParams.get('include_test') === 'true' && !isAuthorizedForTestRecords(auth.user)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Access to test records requires Administrator or System Manager privileges.' },
+        { status: 403 }
+      );
+    }
+    const includeTest = isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
     if (status !== 'ALL' && !PERMITTED_STATUSES.includes(status as MineSiteStatus)) {
       return NextResponse.json(
@@ -63,7 +70,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const mineScope = await resolveUserMineScope(request);
     let sites = await getMineSites(auth.sid, includeTest);
+
+    if (!mineScope.isAllMines) {
+      if (mineScope.isUnassigned) {
+        sites = [];
+      } else {
+        sites = sites.filter((s) => mineScope.allowedMines.includes(s.id));
+      }
+    }
 
     if (query) {
       sites = sites.filter(
@@ -95,6 +111,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('API /mine-sites GET error:', error?.message || 'Error');
     const status = error.status || 500;
     return NextResponse.json(
@@ -128,6 +150,14 @@ export async function POST(request: NextRequest) {
           success: false,
           error: 'Forbidden: Insufficient permissions to create mine site records.',
         },
+        { status: 403 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    if (!mineScope.isAllMines) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Only Head Office Administrators can create mine sites.' },
         { status: 403 }
       );
     }

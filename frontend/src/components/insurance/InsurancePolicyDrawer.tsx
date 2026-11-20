@@ -19,6 +19,7 @@ import {
   Building,
 } from 'lucide-react';
 import { VehicleInsurancePolicy } from '@/types/fleet';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface InsurancePolicyDrawerProps {
   policy: VehicleInsurancePolicy | null;
@@ -127,8 +128,8 @@ export function InsurancePolicyDrawer({
           <div className="p-6 border-b border-slate-200 flex items-start justify-between bg-slate-50">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-semibold text-slate-500">
-                  {policy.name}
+                <span className="text-xs font-semibold text-slate-500">
+                  {policy.policyType || 'Comprehensive Motor Cover'}
                 </span>
                 {policy.isRenewal && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -165,10 +166,12 @@ export function InsurancePolicyDrawer({
                   <Truck className="w-3.5 h-3.5 text-slate-400" />
                   Assigned Vehicle
                 </span>
-                <p className="text-base font-bold text-slate-900 mt-1 font-mono">{policy.vehicle}</p>
-                {policy.vehiclePlate && (
-                  <p className="text-xs text-slate-500 font-mono mt-0.5">{policy.vehiclePlate}</p>
-                )}
+                <p className="text-base font-bold text-slate-900 mt-1 font-mono">
+                  {policy.vehiclePlate || formatVehicleDisplay(policy.vehicle)}
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {formatVehicleDisplay(policy.vehicle, undefined, { includeModel: true })}
+                </p>
               </div>
               <div>
                 <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5">

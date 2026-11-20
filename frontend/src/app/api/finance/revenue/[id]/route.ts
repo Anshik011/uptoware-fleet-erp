@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSalesInvoiceDetail } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 
 export async function GET(
   request: NextRequest,
@@ -32,6 +33,11 @@ export async function GET(
       );
     }
 
+    if (invoice.mineSite) {
+      const mineScope = await resolveUserMineScope(request);
+      validateDocumentMineOwnership(mineScope, invoice.mineSite);
+    }
+
     return NextResponse.json(
       { success: true, invoice },
       {
@@ -43,6 +49,12 @@ export async function GET(
       }
     );
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     console.error('API /api/finance/revenue/[id] error:', error?.message || error);
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to fetch sales invoice details' },

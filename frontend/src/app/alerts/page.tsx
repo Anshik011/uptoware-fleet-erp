@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { useAuth } from '@/context/AuthContext';
 import { FleetAlert, AlertMetrics } from '@/types/fleet';
+import { formatVehicleDisplay, formatDriverDisplay } from '@/lib/displayFormatters';
 import {
   Bell,
   AlertTriangle,
@@ -515,9 +516,6 @@ export default function AlertsPage() {
                             {getCategoryIcon(alert.category)}
                             <span>{alert.category}</span>
                           </span>
-                          <span className="text-xs text-slate-400 font-mono">
-                            {alert.id}
-                          </span>
                         </div>
 
                         {/* Title & Message */}
@@ -546,20 +544,20 @@ export default function AlertsPage() {
                           {alert.vehicle && (
                             <Link
                               href={`/vehicles`}
-                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 font-mono"
                             >
                               <Truck className="w-3 h-3" />
-                              <span>{alert.vehicle}</span>
+                              <span>{formatVehicleDisplay(alert.vehicle)}</span>
                             </Link>
                           )}
                           {alert.driver && (
                             <span className="text-slate-600">
-                              Driver: <span className="font-medium">{alert.driver}</span>
+                              Driver: <span className="font-medium">{formatDriverDisplay(alert.driver)}</span>
                             </span>
                           )}
-                          {alert.sourceName && (
-                            <span className="text-slate-400 font-mono text-[11px]">
-                              Doc: {alert.sourceName}
+                          {alert.sourceDoctype && (
+                            <span className="text-slate-400 text-[11px]">
+                              Ref: {alert.sourceDoctype}
                             </span>
                           )}
                           <span className="flex items-center gap-1 text-slate-400">
@@ -614,8 +612,8 @@ export default function AlertsPage() {
                 <h3 className="text-sm font-bold text-slate-900">
                   Resolve Operational Alert
                 </h3>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">
-                  {resolvingAlert.id}
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  {resolvingAlert.title}
                 </p>
               </div>
               <button

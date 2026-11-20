@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Vehicle, Driver, MineSite, CreateMiningTripInput } from '@/types/fleet';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Vehicle, Driver, MineSite, CreateMiningTripInput, FleetLead } from '@/types/fleet';
+import { toLocalDateTimeInput } from '@/lib/datetime';
+import { useMine } from '@/context/MineContext';
 import {
   X,
   Compass,
@@ -14,8 +16,16 @@ import {
   AlertTriangle,
   Loader2,
   FileText,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { LinkedField } from '@/components/ui/LinkedField';
+import { AddVehicleModal } from '@/components/vehicles/AddVehicleModal';
+import { AddDriverModal } from '@/components/drivers/AddDriverModal';
+import { AddMineSiteModal } from '@/components/mine-sites/AddMineSiteModal';
+import { VehicleDrawer } from '@/components/vehicles/VehicleDrawer';
+import { DriverDrawer } from '@/components/drivers/DriverDrawer';
+import { MineSiteDrawer } from '@/components/mine-sites/MineSiteDrawer';
 
 interface CreateTripModalProps {
   isOpen: boolean;
@@ -28,14 +38,25 @@ export function CreateTripModal({
   onClose,
   onSuccess,
 }: CreateTripModalProps) {
+  const { currentMine, allowedMines, isSingleMine, isAllMines, isUnassigned, activeMineLabel } = useMine();
+
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Contextual modals and view drawers
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [showAddDriver, setShowAddDriver] = useState(false);
+  const [showAddMineSite, setShowAddMineSite] = useState(false);
+  const [viewVehicleId, setViewVehicleId] = useState<string | null>(null);
+  const [viewDriverId, setViewDriverId] = useState<string | null>(null);
+  const [viewMineSiteId, setViewMineSiteId] = useState<string | null>(null);
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [mineSites, setMineSites] = useState<MineSite[]>([]);
   const [materials, setMaterials] = useState<string[]>([]);
+  const [leads, setLeads] = useState<FleetLead[]>([]);
 
   // Form state
   const [vehicle, setVehicle] = useState('');
@@ -47,62 +68,114 @@ export function CreateTripModal({
   const [ratePerTon, setRatePerTon] = useState<number | ''>('');
   const [openingOdometer, setOpeningOdometer] = useState<number | ''>('');
   const [dispatchDateTime, setDispatchDateTime] = useState('');
+  const [shift, setShift] = useState<'Day' | 'Night' | 'General'>('Day');
+  const [selectedLead, setSelectedLead] = useState<string>('');
+  const [leadKm, setLeadKm] = useState<number | ''>('');
+  const [leadRate, setLeadRate] = useState<number | ''>('');
+  const [tripCount, setTripCount] = useState<number>(1);
+  const [averageTonnage, setAverageTonnage] = useState<number | ''>('');
 
-  // Fetch form options on modal open
+  // Lock status for single-mine / restricted users
+  const isMineLocked = isSingleMine || (!isAllMines && allowedMines.length === 1);
+
+  const fetchOptions = useCallback(
+    async (
+      targetSiteParam?: string,
+      selectCreated?: { type: 'vehicle' | 'driver' | 'mineSite'; id: string }
+    ) => {
+      try {
+        setLoadingOptions(true);
+        const params = new URLSearchParams();
+        const effectiveSite =
+          targetSiteParam !== undefined
+            ? targetSiteParam
+            : (currentMine !== 'ALL' && currentMine !== 'UNASSIGNED' ? currentMine : '');
+
+        if (effectiveSite && effectiveSite !== 'ALL' && effectiveSite !== 'UNASSIGNED') {
+          params.set('mine_site', effectiveSite);
+        }
+
+        const res = await fetch(`/api/trips/options?${params.toString()}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.success && data.data) {
+          setVehicles(data.data.vehicles || []);
+          setDrivers(data.data.drivers || []);
+          setMineSites(data.data.mineSites || []);
+          setMaterials(data.data.materials || []);
+          setLeads(data.data.leads || []);
+
+          if (selectCreated) {
+            if (selectCreated.type === 'vehicle') {
+              setVehicle(selectCreated.id);
+              const foundV = (data.data.vehicles || []).find((v: any) => v.id === selectCreated.id);
+              if (foundV?.lastOdometer !== undefined) setOpeningOdometer(foundV.lastOdometer);
+              if (foundV?.assignedDriverId) setDriver(foundV.assignedDriverId);
+            } else if (selectCreated.type === 'driver') {
+              setDriver(selectCreated.id);
+            } else if (selectCreated.type === 'mineSite') {
+              setMineSite(selectCreated.id);
+              const foundS = (data.data.mineSites || []).find((s: any) => s.id === selectCreated.id);
+              if (foundS?.mineralType) setMaterialType(foundS.mineralType);
+              if (foundS?.ratePerTon) setRatePerTon(foundS.ratePerTon);
+              if (foundS?.location) setDestination(foundS.location);
+            }
+          } else if (data.data.materials?.length > 0 && !materialType) {
+            setMaterialType(data.data.materials[0]);
+          }
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch form options from backend.');
+      } finally {
+        setLoadingOptions(false);
+      }
+    },
+    [currentMine, materialType]
+  );
+
+  // Initialize form and fetch options on modal open
   useEffect(() => {
     if (!isOpen) {
       resetForm();
       return;
     }
 
-    // Set default dispatch datetime to current local datetime
-    const now = new Date();
-    const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
-    setDispatchDateTime(localIso);
-
-    setLoadingOptions(true);
+    setDispatchDateTime(toLocalDateTimeInput());
     setError(null);
 
-    fetch('/api/trips/options')
-      .then(async (res) => {
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `HTTP ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (data.success && data.data) {
-          setVehicles(data.data.vehicles || []);
-          setDrivers(data.data.drivers || []);
-          setMineSites(data.data.mineSites || []);
-          setMaterials(data.data.materials || []);
+    const initialSite =
+      currentMine !== 'ALL' && currentMine !== 'UNASSIGNED'
+        ? currentMine
+        : (!isAllMines && allowedMines.length === 1 ? allowedMines[0] : '');
 
-          if (data.data.materials?.length > 0) {
-            setMaterialType(data.data.materials[0]);
-          }
-        }
-      })
-      .catch((err) => {
-        setError(err.message || 'Failed to fetch form options from backend.');
-      })
-      .finally(() => {
-        setLoadingOptions(false);
-      });
-  }, [isOpen]);
+    setMineSite(initialSite);
+    fetchOptions(initialSite);
+  }, [isOpen, currentMine, isAllMines, allowedMines, fetchOptions]);
 
   const resetForm = () => {
+    const defaultSite =
+      currentMine !== 'ALL' && currentMine !== 'UNASSIGNED'
+        ? currentMine
+        : (!isAllMines && allowedMines.length === 1 ? allowedMines[0] : '');
+
     setVehicle('');
     setDriver('');
-    setMineSite('');
+    setMineSite(defaultSite);
     setDestination('');
     setMaterialType('');
     setChallanNumber('');
     setRatePerTon('');
     setOpeningOdometer('');
     setDispatchDateTime('');
+    setShift('Day');
+    setSelectedLead('');
+    setLeadKm('');
+    setLeadRate('');
+    setTripCount(1);
+    setAverageTonnage('');
     setError(null);
   };
 
@@ -112,12 +185,32 @@ export function CreateTripModal({
     const selectedVeh = vehicles.find((v) => v.id === vId || v.licensePlate === vId);
     if (selectedVeh) {
       setOpeningOdometer(selectedVeh.lastOdometer || 0);
+      if (selectedVeh.payloadCapacityTons && averageTonnage === '') {
+        setAverageTonnage(selectedVeh.payloadCapacityTons);
+      }
       if (selectedVeh.assignedDriverId) {
         const assigned = drivers.find((d) => d.id === selectedVeh.assignedDriverId);
         if (assigned) {
           setDriver(assigned.id);
         }
       }
+    }
+  };
+
+  // Auto-fill defaults when lead changes
+  const handleLeadChange = (leadId: string) => {
+    setSelectedLead(leadId);
+    if (!leadId) {
+      setLeadKm('');
+      setLeadRate('');
+      return;
+    }
+    const foundLead = leads.find((l) => l.id === leadId || l.leadName === leadId);
+    if (foundLead) {
+      setDestination(foundLead.leadName);
+      setLeadKm(foundLead.leadKm);
+      setLeadRate(foundLead.leadRate);
+      setRatePerTon(foundLead.leadRate);
     }
   };
 
@@ -133,24 +226,53 @@ export function CreateTripModal({
         setMaterialType(selectedSite.mineralType);
       }
     }
+    // Re-fetch scoped options for newly selected mine
+    fetchOptions(sId);
+    // Reset vehicle and driver selections if incompatible
+    setVehicle('');
+    setDriver('');
+    setOpeningOdometer('');
+    setSelectedLead('');
+    setLeadKm('');
+    setLeadRate('');
   };
 
   const selectedVehicleObj = vehicles.find((v) => v.id === vehicle || v.licensePlate === vehicle);
+
+  // Derived calculation metrics
+  const effectiveTonnage = Number(averageTonnage !== '' ? averageTonnage : (selectedVehicleObj?.payloadCapacityTons || 35));
+  const calculatedQuantity = Number(tripCount || 1) * effectiveTonnage;
+  const effectiveRate = Number(leadRate !== '' ? leadRate : (ratePerTon !== '' ? ratePerTon : 0));
+  const calculatedAmount = calculatedQuantity * effectiveRate;
+
+  // Filter available mine sites to only user's authorized mines if not All-Mines
+  const availableMineSites = useMemo(() => {
+    if (isAllMines) return mineSites;
+    return mineSites.filter((s) => allowedMines.includes(s.id) || allowedMines.includes(s.siteName));
+  }, [mineSites, isAllMines, allowedMines]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    if (isUnassigned) {
+      setError('You are not assigned to any operational mine site. Mine-specific transactions cannot be created.');
+      return;
+    }
+    if (!mineSite || mineSite === 'ALL' || mineSite === 'UNASSIGNED') {
+      setError('Please select an operational mine site pit.');
+      return;
+    }
+    if (!isAllMines && !allowedMines.includes(mineSite)) {
+      setError(`Access Denied: You do not have authorization to create trips for Mine Site '${mineSite}'.`);
+      return;
+    }
     if (!vehicle) {
       setError('Please select an active operational vehicle.');
       return;
     }
     if (!driver) {
       setError('Please select an active driver.');
-      return;
-    }
-    if (!mineSite) {
-      setError('Please select an operational mine site pit.');
       return;
     }
     if (!destination.trim()) {
@@ -187,6 +309,12 @@ export function CreateTripModal({
         ratePerTon: ratePerTon !== '' ? Number(ratePerTon) : undefined,
         openingOdometer: openingOdometer !== '' ? Number(openingOdometer) : undefined,
         challanNumber: challanNumber.trim() || undefined,
+        lead: selectedLead || undefined,
+        leadKm: leadKm !== '' ? Number(leadKm) : undefined,
+        leadRate: leadRate !== '' ? Number(leadRate) : undefined,
+        tripCount: Number(tripCount || 1),
+        averageTonnage: averageTonnage !== '' ? Number(averageTonnage) : undefined,
+        shift: shift || 'Day',
       };
 
       const res = await fetch('/api/trips', {
@@ -223,7 +351,13 @@ export function CreateTripModal({
             <div>
               <h2 className="text-lg font-bold text-slate-900">Dispatch New Mining Trip</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Assign vehicle, driver, and destination for ore haulage
+                {isMineLocked ? (
+                  <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+                    <Lock className="w-3 h-3 text-slate-400" /> Locked to {activeMineLabel}
+                  </span>
+                ) : (
+                  'Assign vehicle, driver, and destination for ore haulage'
+                )}
               </p>
             </div>
           </div>
@@ -238,6 +372,19 @@ export function CreateTripModal({
 
         {/* Modal Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Unassigned Warning */}
+          {isUnassigned && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
+              <div>
+                <p className="font-semibold">Unassigned Mine Site</p>
+                <p className="text-xs mt-0.5">
+                  You are not currently assigned to any operational mine site. Trip creation is restricted until mine permissions are allocated.
+                </p>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 shrink-0 text-rose-600" />
@@ -257,82 +404,97 @@ export function CreateTripModal({
             <>
               {/* Row 1: Vehicle & Driver */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <LinkedField
+                  label="Select Vehicle"
+                  required
+                  value={vehicle}
+                  onChange={handleVehicleChange}
+                  options={vehicles.map((v) => ({
+                    id: v.id,
+                    label: v.licensePlate,
+                    subtext: `${(v as any).make || ''} ${(v as any).model || ''} • ${v.payloadCapacityTons}T`,
+                  }))}
+                  placeholder="-- Choose Active Vehicle --"
+                  entityName="Vehicle"
+                  icon={Truck}
+                  onCreateNew={() => setShowAddVehicle(true)}
+                  onViewRecord={(id) => setViewVehicleId(id)}
+                  helperText={
+                    selectedVehicleObj
+                      ? `Last recorded odometer: ${selectedVehicleObj.lastOdometer.toLocaleString()} km`
+                      : undefined
+                  }
+                />
+
+                <LinkedField
+                  label="Assign Driver"
+                  required
+                  value={driver}
+                  onChange={setDriver}
+                  options={drivers.map((d) => ({
+                    id: d.id,
+                    label: d.fullName,
+                    subtext: d.licenseNumber ? `Lic: ${d.licenseNumber}` : 'Commercial Operator',
+                  }))}
+                  placeholder="-- Choose Active Driver --"
+                  entityName="Driver"
+                  icon={User}
+                  onCreateNew={() => setShowAddDriver(true)}
+                  onViewRecord={(id) => setViewDriverId(id)}
+                />
+              </div>
+
+              {/* Row 2: Mine Site, Lead Siding & Destination */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <LinkedField
+                  label="Origin Mine Site / Pit"
+                  required
+                  disabled={isMineLocked}
+                  value={mineSite}
+                  onChange={handleMineSiteChange}
+                  options={availableMineSites.map((s) => ({
+                    id: s.id,
+                    label: s.siteName,
+                    subtext: s.mineralType,
+                  }))}
+                  placeholder="-- Choose Mine Site --"
+                  entityName="Mine Site"
+                  icon={MapPin}
+                  onCreateNew={() => setShowAddMineSite(true)}
+                  onViewRecord={(id) => setViewMineSiteId(id)}
+                  hint={isMineLocked ? 'Locked to assigned mine' : undefined}
+                />
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Select Vehicle <span className="text-rose-500">*</span>
+                    Haulage Lead / Route
                   </label>
-                  <div className="relative">
-                    <select
-                      value={vehicle}
-                      onChange={(e) => handleVehicleChange(e.target.value)}
-                      required
-                      className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-slate-900 font-medium"
-                    >
-                      <option value="">-- Choose Active Vehicle --</option>
-                      {vehicles.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.licensePlate} ({v.make} {v.model} &bull; {v.payloadCapacityTons}T)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {selectedVehicleObj && (
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Last recorded odometer: <strong>{selectedVehicleObj.lastOdometer.toLocaleString()} km</strong>
-                    </p>
+                  <select
+                    value={selectedLead}
+                    onChange={(e) => handleLeadChange(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-slate-900 font-medium"
+                  >
+                    <option value="">-- Manual Destination --</option>
+                    {leads.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.leadName} ({l.leadKm} km • ₹{l.leadRate}/T)
+                      </option>
+                    ))}
+                  </select>
+                  {leadKm !== '' && (
+                    <span className="text-[11px] text-slate-500 font-medium mt-1 block">
+                      Route: {leadKm} km • Rate: ₹{leadRate}/T
+                    </span>
                   )}
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Assign Driver <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={driver}
-                      onChange={(e) => setDriver(e.target.value)}
-                      required
-                      className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-slate-900 font-medium"
-                    >
-                      <option value="">-- Choose Active Driver --</option>
-                      {drivers.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.fullName} ({d.id})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 2: Mine Site & Destination */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Origin Mine Site / Pit <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={mineSite}
-                    onChange={(e) => handleMineSiteChange(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-slate-900 font-medium"
-                  >
-                    <option value="">-- Choose Operational Mine Site --</option>
-                    {mineSites.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.siteName} ({s.mineralType})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Destination Terminal / Port <span className="text-rose-500">*</span>
+                    Destination Terminal <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Mangalore Port Berth 8"
+                    placeholder="e.g. NTPC Siding"
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                     required
@@ -375,9 +537,9 @@ export function CreateTripModal({
                 </div>
               </div>
 
-              {/* Row 4: Dispatch Date & Opening Odometer */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-1">
+              {/* Row 4: Dispatch Date, Shift, Trip Count & Average Tonnage */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Dispatch Time <span className="text-rose-500">*</span>
                   </label>
@@ -390,7 +552,55 @@ export function CreateTripModal({
                   />
                 </div>
 
-                <div className="sm:col-span-1">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Operating Shift <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={shift}
+                    onChange={(e) => setShift(e.target.value as any)}
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900 font-medium"
+                  >
+                    <option value="Day">Day Shift</option>
+                    <option value="Night">Night Shift</option>
+                    <option value="General">General Shift</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Trip Count <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={tripCount}
+                    onChange={(e) => setTripCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    required
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Avg Payload (Tons)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder={selectedVehicleObj ? `${selectedVehicleObj.payloadCapacityTons} Tons` : '35.00'}
+                    value={averageTonnage}
+                    onChange={(e) => setAverageTonnage(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Row 5: Opening Odometer & Rate per Ton */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Opening Odometer (km)
                   </label>
@@ -406,21 +616,43 @@ export function CreateTripModal({
                   />
                 </div>
 
-                <div className="sm:col-span-1">
+                <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Rate / Ton (₹) <span className="text-slate-400 font-normal lowercase">(indicative)</span>
+                    Contract Rate / Ton (₹)
                   </label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="e.g. 350"
-                    value={ratePerTon}
-                    onChange={(e) =>
-                      setRatePerTon(e.target.value === '' ? '' : Number(e.target.value))
-                    }
+                    placeholder="e.g. 120"
+                    value={leadRate !== '' ? leadRate : ratePerTon}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? '' : Number(e.target.value);
+                      setRatePerTon(val);
+                      if (selectedLead) setLeadRate(val);
+                    }}
                     className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900 font-mono"
                   />
+                </div>
+              </div>
+
+              {/* Haulage Quantity & Value Calculation Summary Card */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Calculated Mineral Quantity
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900 mt-0.5">
+                    {tripCount || 1} Trip(s) × {effectiveTonnage} Tons = <span className="text-blue-900 font-bold">{calculatedQuantity.toFixed(2)} Tons</span>
+                  </span>
+                </div>
+                <div className="flex flex-col sm:items-end">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Calculated Haulage Amount
+                  </span>
+                  <span className="text-base font-bold text-emerald-700 mt-0.5">
+                    ₹{calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
                 </div>
               </div>
             </>
@@ -437,13 +669,59 @@ export function CreateTripModal({
               size="md"
               isLoading={submitting}
               icon={Compass}
-              disabled={loadingOptions || submitting}
+              disabled={loadingOptions || submitting || isUnassigned}
+              data-testid="btn-submit-trip"
             >
               Create Mining Trip
             </Button>
           </div>
         </form>
       </div>
+
+      {/* Contextual ERPNext-Style Linked Modals & Drawers */}
+      <AddVehicleModal
+        isOpen={showAddVehicle}
+        onClose={() => setShowAddVehicle(false)}
+        onSuccess={() => {
+          fetchOptions();
+          setShowAddVehicle(false);
+        }}
+      />
+
+      <AddDriverModal
+        isOpen={showAddDriver}
+        onClose={() => setShowAddDriver(false)}
+        onSuccess={(newDriver) => {
+          fetchOptions(mineSite, newDriver ? { type: 'driver', id: newDriver.id } : undefined);
+          setShowAddDriver(false);
+        }}
+      />
+
+      <AddMineSiteModal
+        isOpen={showAddMineSite}
+        onClose={() => setShowAddMineSite(false)}
+        onSuccess={(newSite) => {
+          const siteId = newSite ? newSite.id : mineSite;
+          if (newSite) setMineSite(newSite.id);
+          fetchOptions(siteId, newSite ? { type: 'mineSite', id: newSite.id } : undefined);
+          setShowAddMineSite(false);
+        }}
+      />
+
+      <VehicleDrawer
+        vehicleId={viewVehicleId}
+        onClose={() => setViewVehicleId(null)}
+      />
+
+      <DriverDrawer
+        driverId={viewDriverId}
+        onClose={() => setViewDriverId(null)}
+      />
+
+      <MineSiteDrawer
+        siteId={viewMineSiteId}
+        onClose={() => setViewMineSiteId(null)}
+      />
     </div>
   );
 }

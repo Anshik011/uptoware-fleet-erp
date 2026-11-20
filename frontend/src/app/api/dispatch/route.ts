@@ -5,9 +5,12 @@ import {
   applyTripTransition,
   getDispatchSummary,
   getMiningTripMaterialOptions,
+  getMiningTripById,
 } from '@/lib/frappe';
-import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { resolveUserMineScope, validateAndResolveMineFilter, validateWriteMineSite, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 import { CreateMiningTripInput } from '@/types/fleet';
+import { toLocalDateTimeString } from '@/lib/datetime';
 
 const PERMITTED_QUEUE_STATUSES = [
   'ALL',
@@ -57,7 +60,13 @@ export async function GET(request: NextRequest) {
     const vehicle = searchParams.get('vehicle') || '';
     const driver = searchParams.get('driver') || '';
     const material = searchParams.get('material') || 'ALL';
-    const includeTest = searchParams.get('include_test') === 'true';
+    if (searchParams.get('include_test') === 'true' && !isAuthorizedForTestRecords(auth.user)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Access to test records requires Administrator or System Manager privileges.' },
+        { status: 403 }
+      );
+    }
+    const includeTest = isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
     if (!PERMITTED_QUEUE_STATUSES.includes(status)) {
       return NextResponse.json(
@@ -79,11 +88,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const mineScope = await resolveUserMineScope(request);
+    const mineFilter = validateAndResolveMineFilter(mineScope, searchParams.get('mine_site'));
+
     // Fetch summary metrics & live queue in parallel
     const [metrics, allTrips] = await Promise.all([
       getDispatchSummary(auth.sid, includeTest),
       getMiningTrips(auth.sid, includeTest, {
-        mineSite: mineSite || undefined,
+        mineSite: mineFilter.filterType === 'single' ? mineFilter.targetMine : undefined,
         vehicle: vehicle || undefined,
         driver: driver || undefined,
         material: material !== 'ALL' ? material : undefined,
@@ -92,6 +104,9 @@ export async function GET(request: NextRequest) {
 
     // Filter queue based on status parameter
     let queue = allTrips;
+    if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      queue = queue.filter((t) => mineFilter.targetMines!.includes(t.mineSite));
+    }
     if (status === 'Pending' || status === 'Draft') {
       queue = queue.filter((t) => t.tripStatus === 'Draft');
     } else if (status === 'Dispatched') {
@@ -138,6 +153,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('API /dispatch GET error:', error?.message || 'Error');
     const status = error.status || 500;
     return NextResponse.json(
@@ -197,6 +218,16 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+      const tripDetails = await getMiningTripById(auth.sid, tripId, true);
+      if (!tripDetails || !tripDetails.trip) {
+        return NextResponse.json(
+          { success: false, error: `Mining trip '${tripId}' not found.` },
+          { status: 404 }
+        );
+      }
+      const mineScope = await resolveUserMineScope(request);
+      validateDocumentMineOwnership(mineScope, tripDetails.trip.mineSite);
+
       const updatedTrip = await applyTripTransition(auth.sid, tripId, { action: 'Dispatch' });
       return NextResponse.json({ success: true, data: updatedTrip });
     }
@@ -222,6 +253,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateWriteMineSite(mineScope, mineSite);
 
     if (!destination || typeof destination !== 'string' || !destination.trim()) {
       return NextResponse.json(
@@ -254,7 +288,7 @@ export async function POST(request: NextRequest) {
       mineSite: mineSite.trim(),
       destination: destination.trim(),
       materialType: materialType.trim(),
-      dispatchDateTime: dispatchDateTime || new Date().toISOString().replace('T', ' ').substring(0, 19),
+      dispatchDateTime: dispatchDateTime || toLocalDateTimeString(),
       ratePerTon: ratePerTon != null ? Number(ratePerTon) : undefined,
       openingOdometer: openingOdometer != null ? Number(openingOdometer) : undefined,
       challanNumber: challanNumber ? String(challanNumber).trim() : undefined,
@@ -270,6 +304,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: trip }, { status: 201 });
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('API /dispatch POST error:', error?.message || 'Error');
     const msg = error?.message || '';
     const status =

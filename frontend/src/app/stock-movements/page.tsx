@@ -3,30 +3,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StockMovement } from '@/types/fleet';
 import { useAuth } from '@/context/AuthContext';
+import { useMine } from '@/context/MineContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageContainer } from '@/components/ui/PageContainer';
 import { StockMovementsTable } from '@/components/inventory/StockMovementsTable';
-import { AddStockEntryModal } from '@/components/inventory/AddStockEntryModal';
+import { AddStockEntryModal, WarehouseOption, ItemOption, VehicleOption, BreakdownOption } from '@/components/inventory/AddStockEntryModal';
 import { Button } from '@/components/ui/Button';
 import { ArrowLeftRight, PlusCircle, RefreshCw, AlertCircle } from 'lucide-react';
 
 export default function StockMovementsPage() {
   const { hasRole } = useAuth();
+  const { currentMine } = useMine();
   const canManage = hasRole(['Fleet Manager', 'Workshop Supervisor', 'Administrator']);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string }>>([]);
-  const [items, setItems] = useState<Array<{ itemCode: string; itemName: string; uom: string; rate: number }>>([]);
-  const [vehicles, setVehicles] = useState<Array<{ id: string; licensePlate: string }>>([]);
-  const [breakdowns, setBreakdowns] = useState<Array<{
-    id: string;
-    vehicle: string;
-    description: string;
-    parts: Array<{ itemCode: string; plannedQty: number }>;
-  }>>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
+  const [items, setItems] = useState<ItemOption[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
+  const [breakdowns, setBreakdowns] = useState<BreakdownOption[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('ALL');
@@ -34,26 +31,32 @@ export default function StockMovementsPage() {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Load options
-  useEffect(() => {
-    async function loadOptions() {
-      try {
-        const res = await fetch('/api/inventory/options');
-        const json = await res.json();
-        if (res.ok && json.success) {
-          if (json.warehouses) setWarehouses(json.warehouses);
-          if (json.items) setItems(json.items);
-          if (json.vehicles) setVehicles(json.vehicles);
-          if (json.breakdowns) setBreakdowns(json.breakdowns);
-        }
-      } catch (err) {
-        console.warn('Could not load movement options:', err);
+  // Load options scoped by current mine
+  const loadOptions = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (currentMine && currentMine !== 'ALL' && currentMine !== 'UNASSIGNED') {
+        params.set('mine_site', currentMine);
       }
-    }
-    loadOptions();
-  }, []);
 
-  // Fetch stock movements
+      const res = await fetch(`/api/inventory/options?${params.toString()}`);
+      const json = await res.json();
+      if (res.ok && json.success) {
+        if (json.warehouses) setWarehouses(json.warehouses);
+        if (json.items) setItems(json.items);
+        if (json.vehicles) setVehicles(json.vehicles);
+        if (json.breakdowns) setBreakdowns(json.breakdowns);
+      }
+    } catch (err) {
+      console.warn('Could not load movement options:', err);
+    }
+  }, [currentMine]);
+
+  useEffect(() => {
+    loadOptions();
+  }, [loadOptions]);
+
+  // Fetch stock movements scoped by current mine
   const loadMovements = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -62,6 +65,9 @@ export default function StockMovementsPage() {
       if (searchQuery) params.set('q', searchQuery);
       if (selectedType !== 'ALL') params.set('entry_type', selectedType);
       if (selectedVehicle !== 'ALL') params.set('vehicle', selectedVehicle);
+      if (currentMine && currentMine !== 'ALL' && currentMine !== 'UNASSIGNED') {
+        params.set('mine_site', currentMine);
+      }
 
       const res = await fetch(`/api/inventory/movements?${params.toString()}`);
       const json = await res.json();
@@ -76,7 +82,7 @@ export default function StockMovementsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, selectedType, selectedVehicle]);
+  }, [searchQuery, selectedType, selectedVehicle, currentMine]);
 
   useEffect(() => {
     loadMovements();
@@ -167,4 +173,3 @@ export default function StockMovementsPage() {
     </AppShell>
   );
 }
-

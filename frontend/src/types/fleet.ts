@@ -1,4 +1,13 @@
-export type VehicleStatus = 'Active' | 'On Trip' | 'Under Maintenance' | 'Breakdown' | 'Out of Service';
+export type VehicleStatus = 'Active' | 'On Trip' | 'Under Maintenance' | 'Breakdown' | 'Out of Service' | 'Withdrawn';
+
+export interface FleetVehicleType {
+  id: string;
+  vehicleTypeName: string;
+  category: string;
+  defaultPayloadCapacityTons?: number;
+  description?: string | null;
+  isActive: boolean;
+}
 
 export type StatutoryHealth = 'valid' | 'expiring_soon' | 'expired' | 'missing';
 
@@ -15,11 +24,20 @@ export interface Vehicle {
   make: string;
   model: string;
   status: VehicleStatus;
+  vehicleType?: string;
+  ownerName?: string | null;
+  chassisNumber?: string | null;
+  engineNumber?: string | null;
+  registrationDate?: string | null;
+  withdrawnDate?: string | null;
+  withdrawnReason?: string | null;
   assignedDriverId: string | null;
   assignedDriverName: string | null;
   lastOdometer: number;
   payloadCapacityTons: number;
   fuelType: string;
+  customMineSite?: string;
+  mineSite?: string;
   statutory: {
     overall: StatutoryHealth;
     insurance: StatutoryDocument;
@@ -47,11 +65,15 @@ export interface Driver {
   assignedVehicle: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
+  customMineSite?: string;
+  mineSite?: string;
   isTestRecord?: boolean;
   licenseStatus: StatutoryHealth;
   daysToLicenseExpiry: number | null;
   totalTrips?: number;
   totalTonnage?: number;
+  employee?: string | null;
+  employeeId?: string | null;
 }
 
 export type TripStatus =
@@ -86,6 +108,7 @@ export interface MiningTrip {
   openingOdometer?: number;
   closingOdometer?: number;
   dispatchDateTime: string;
+  shift?: string | null;
   departureDateTime?: string | null;
   returnDateTime?: string | null;
   modified?: string;
@@ -98,6 +121,25 @@ export interface MiningTrip {
   billingNote?: string | null;
   salesInvoice?: string | null;
   isTestRecord?: boolean;
+  lead?: string | null;
+  leadKm?: number;
+  leadRate?: number;
+  tripCount?: number;
+  averageTonnage?: number;
+  calculatedQuantity?: number;
+  calculatedAmount?: number;
+}
+
+export interface FleetLead {
+  id: string;
+  leadName: string;
+  mineSite: string;
+  leadKm: number;
+  leadRate: number;
+  validFrom?: string | null;
+  validTo?: string | null;
+  isActive: boolean;
+  description?: string | null;
 }
 
 export interface CreateMiningTripInput {
@@ -111,6 +153,12 @@ export interface CreateMiningTripInput {
   ratePerTon?: number;
   openingOdometer?: number;
   isTestRecord?: boolean;
+  lead?: string;
+  leadKm?: number;
+  leadRate?: number;
+  tripCount?: number;
+  averageTonnage?: number;
+  shift?: 'Day' | 'Night' | 'General';
 }
 
 export interface TripTransitionInput {
@@ -172,16 +220,27 @@ export interface CreateVehicleInput {
   make: string;
   model: string;
   status: VehicleStatus;
+  vehicleType?: string;
+  ownerName?: string;
+  chassisNumber?: string;
+  engineNumber?: string;
+  registrationDate?: string;
+  withdrawnDate?: string;
+  withdrawnReason?: string;
   assignedDriverId?: string;
   payloadCapacityTons: number;
   lastOdometer: number;
   fuelType: string;
+  customMineSite?: string;
+  mineSite?: string;
   insuranceExpiryDate?: string;
   fitnessExpiryDate?: string;
   pucExpiryDate?: string;
   roadTaxExpiryDate?: string;
   permitExpiryDate?: string;
 }
+
+export interface UpdateVehicleInput extends Partial<CreateVehicleInput> {}
 
 export interface CreateDriverInput {
   fullName: string;
@@ -195,6 +254,9 @@ export interface CreateDriverInput {
   assignedVehicle?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
+  customMineSite?: string;
+  mineSite?: string;
+  employee?: string;
 }
 
 export interface UpdateDriverInput extends Partial<CreateDriverInput> {}
@@ -451,6 +513,15 @@ export interface VehicleBreakdown {
   closedOn?: string | null;
   resolutionType?: 'Repaired' | 'Rejected' | null;
   rejectionReason?: string | null;
+  breakdownEvidenceImage?: string | null;
+  inspectionNotes?: string | null;
+  partsAvailabilityStatus?: 'In Stock' | 'Required Procurement' | 'Direct Purchase Issued' | 'Not Required' | null;
+  purchaseRequest?: string | null;
+  purchaseAuthorizedBy?: string | null;
+  deliveryPersonName?: string | null;
+  deliveryChallanNo?: string | null;
+  repairCompletionEvidence?: string | null;
+  acknowledgementSignature?: string | null;
   isTestRecord?: boolean;
   creation?: string;
   modified?: string;
@@ -486,6 +557,10 @@ export interface CreateBreakdownInput {
   repairDetails?: string;
   laborCost?: number;
   parts?: VehicleBreakdownPart[];
+  breakdownEvidenceImage?: string;
+  inspectionNotes?: string;
+  partsAvailabilityStatus?: 'In Stock' | 'Required Procurement' | 'Direct Purchase Issued' | 'Not Required';
+  purchaseRequest?: string;
   isTestRecord?: boolean;
 }
 
@@ -503,6 +578,15 @@ export interface UpdateBreakdownInput {
   labourCost?: number;
   parts?: VehicleBreakdownPart[];
   partsTable?: VehicleBreakdownPart[];
+  breakdownEvidenceImage?: string;
+  inspectionNotes?: string;
+  partsAvailabilityStatus?: 'In Stock' | 'Required Procurement' | 'Direct Purchase Issued' | 'Not Required';
+  purchaseRequest?: string;
+  purchaseAuthorizedBy?: string;
+  deliveryPersonName?: string;
+  deliveryChallanNo?: string;
+  repairCompletionEvidence?: string;
+  acknowledgementSignature?: string;
 }
 
 export interface BreakdownTransitionInput {
@@ -515,6 +599,15 @@ export interface BreakdownTransitionInput {
   partsTable?: VehicleBreakdownPart[];
   rejectionReason?: string;
   repairCompletionDatetime?: string;
+  breakdownEvidenceImage?: string;
+  inspectionNotes?: string;
+  partsAvailabilityStatus?: 'In Stock' | 'Required Procurement' | 'Direct Purchase Issued' | 'Not Required';
+  purchaseRequest?: string;
+  purchaseAuthorizedBy?: string;
+  deliveryPersonName?: string;
+  deliveryChallanNo?: string;
+  repairCompletionEvidence?: string;
+  acknowledgementSignature?: string;
 }
 
 // ============================================================================
@@ -683,6 +776,8 @@ export interface Warehouse {
   isGroup: boolean;
   totalItems: number;
   totalValuation: number;
+  customMineSite?: string | null;
+  mineSite?: string | null;
 }
 
 export interface StockMovementItem {
@@ -705,6 +800,7 @@ export interface StockMovement {
   postingTime?: string;
   fromWarehouse?: string;
   toWarehouse?: string;
+  mineSite?: string | null;
   vehicle?: string;
   vehicleBreakdown?: string;
   isReturn?: boolean;
@@ -721,6 +817,7 @@ export interface CreateStockEntryInput {
   postingDate?: string;
   fromWarehouse?: string;
   toWarehouse?: string;
+  mineSite?: string | null;
   vehicle?: string;
   vehicleBreakdown?: string;
   isReturn?: boolean;
@@ -743,6 +840,9 @@ export interface Supplier {
   supplierType?: string;
   country?: string;
   pan?: string;
+  gstNo?: string | null;
+  mobileNo?: string | null;
+  address?: string | null;
   isPreferred?: boolean;
   isTestRecord?: boolean;
   totalPurchases: number;
@@ -756,6 +856,9 @@ export interface CreateSupplierInput {
   supplierType?: string;
   country?: string;
   pan?: string;
+  gstNo?: string;
+  mobileNo?: string;
+  address?: string;
   isPreferred?: boolean;
   isTestRecord?: boolean;
 }
@@ -1253,6 +1356,8 @@ export interface VehicleDriverShiftAllocation {
   licensePlate?: string;
   driver: string;
   driverName?: string;
+  mineSite: string;
+  mineSiteName?: string;
   shiftType: ShiftTypeOption | string;
   allocationStart: string;
   allocationEnd?: string | null;
@@ -1261,6 +1366,50 @@ export interface VehicleDriverShiftAllocation {
   remarks?: string | null;
   createdByUser?: string | null;
   isTestRecord: boolean;
+}
+
+export interface CreateShiftAllocationInput {
+  vehicle: string;
+  driver: string;
+  shiftType: ShiftTypeOption | string;
+  allocationStart: string;
+  allocationEnd?: string | null;
+  mineSite: string;
+  status?: ShiftAllocationStatus;
+  isPrimary?: boolean;
+  remarks?: string | null;
+}
+
+export type MineTransferType = 'Vehicle' | 'Driver';
+export type MineTransferStatus = 'Draft' | 'Pending Approval' | 'Completed' | 'Cancelled';
+
+export interface FleetMineTransferLog {
+  name: string;
+  transferType: MineTransferType;
+  assetId: string;
+  assetIdentifier?: string;
+  fromMine: string;
+  toMine: string;
+  effectiveDate: string;
+  odometerAtTransfer?: number | null;
+  reason: string;
+  remarks?: string | null;
+  requestedBy?: string;
+  approvedBy?: string | null;
+  transferStatus: MineTransferStatus;
+  docstatus: number;
+  creation?: string;
+  modified?: string;
+}
+
+export interface CreateMineTransferInput {
+  transferType: MineTransferType;
+  assetId: string;
+  toMine: string;
+  effectiveDate?: string;
+  odometerAtTransfer?: number;
+  reason: string;
+  remarks?: string;
 }
 
 export interface EmployeeProfile {
@@ -1272,6 +1421,7 @@ export interface EmployeeProfile {
   gender?: string | null;
   dateOfBirth?: string | null;
   dateOfJoining?: string | null;
+  relievingDate?: string | null;
   cellNumber?: string | null;
   companyEmail?: string | null;
   personalEmail?: string | null;
@@ -1281,5 +1431,44 @@ export interface EmployeeProfile {
   reportsTo?: string | null;
   userId?: string | null;
   linkedDriverId?: string | null;
+  driverStatus?: DriverStatus | null;
   image?: string | null;
+  customMineSite?: string;
+  mineSite?: string;
+  assignedVehicle?: string | null;
+  dailySalary?: number;
+  ifscCode?: string | null;
+  aadhaarNo?: string | null;
+  panNo?: string | null;
+  bankName?: string | null;
+  bankAcNo?: string | null;
+}
+
+export interface EmployeeAttendance {
+  id: string;
+  employee: string;
+  employeeName: string;
+  attendanceDate: string;
+  attendanceStatus: 'Present' | 'Half Day' | 'Absent' | 'On Leave';
+  shift: 'Day' | 'Night' | 'General';
+  vehicle?: string | null;
+  mineSite: string;
+  dailySalaryRate: number;
+  calculatedSalaryAmount: number;
+  markedBy?: string | null;
+  remarks?: string | null;
+}
+
+export interface EmployeeAttendanceSummary {
+  employee: string;
+  employeeName: string;
+  mineSite: string;
+  assignedVehicle?: string | null;
+  dailySalaryRate: number;
+  totalLoggedDays: number;
+  presentDays: number;
+  halfDays: number;
+  absentDays: number;
+  leaveDays: number;
+  totalCalculatedSalary: number;
 }

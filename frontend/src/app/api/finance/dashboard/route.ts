@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFinancialDashboard } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import {
+  resolveUserMineScope,
+  validateAndResolveMineFilter,
+  MineAuthorizationError,
+} from '@/lib/mineAuth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,11 +28,16 @@ export async function GET(request: NextRequest) {
     const includeTest =
       isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
 
+    const mineScope = await resolveUserMineScope(request);
+    const mineFilter = validateAndResolveMineFilter(mineScope, searchParams.get('mine_site') || undefined);
+    const targetMine = mineFilter.filterType === 'single' ? mineFilter.targetMine : undefined;
+
     const filters = {
       fromDate: searchParams.get('from_date') || undefined,
       toDate: searchParams.get('to_date') || undefined,
       vehicle: searchParams.get('vehicle') || undefined,
       customer: searchParams.get('customer') || undefined,
+      mineSite: targetMine,
     };
 
     const data = await getFinancialDashboard(auth.sid, filters, includeTest);
@@ -53,6 +63,12 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: any) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     console.error('API /api/finance/dashboard error:', error?.message || error);
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to fetch financial dashboard data' },

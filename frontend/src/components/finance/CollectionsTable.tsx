@@ -38,7 +38,7 @@ export function CollectionsTable({ payments, loading, onRefresh }: CollectionsTa
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by payment ID, customer, reference..."
+            placeholder="Search by customer, reference, payment mode..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
@@ -69,7 +69,7 @@ export function CollectionsTable({ payments, loading, onRefresh }: CollectionsTa
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
             <tr>
-              <th className="px-4 py-3">Receipt / Payment ID</th>
+              <th className="px-4 py-3">Receipt Payment</th>
               <th className="px-4 py-3">Customer Client</th>
               <th className="px-4 py-3">Posting Date</th>
               <th className="px-4 py-3">Payment Mode</th>
@@ -111,12 +111,12 @@ export function CollectionsTable({ payments, loading, onRefresh }: CollectionsTa
                   onClick={() => setSelectedPaymentId(p.id)}
                   className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                 >
-                  <td className="px-4 py-3 font-semibold text-emerald-700 font-mono group-hover:underline">
-                    {p.id}
+                  <td className="px-4 py-3 font-semibold text-emerald-800">
+                    <div>Receipt Payment</div>
+                    <div className="text-[11px] text-slate-500 font-normal">{p.modeOfPayment}</div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-slate-900">{p.partyName}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">{p.party}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{formatDate(p.postingDate)}</td>
                   <td className="px-4 py-3">

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
+import { validateAndResolveMineFilter, assertMineAccess, MineAuthorizationError } from '@/lib/mineAuth';
 import { getShiftAllocations, createShiftAllocation } from '@/lib/frappe';
 import { ShiftTypeOption, ShiftAllocationStatus } from '@/types/fleet';
+import { toLocalDateString } from '@/lib/datetime';
 
 const PERMITTED_SHIFTS: ShiftTypeOption[] = [
   'Morning (06:00 - 14:00)',
@@ -40,16 +42,41 @@ export async function GET(request: NextRequest) {
     const vehicle = searchParams.get('vehicle') || undefined;
     const driver = searchParams.get('driver') || undefined;
     const status = searchParams.get('status') || undefined;
-    const includeTest = searchParams.get('include_test') === 'true';
+    const requestedMine = searchParams.get('mine_site') || searchParams.get('mineSite');
+
+    // Resolve mine authorization boundary
+    let mineFilter;
+    try {
+      mineFilter = validateAndResolveMineFilter(auth.user, requestedMine);
+    } catch (err: any) {
+      if (err instanceof MineAuthorizationError) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+      }
+      throw err;
+    }
+
+    if (searchParams.get('include_test') === 'true' && !isAuthorizedForTestRecords(auth.user)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Access to test records requires Administrator or System Manager privileges.' },
+        { status: 403 }
+      );
+    }
+    const includeTest = isAuthorizedForTestRecords(auth.user) && searchParams.get('include_test') === 'true';
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 100;
 
-    const allocations = await getShiftAllocations(`sid=${auth.sid}`, {
+    let allocations = await getShiftAllocations(`sid=${auth.sid}`, {
       vehicle,
       driver,
       status,
       includeTest,
       limit,
     });
+
+    if (mineFilter.filterType === 'single' && mineFilter.targetMine) {
+      allocations = allocations.filter((a) => a.mineSite === mineFilter.targetMine);
+    } else if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      allocations = allocations.filter((a) => a.mineSite && mineFilter.targetMines!.includes(a.mineSite));
+    }
 
     return NextResponse.json({
       success: true,
@@ -136,6 +163,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Operational Mine Site validation & authorization
+    const mineSite = (body.mineSite || body.customMineSite || (auth.user.allowedMines.length === 1 ? auth.user.allowedMines[0] : '')).trim();
+    if (!mineSite) {
+      return NextResponse.json(
+        { success: false, error: 'Validation Error: Mine Site is required for shift allocations.' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      assertMineAccess(auth.user, mineSite);
+    } catch (err: any) {
+      if (err instanceof MineAuthorizationError) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+      }
+      throw err;
+    }
+
     let derivedEnd = allocationEnd || null;
     if (!derivedEnd && allocationStart && shiftType) {
       const startDateStr = allocationStart.split(' ')[0];
@@ -144,10 +189,10 @@ export async function POST(request: NextRequest) {
       } else if (shiftType.includes('14:00 - 22:00')) {
         derivedEnd = `${startDateStr} 22:00:00`;
       } else if (shiftType.includes('22:00 - 06:00')) {
-        const nextDay = new Date(startDateStr);
+        const nextDay = new Date(`${startDateStr}T00:00:00`);
         nextDay.setDate(nextDay.getDate() + 1);
-        derivedEnd = `${nextDay.toISOString().split('T')[0]} 06:00:00`;
-      } else if (shiftType.includes('09:00 - 18:00')) {
+        derivedEnd = `${toLocalDateString(nextDay)} 06:00:00`;
+      } else if (shiftType.includes('09:00 - 18:00') || shiftType.includes('General')) {
         derivedEnd = `${startDateStr} 18:00:00`;
       }
     }
@@ -157,6 +202,7 @@ export async function POST(request: NextRequest) {
       {
         vehicle,
         driver,
+        mineSite,
         shiftType,
         allocationStart,
         allocationEnd: derivedEnd,
@@ -165,7 +211,7 @@ export async function POST(request: NextRequest) {
         remarks: remarks || null,
         isTestRecord: Boolean(isTestRecord),
       },
-      auth.user.email || auth.user.name
+      auth.user.id || auth.user.name || 'Administrator'
     );
 
     return NextResponse.json(

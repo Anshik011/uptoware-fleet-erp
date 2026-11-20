@@ -1,0 +1,16 @@
+{
+  "markdown.validate.enabled": false,
+  "markdown.suggest.paths.includeWorkspaceHeaderCompletions": "never",
+  "markdown.occurrencesHighlight.enabled": false,
+  "markdown.updateLinksOnFileMove.enabled": "never",
+  "[markdown]": {
+    "editor.quickSuggestions": {
+      "other": false,
+      "comments": false,
+      "strings": false
+    },
+    "editor.occurrencesHighlight": "off",
+    "editor.selectionHighlight": false,
+    "editor.codeLens": false
+  }
+}

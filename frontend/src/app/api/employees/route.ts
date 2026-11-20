@@ -57,7 +57,27 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { firstName, lastName, cellNumber, companyEmail, personalEmail, department, designation, branch, status } = body;
+    const {
+      firstName,
+      lastName,
+      cellNumber,
+      companyEmail,
+      personalEmail,
+      department,
+      designation,
+      branch,
+      status,
+      mineSite,
+      assignedVehicle,
+      dailySalary,
+      ifscCode,
+      aadhaarNo,
+      panNo,
+      dateOfJoining,
+      relievingDate,
+      bankAccountNo,
+      bankName,
+    } = body;
 
     if (!firstName || typeof firstName !== 'string') {
       return NextResponse.json(
@@ -76,7 +96,17 @@ export async function POST(request: NextRequest) {
       designation,
       branch,
       status: status || 'Active',
-    });
+      customMineSite: mineSite,
+      assignedVehicle,
+      dailySalary: dailySalary ? Number(dailySalary) : 0,
+      ifscCode,
+      aadhaarNo,
+      panNo,
+      dateOfJoining: dateOfJoining || null,
+      relievingDate: relievingDate || null,
+      bankAcNo: bankAccountNo || null,
+      bankName: bankName || null,
+    } as any);
 
     return NextResponse.json(
       {

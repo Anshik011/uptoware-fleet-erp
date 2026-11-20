@@ -33,6 +33,13 @@ __pycache__/
 # Upstream Docker submodule
 frappe_docker/
 
+# Backups & Archives
+backups/
+*.tar
+*.sql.gz
+*.zip
+
 # OS Files
 .DS_Store
 Thumbs.db
+

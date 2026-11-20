@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, RefreshCw, AlertCircle, Shield, Calendar, IndianRupee } from 'lucide-react';
 import { VehicleInsurancePolicy, RenewInsurancePolicyInput } from '@/types/fleet';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
+import { toLocalDateString } from '@/lib/datetime';
 
 interface RenewPolicyModalProps {
   isOpen: boolean;
@@ -37,16 +39,16 @@ export function RenewPolicyModal({
       // Next day after old end date, or today if overdue
       let nextStart = policy.endDate;
       try {
-        const d = new Date(policy.endDate);
+        const d = new Date(`${policy.endDate}T00:00:00`);
         d.setDate(d.getDate() + 1);
-        nextStart = d.toISOString().split('T')[0];
+        nextStart = toLocalDateString(d);
       } catch (e) {
-        nextStart = new Date().toISOString().split('T')[0];
+        nextStart = toLocalDateString();
       }
 
-      const nextEnd = new Date(new Date(nextStart).getTime() + 365 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split('T')[0];
+      const nextEndDate = new Date(`${nextStart}T00:00:00`);
+      nextEndDate.setFullYear(nextEndDate.getFullYear() + 1);
+      const nextEnd = toLocalDateString(nextEndDate);
 
       setFormData({
         policyName: policy.name,
@@ -120,7 +122,9 @@ export function RenewPolicyModal({
               <h2 className="text-lg font-bold text-slate-900">Renew Insurance Policy</h2>
               <p className="text-xs text-slate-500">
                 Create a linked successor policy for vehicle{' '}
-                <span className="font-semibold text-slate-700">{policy.vehicle}</span>
+                <span className="font-semibold text-slate-700 font-mono">
+                  {formatVehicleDisplay(policy.vehicle)}
+                </span>
               </p>
             </div>
           </div>

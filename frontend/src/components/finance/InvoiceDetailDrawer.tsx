@@ -3,14 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import { formatCurrency, formatDate } from '@/config/branding';
 import { SalesInvoiceRecord } from '@/lib/frappe';
-import { X, FileText, Calendar, User, Truck, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, FileText, Calendar, User, Truck, CheckCircle2, AlertCircle, RefreshCw, CreditCard } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 
 interface InvoiceDetailDrawerProps {
   invoiceId: string | null;
   onClose: () => void;
+  onRecordPayment?: (invoice: SalesInvoiceRecord) => void;
 }
 
-export function InvoiceDetailDrawer({ invoiceId, onClose }: InvoiceDetailDrawerProps) {
+export function InvoiceDetailDrawer({ invoiceId, onClose, onRecordPayment }: InvoiceDetailDrawerProps) {
   const [invoice, setInvoice] = useState<SalesInvoiceRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,9 @@ export function InvoiceDetailDrawer({ invoiceId, onClose }: InvoiceDetailDrawerP
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{invoiceId}</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                {invoice ? `Invoice · ${invoice.customerName}` : 'Commercial Sales Invoice'}
+              </h2>
               <p className="text-xs text-slate-500">Commercial Sales Invoice Details</p>
             </div>
           </div>
@@ -224,7 +228,18 @@ export function InvoiceDetailDrawer({ invoiceId, onClose }: InvoiceDetailDrawerP
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+          {invoice && invoice.outstandingAmount > 0 && (
+            <Button
+              onClick={() => onRecordPayment?.(invoice)}
+              variant="outline"
+              size="sm"
+              className="text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+            >
+              <CreditCard className="w-4 h-4 mr-1.5" />
+              Record Payment
+            </Button>
+          )}
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 text-xs font-semibold transition-colors shadow-2xs"

@@ -23,11 +23,18 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { InvoicePreparationModal } from '@/components/finance/InvoicePreparationModal';
+import {
+  formatVehicleDisplay,
+  formatDriverDisplay,
+  formatMineSiteDisplay,
+} from '@/lib/displayFormatters';
 
 interface TripDrawerProps {
   tripId: string | null;
   onClose: () => void;
   onOpenActionModal: (trip: MiningTrip, action: string) => void;
+  onOpenInvoiceModal?: (trip: MiningTrip) => void;
   canManage: boolean;
 }
 
@@ -35,6 +42,7 @@ export function TripDrawer({
   tripId,
   onClose,
   onOpenActionModal,
+  onOpenInvoiceModal,
   canManage,
 }: TripDrawerProps) {
   const [loading, setLoading] = useState(false);
@@ -44,6 +52,7 @@ export function TripDrawer({
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [driver, setDriver] = useState<Driver | null>(null);
   const [mineSite, setMineSite] = useState<MineSite | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   useEffect(() => {
     if (!tripId) {
@@ -186,7 +195,7 @@ export function TripDrawer({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-slate-900">
-                  {trip ? `Trip — ${trip.vehicle}` : tripId}
+                  {trip ? `Trip — ${formatVehicleDisplay(trip.vehicle, vehicle ? [vehicle] : undefined)}` : tripId}
                 </h2>
                 {trip && (
                   <Badge variant="neutral" size="sm" className="font-semibold">
@@ -195,11 +204,11 @@ export function TripDrawer({
                 )}
               </div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono text-slate-600 bg-slate-100 border border-slate-200">
-                  Trip ID: {tripId}
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-slate-700 bg-slate-100 border border-slate-200">
+                  {trip ? `${trip.materialType || 'Mineral Cargo'} Dispatch` : 'Haulage Dossier'}
                 </span>
                 <span className="text-xs text-slate-500">
-                  {trip?.mineSite} &rarr; {trip?.destination}
+                  {formatMineSiteDisplay(trip?.mineSite, trip?.mineSiteName)} &rarr; {trip?.destination}
                 </span>
               </div>
             </div>
@@ -320,15 +329,17 @@ export function TripDrawer({
                     Assigned Vehicle
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-base font-bold text-slate-900">
-                      {trip.vehicle}
+                    <span className="text-base font-bold text-slate-900 font-mono">
+                      {vehicle?.licensePlate || formatVehicleDisplay(trip.vehicle)}
                     </span>
                     {vehicle ? (
                       <span className="text-xs text-slate-600 mt-0.5">
                         {vehicle.make} {vehicle.model} &bull; Capacity: {vehicle.payloadCapacityTons} T
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-400 mt-0.5">Vehicle record linked</span>
+                      <span className="text-xs text-slate-400 mt-0.5">
+                        {formatVehicleDisplay(trip.vehicle, undefined, { includeModel: true })}
+                      </span>
                     )}
                     <span className="text-[11px] text-slate-400 mt-1">
                       Status: <strong className="text-slate-700">{vehicle?.status || 'Active'}</strong>
@@ -344,10 +355,10 @@ export function TripDrawer({
                   </div>
                   <div className="flex flex-col">
                     <span className="text-base font-bold text-slate-900">
-                      {driver?.fullName || trip.driverName || trip.driver}
+                      {driver?.fullName || formatDriverDisplay(trip.driver, trip.driverName)}
                     </span>
                     <span className="text-xs text-slate-600 mt-0.5">
-                      Driver ID: {trip.driver}
+                      {driver?.cellNumber ? `Phone: ${driver.cellNumber}` : 'Assigned Fleet Driver'}
                     </span>
                     {driver?.licenseNumber && (
                       <span className="text-[11px] text-slate-400 mt-1">
@@ -432,6 +443,11 @@ export function TripDrawer({
                     <span className="font-semibold text-slate-900 mt-0.5 block">
                       {trip.destination}
                     </span>
+                    {trip.leadKm != null && trip.leadKm > 0 && (
+                      <span className="text-[11px] text-blue-700 font-semibold block mt-0.5">
+                        Haulage Lead: {trip.leadKm} km {trip.leadRate != null && trip.leadRate > 0 ? `• ₹${trip.leadRate}/T` : ''}
+                      </span>
+                    )}
                     {trip.challanNumber && (
                       <span className="text-[11px] text-slate-400">Challan: #{trip.challanNumber}</span>
                     )}
@@ -503,6 +519,24 @@ export function TripDrawer({
                   </div>
                 </div>
 
+                {/* Haulage Multi-Trip Formula and Calculated Quantity */}
+                {(trip.tripCount && trip.tripCount > 1 || trip.calculatedQuantity != null) && (
+                  <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-700">Calculated Quantity (Formula):</span>
+                      <span className="font-bold text-slate-900">
+                        {trip.tripCount || 1} Trip(s) × {trip.averageTonnage || 35}T = {(trip.calculatedQuantity || (trip.tripCount || 1) * (trip.averageTonnage || 35)).toFixed(2)} Tons
+                      </span>
+                    </div>
+                    {trip.calculatedAmount != null && trip.calculatedAmount > 0 && (
+                      <div className="flex items-center justify-between mt-1 text-slate-600">
+                        <span>Calculated Haulage Amount:</span>
+                        <span className="font-bold text-emerald-700">₹{trip.calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Actual Billed Revenue from Accounts */}
                 <div className="mt-4 p-3 bg-blue-50/50 rounded-lg border border-blue-100 text-xs text-slate-700 space-y-1">
                   <div className="flex items-center justify-between">
@@ -523,6 +557,33 @@ export function TripDrawer({
                       {trip.billingStatus}
                     </strong>
                     {trip.billingNote && <p className="text-slate-500 mt-1 italic w-full">{trip.billingNote}</p>}
+                  </div>
+                )}
+
+                {/* Billing Action Button for Delivered Trips */}
+                {!trip.salesInvoice && trip.tripStatus === 'Delivered' && canManage && (
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <Button
+                      onClick={() => {
+                        setShowInvoiceModal(true);
+                      }}
+                      variant="primary"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Prepare Invoice
+                    </Button>
+                  </div>
+                )}
+
+                {/* Invoiced Status indicator */}
+                {trip.salesInvoice && (
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Invoiced: <strong className="font-medium text-slate-900">{trip.salesInvoice}</strong></span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -640,6 +701,18 @@ export function TripDrawer({
             </Button>
           </div>
         )}
+
+        {/* Invoice Preparation Modal */}
+        <InvoicePreparationModal
+          isOpen={showInvoiceModal}
+          trip={trip}
+          onClose={() => setShowInvoiceModal(false)}
+          onInvoiceCreated={() => {
+            setShowInvoiceModal(false);
+            // Refresh trip data to show new billing status
+            window.location.reload();
+          }}
+        />
       </div>
     </div>
   );

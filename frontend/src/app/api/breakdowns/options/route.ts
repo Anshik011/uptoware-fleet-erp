@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBreakdownOptions } from '@/lib/frappe';
 import { getAuthenticatedUser } from '@/lib/auth';
+import { validateAndResolveMineFilter, MineAuthorizationError } from '@/lib/mineAuth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +13,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const requestedMine = searchParams.get('mine_site') || searchParams.get('mineSite');
+
+    let mineFilter;
+    try {
+      mineFilter = validateAndResolveMineFilter(auth.user, requestedMine);
+    } catch (err: any) {
+      if (err instanceof MineAuthorizationError) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+      }
+      throw err;
+    }
+
     const options = await getBreakdownOptions(auth.sid);
+
+    if (mineFilter.filterType === 'single' && mineFilter.targetMine) {
+      const target = mineFilter.targetMine;
+      options.mineSites = options.mineSites.filter((s) => s.id === target || s.siteName === target);
+      options.vehicles = options.vehicles.filter((v: any) => v.customMineSite === target);
+      options.drivers = options.drivers.filter((d: any) => d.customMineSite === target);
+    } else if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
+      const targets = mineFilter.targetMines;
+      options.mineSites = options.mineSites.filter((s) => targets.includes(s.id) || targets.includes(s.siteName));
+      options.vehicles = options.vehicles.filter((v: any) => v.customMineSite && targets.includes(v.customMineSite));
+      options.drivers = options.drivers.filter((d: any) => d.customMineSite && targets.includes(d.customMineSite));
+    }
 
     return NextResponse.json(
       {

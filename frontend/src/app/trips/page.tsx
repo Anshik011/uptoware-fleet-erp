@@ -22,6 +22,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { InvoicePreparationModal } from '@/components/finance/InvoicePreparationModal';
 
 function TripsTableSection() {
   const searchParams = useSearchParams();
@@ -43,9 +44,16 @@ function TripsTableSection() {
   const [sortBy, setSortBy] = useState<string>('dispatch_desc');
 
   // Modals & Drawer State
+  const actionParam = searchParams.get('action');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(
-    searchParams.get('action') === 'new'
+    actionParam === 'new' || actionParam === 'site_sup'
   );
+
+  useEffect(() => {
+    if (actionParam === 'new' || actionParam === 'site_sup') {
+      setIsCreateModalOpen(true);
+    }
+  }, [actionParam]);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [workflowAction, setWorkflowAction] = useState<{
     isOpen: boolean;
@@ -56,6 +64,7 @@ function TripsTableSection() {
     trip: null,
     action: null,
   });
+  const [invoicePreparationTrip, setInvoicePreparationTrip] = useState<MiningTrip | null>(null);
 
   const fetchTrips = useCallback(async () => {
     try {
@@ -276,6 +285,7 @@ function TripsTableSection() {
         tripId={selectedTripId}
         onClose={() => setSelectedTripId(null)}
         onOpenActionModal={handleOpenActionModal}
+        onOpenInvoiceModal={(trip) => setInvoicePreparationTrip(trip)}
         canManage={canManage}
       />
 
@@ -297,6 +307,17 @@ function TripsTableSection() {
         trip={workflowAction.trip}
         action={workflowAction.action}
         onSuccess={handleActionSuccess}
+      />
+
+      {/* Invoice Preparation Modal */}
+      <InvoicePreparationModal
+        isOpen={!!invoicePreparationTrip}
+        trip={invoicePreparationTrip}
+        onClose={() => setInvoicePreparationTrip(null)}
+        onInvoiceCreated={() => {
+          setInvoicePreparationTrip(null);
+          fetchTrips();
+        }}
       />
     </>
   );

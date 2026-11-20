@@ -22,11 +22,207 @@ import {
   Bell,
   CheckSquare,
   Settings,
-  Palette,
   Clock,
-  LucideIcon
+  LucideIcon,
 } from 'lucide-react';
 
+export interface NavSubItem {
+  name: string;
+  href: string;
+  roles?: string[];
+  badge?: string;
+}
+
+export interface NavSubGroup {
+  title: string; // e.g. "PURCHASES", "SALES"
+  items: NavSubItem[];
+}
+
+export interface ClientNavSection {
+  id: string;
+  order: number;
+  title: string; // e.g. "1. EMPLOYEE DATA"
+  shortTitle: string; // "EMPLOYEE DATA"
+  href: string;
+  icon: LucideIcon;
+  roles?: string[];
+  groups?: NavSubGroup[]; // for multi-tier sections like SPARE PARTS REPORT
+  items?: NavSubItem[]; // for direct sub-item sections
+}
+
+/**
+ * CLIENT SPECIFICATION NAVIGATION HIERARCHY
+ * Controlling Reference: client-requirements/69aa6e64-7a71-4d37-8d9a-511eff8e78ff.pdf (Pages 1 & 2)
+ *
+ * Strict Preservation of Exact Client Terminology, Ordering, and Hierarchy:
+ * 1. EMPLOYEE DATA
+ * 2. VEHICLE DATA
+ * 3. TRIP REPORT
+ * 4. LEAD REPORT
+ * 5. SPARE PARTS REPORT (PURCHASES & SALES)
+ * 6. STOCK REPORT
+ * 7. EMP ATTENDANCE REPORT
+ * 8. VEHICLE INCOME REPORT
+ * 9. HSD ESCALATION/DE-ESCALATION
+ */
+export const clientNavigationSections: ClientNavSection[] = [
+  {
+    id: 'employee-data',
+    order: 1,
+    title: '1. EMPLOYEE DATA',
+    shortTitle: 'EMPLOYEE DATA',
+    href: '/employees',
+    icon: Users,
+    items: [
+      { name: 'EMP HOME', href: '/employees?tab=directory' },
+      { name: 'NEW EMP ADD', href: '/employees?action=new' },
+      { name: 'ACTIVE EMP', href: '/employees?status=Active' },
+      { name: 'EXIT EMP', href: '/employees?status=Left' },
+    ],
+  },
+  {
+    id: 'vehicle-data',
+    order: 2,
+    title: '2. VEHICLE DATA',
+    shortTitle: 'VEHICLE DATA',
+    href: '/vehicles',
+    icon: Truck,
+    items: [
+      { name: 'VEHICLE HOME', href: '/vehicles' },
+      { name: 'VEHICLE ENTRY', href: '/vehicles?action=new' },
+      { name: 'VEHICLE REPORT', href: '/vehicles?view=report' },
+      { name: 'WITHDRAW VEHICLES', href: '/vehicles?status=Withdrawn' },
+    ],
+  },
+  {
+    id: 'trip-report',
+    order: 3,
+    title: '3. TRIP REPORT',
+    shortTitle: 'TRIP REPORT',
+    href: '/trips',
+    icon: Compass,
+    items: [
+      { name: 'TRIP HOME', href: '/trips' },
+      { name: 'TRIP ENTRY', href: '/trips?action=new' },
+      { name: 'SITE SUP TRIP ENTRY', href: '/trips?action=site_sup' },
+      { name: 'TRIP REPORT', href: '/trips?view=report' },
+    ],
+  },
+  {
+    id: 'lead-report',
+    order: 4,
+    title: '4. LEAD REPORT',
+    shortTitle: 'LEAD REPORT',
+    href: '/leads',
+    icon: MapPin,
+    items: [
+      { name: 'LEAD HOME', href: '/leads?tab=home' },
+      { name: 'LEAD ENTRY', href: '/leads?action=new' },
+      { name: 'LEAD REPORT', href: '/leads?tab=report' },
+    ],
+  },
+  {
+    id: 'spare-parts-report',
+    order: 5,
+    title: '5. SPARE PARTS REPORT',
+    shortTitle: 'SPARE PARTS REPORT',
+    href: '/spare-parts',
+    icon: Package,
+    groups: [
+      {
+        title: 'PURCHASES',
+        items: [
+          { name: 'HOME', href: '/purchases' },
+          { name: 'SPARE PARTS ENTRY', href: '/purchases?action=new' },
+          { name: 'SPARE PARTS REPORT', href: '/purchases?view=report' },
+          { name: 'VENDOR ENTRY', href: '/suppliers?action=new' },
+          { name: 'VENDER REPORT', href: '/suppliers' },
+        ],
+      },
+      {
+        title: 'SALES',
+        items: [
+          { name: 'HOME', href: '/sales' },
+          { name: 'SALE ENTRY', href: '/sales?action=new' },
+          { name: 'SALE PARTS REPORT', href: '/sales?view=report' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'stock-report',
+    order: 6,
+    title: '6. STOCK REPORT',
+    shortTitle: 'STOCK REPORT',
+    href: '/spare-parts',
+    icon: Warehouse,
+    items: [
+      { name: 'STOCK HOME', href: '/spare-parts' },
+      { name: 'STOCK REPORT', href: '/stock-movements' },
+      { name: 'STOCK ADJUSTMENT', href: '/spare-parts?action=adjust' },
+    ],
+  },
+  {
+    id: 'emp-attendance-report',
+    order: 7,
+    title: '7. EMP ATTENDANCE REPORT',
+    shortTitle: 'EMP ATTENDANCE REPORT',
+    href: '/employees?tab=roster',
+    icon: UserCheck,
+    items: [
+      { name: 'HOME', href: '/employees?tab=directory' },
+      { name: 'ATTENDANCE ENTRY', href: '/employees?tab=roster' },
+      { name: 'ATTENDANCE SUMMERY', href: '/employees?tab=summary' },
+    ],
+  },
+  {
+    id: 'vehicle-income-report',
+    order: 8,
+    title: '8. VEHICLE INCOME REPORT',
+    shortTitle: 'VEHICLE INCOME REPORT',
+    href: '/reports?report=Vehicle+Earning+Summary+Report',
+    icon: IndianRupee,
+    items: [
+      { name: 'VEHICLE EARNING REPORT', href: '/reports?report=Vehicle+Earning+Summary+Report' },
+    ],
+  },
+  {
+    id: 'hsd-escalation',
+    order: 9,
+    title: '9. HSD ESCALATION/DE-ESCALATION',
+    shortTitle: 'HSD ESCALATION/DE-ESCALATION',
+    href: '/reports?report=HSD+Fuel+Price+Escalation+Report',
+    icon: Fuel,
+    items: [
+      { name: 'HSD ESCALATION/DE-ESCALATION REPORT', href: '/reports?report=HSD+Fuel+Price+Escalation+Report' },
+    ],
+  },
+];
+
+/**
+ * TECHNICAL & WORKSHOP ADMINISTRATION
+ * Segregated strictly from client operational navigation to preserve compliance.
+ */
+export const administrationNavSection = {
+  title: 'TECHNICAL & WORKSHOP CONTROLS',
+  roles: ['Fleet Manager', 'Workshop Supervisor', 'Accountant', 'Administrator'],
+  items: [
+    { name: 'Mine Sites & Pits', href: '/mine-sites', icon: MapPin },
+    { name: 'Shift Allocations', href: '/shifts', icon: Clock },
+    { name: 'Weighbridge Scale', href: '/weighbridge', icon: Scale },
+    { name: 'Fuel Logs & Dispensation', href: '/fuel', icon: Fuel },
+    { name: 'Breakdown Incidents', href: '/breakdowns', icon: AlertTriangle },
+    { name: 'Workshop Maintenance', href: '/maintenance', icon: Wrench },
+    { name: 'Operating Expenses', href: '/expenses', icon: Receipt },
+    { name: 'Insurance Policies', href: '/insurance', icon: Shield },
+    { name: 'Statutory Compliance', href: '/compliance', icon: ShieldCheck },
+    { name: 'Approval Center', href: '/approvals', icon: CheckSquare },
+    { name: 'Operational Alerts', href: '/alerts', icon: Bell },
+    { name: 'System Settings', href: '/admin', icon: Settings },
+  ],
+};
+
+// Backwards compatibility interface for any components referencing NavSection
 export interface NavItem {
   name: string;
   href: string;
@@ -34,7 +230,7 @@ export interface NavItem {
   badge?: string;
   phase?: string;
   disabled?: boolean;
-  roles?: string[]; // Allowed roles (undefined means all authenticated users)
+  roles?: string[];
 }
 
 export interface NavSection {
@@ -53,186 +249,4 @@ export const navigationSections: NavSection[] = [
       },
     ],
   },
-  {
-    title: 'Fleet Operations',
-    items: [
-      {
-        name: 'Vehicle Management',
-        href: '/vehicles',
-        icon: Truck,
-      },
-      {
-        name: 'Driver Roster',
-        href: '/drivers',
-        icon: UserCheck,
-      },
-      {
-        name: 'Shift Allocations',
-        href: '/shifts',
-        icon: Clock,
-      },
-      {
-        name: 'HRMS Personnel',
-        href: '/employees',
-        icon: Users,
-      },
-      {
-        name: 'Mine Sites & Pits',
-        href: '/mine-sites',
-        icon: MapPin,
-      },
-      {
-        name: 'Dispatch Operations',
-        href: '/dispatch',
-        icon: Compass,
-      },
-      {
-        name: 'Mining Trips Ledger',
-        href: '/trips',
-        icon: Truck,
-      },
-      {
-        name: 'Weighbridge Operations',
-        href: '/weighbridge',
-        icon: Scale,
-      },
-    ],
-  },
-  {
-    title: 'Fuel & Workshop',
-    items: [
-      {
-        name: 'Fuel Logs & Dispensation',
-        href: '/fuel',
-        icon: Fuel,
-      },
-      {
-        name: 'Breakdown Incidents',
-        href: '/breakdowns',
-        icon: AlertTriangle,
-      },
-      {
-        name: 'Workshop Maintenance',
-        href: '/maintenance',
-        icon: Wrench,
-      },
-      {
-        name: 'Operating Expenses',
-        href: '/expenses',
-        icon: Receipt,
-      },
-    ],
-  },
-  {
-    title: 'Inventory & Procurement',
-    items: [
-      {
-        name: 'Spare Parts Catalog',
-        href: '/spare-parts',
-        icon: Package,
-      },
-      {
-        name: 'Warehouses & Bins',
-        href: '/warehouses',
-        icon: Warehouse,
-      },
-      {
-        name: 'Stock Movements',
-        href: '/stock-movements',
-        icon: ArrowLeftRight,
-      },
-      {
-        name: 'Suppliers & Vendors',
-        href: '/suppliers',
-        icon: Users,
-      },
-      {
-        name: 'Purchase Orders',
-        href: '/purchases',
-        icon: ShoppingCart,
-      },
-      {
-        name: 'Inventory & Procurement Reports',
-        href: '/procurement/reports',
-        icon: FileSpreadsheet,
-      },
-    ],
-  },
-  {
-    title: 'Insurance & Regulatory',
-    items: [
-      {
-        name: 'Insurance Policies',
-        href: '/insurance',
-        icon: Shield,
-      },
-      {
-        name: 'Statutory Compliance',
-        href: '/compliance',
-        icon: ShieldCheck,
-      },
-      {
-        name: 'Compliance Reports',
-        href: '/compliance/reports',
-        icon: FileSpreadsheet,
-      },
-    ],
-  },
-  {
-    title: 'Commercial & Analytics',
-    items: [
-      {
-        name: 'Financial Dashboard',
-        href: '/finance',
-        icon: LayoutDashboard,
-        roles: ['Fleet Manager', 'Accountant', 'Administrator'],
-      },
-      {
-        name: 'Billed Revenue',
-        href: '/revenue',
-        icon: IndianRupee,
-        roles: ['Fleet Manager', 'Accountant', 'Administrator'],
-      },
-      {
-        name: 'Customer Collections',
-        href: '/collections',
-        icon: Receipt,
-        roles: ['Fleet Manager', 'Accountant', 'Administrator'],
-      },
-      {
-        name: 'Fleet Profitability',
-        href: '/profitability',
-        icon: TrendingUp,
-        roles: ['Fleet Manager', 'Accountant', 'Administrator'],
-      },
-      {
-        name: 'Finance & Analytics Reports',
-        href: '/reports',
-        icon: FileSpreadsheet,
-        roles: ['Fleet Manager', 'Accountant', 'Administrator'],
-      },
-    ],
-  },
-  {
-    title: 'Governance & Settings',
-    items: [
-      {
-        name: 'Operational Alerts',
-        href: '/alerts',
-        icon: Bell,
-      },
-      {
-        name: 'Approval Center',
-        href: '/approvals',
-        icon: CheckSquare,
-      },
-      {
-        name: 'System Administration',
-        href: '/admin',
-        icon: Settings,
-        roles: ['Fleet Manager', 'Administrator'],
-      },
-    ],
-  },
 ];
-

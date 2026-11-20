@@ -6,6 +6,7 @@ import { PageContainer } from '@/components/ui/PageContainer';
 import { FinancialKpiCards } from '@/components/finance/FinancialKpiCards';
 import { FinancialKpis } from '@/lib/frappe';
 import { formatCurrency } from '@/config/branding';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import Link from 'next/link';
 import {
   TrendingUp,
@@ -234,7 +235,9 @@ export default function FinanceDashboardPage() {
                     const isPos = v.netMargin >= 0;
                     return (
                       <tr key={v.vehicle} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="px-4 py-3 font-bold text-slate-900 font-mono">{v.vehicle}</td>
+                        <td className="px-4 py-3 font-bold text-slate-900 font-mono">
+                          {formatVehicleDisplay(v.vehicle)}
+                        </td>
                         <td className="px-4 py-3 text-right font-semibold text-blue-700 font-mono">
                           {formatCurrency(v.revenue)}
                         </td>

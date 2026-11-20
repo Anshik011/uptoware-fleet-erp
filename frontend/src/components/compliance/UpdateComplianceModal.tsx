@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileCheck, AlertCircle, Calendar, Truck, FileText } from 'lucide-react';
 import { VehicleComplianceRecord, UpdateComplianceInput } from '@/types/fleet';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface UpdateComplianceModalProps {
   isOpen: boolean;
@@ -133,7 +134,9 @@ export function UpdateComplianceModal({
               <h2 className="text-lg font-bold text-slate-900">Update Statutory Certificate</h2>
               <p className="text-xs text-slate-500">
                 Update statutory validity for vehicle{' '}
-                <span className="font-semibold text-slate-700 font-mono">{record.vehicle}</span>
+                <span className="font-semibold text-slate-700 font-mono">
+                  {record.licensePlate || formatVehicleDisplay(record.vehicle)}
+                </span>
               </p>
             </div>
           </div>
@@ -160,8 +163,10 @@ export function UpdateComplianceModal({
               Target Haulage Asset
             </label>
             <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 flex items-center justify-between">
-              <span>{record.vehicle}</span>
-              <span className="font-normal text-slate-500">{record.licensePlate || 'No Plate'}</span>
+              <span>{record.licensePlate || formatVehicleDisplay(record.vehicle)}</span>
+              <span className="font-normal text-slate-500 font-sans">
+                {record.make ? `${record.make} ${record.model || ''}` : formatVehicleDisplay(record.vehicle, undefined, { includeModel: true })}
+              </span>
             </div>
           </div>
 

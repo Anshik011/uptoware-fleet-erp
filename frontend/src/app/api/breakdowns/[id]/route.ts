@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBreakdownDetails, updateBreakdown } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
+import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 import { UpdateBreakdownInput } from '@/types/fleet';
 
 export async function GET(
@@ -32,6 +33,15 @@ export async function GET(
     }
 
     const breakdown = await getBreakdownDetails(auth.sid, id);
+    if (!breakdown) {
+      return NextResponse.json(
+        { success: false, error: `Breakdown '${id}' not found.` },
+        { status: 404 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, breakdown.mineSite);
 
     return NextResponse.json(
       {
@@ -46,6 +56,12 @@ export async function GET(
       }
     );
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /breakdowns/[id] GET error:', err?.message || 'Error');
     const status = err?.status || 500;
@@ -84,6 +100,17 @@ export async function PATCH(
       );
     }
 
+    const existing = await getBreakdownDetails(auth.sid, id);
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: `Breakdown '${id}' not found.` },
+        { status: 404 }
+      );
+    }
+
+    const mineScope = await resolveUserMineScope(request);
+    validateDocumentMineOwnership(mineScope, existing.mineSite);
+
     let body: UpdateBreakdownInput = {};
     try {
       body = (await request.json()) as UpdateBreakdownInput;
@@ -102,6 +129,12 @@ export async function PATCH(
       breakdown: updated,
     });
   } catch (error: unknown) {
+    if (error instanceof MineAuthorizationError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
     const err = error as { message?: string; status?: number };
     console.error('API /breakdowns/[id] PATCH error:', err?.message || 'Error');
     const status = err?.status || 500;

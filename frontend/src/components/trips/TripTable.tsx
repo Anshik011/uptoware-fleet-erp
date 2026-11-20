@@ -22,6 +22,11 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import {
+  formatVehicleDisplay,
+  formatDriverDisplay,
+  formatMineSiteDisplay,
+} from '@/lib/displayFormatters';
 
 interface TripTableProps {
   trips: MiningTrip[];
@@ -137,7 +142,7 @@ export function TripTable({
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by Trip ID, vehicle, driver, pit, destination..."
+              placeholder="Search by vehicle, driver, pit, destination, material..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all placeholder:text-slate-400"
@@ -194,7 +199,6 @@ export function TripTable({
               <option value="dispatch_asc">Oldest Dispatched</option>
               <option value="weight_desc">Highest Weight</option>
               <option value="revenue_desc">Highest Est. Value</option>
-              <option value="id_asc">Trip ID (A-Z)</option>
             </select>
           </div>
 
@@ -217,7 +221,7 @@ export function TripTable({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/75 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-              <th className="py-3.5 px-4 sm:px-6">Trip ID & Material</th>
+              <th className="py-3.5 px-4 sm:px-6">Material & Cargo</th>
               <th className="py-3.5 px-4">Status</th>
               <th className="py-3.5 px-4">Vehicle</th>
               <th className="py-3.5 px-4">Driver</th>
@@ -264,20 +268,21 @@ export function TripTable({
                     onClick={() => onSelectTrip(trip.id)}
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                   >
-                    {/* Trip ID & Material */}
+                    {/* Material & Cargo */}
                     <td className="py-4 px-4 sm:px-6">
                       <div className="flex flex-col gap-1">
                         <span className="font-semibold text-slate-900 group-hover:text-blue-900 transition-colors">
-                          {trip.id}
+                          {trip.materialType || 'Bulk Mineral Cargo'}
                         </span>
                         <div className="flex items-center gap-1.5">
-                          <Badge variant="neutral" size="sm" className="font-medium text-[10px]">
-                            {trip.materialType || 'Bulk Material'}
-                          </Badge>
-                          {trip.challanNumber && (
-                            <span className="text-[11px] text-slate-400">
-                              #{trip.challanNumber}
+                          {trip.challanNumber ? (
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              Challan #{trip.challanNumber}
                             </span>
+                          ) : (
+                            <Badge variant="neutral" size="sm" className="font-medium text-[10px]">
+                              Standard Haul
+                            </Badge>
                           )}
                         </div>
                       </div>
@@ -295,7 +300,9 @@ export function TripTable({
                           <Truck className="w-3.5 h-3.5" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-900">{trip.vehicle}</span>
+                          <span className="font-medium text-slate-900 font-mono">
+                            {formatVehicleDisplay(trip.vehicle)}
+                          </span>
                           {trip.openingOdometer != null && trip.openingOdometer > 0 && (
                             <span className="text-[11px] text-slate-400">
                               Odo: {trip.openingOdometer.toLocaleString()} km
@@ -313,25 +320,29 @@ export function TripTable({
                         </div>
                         <div className="flex flex-col">
                           <span className="font-medium text-slate-800">
-                            {trip.driverName || trip.driver}
+                            {formatDriverDisplay(trip.driver, trip.driverName)}
                           </span>
-                          {trip.driverName && trip.driverName !== trip.driver && (
-                            <span className="text-[11px] text-slate-400">{trip.driver}</span>
-                          )}
                         </div>
                       </div>
                     </td>
 
                     {/* Haulage Route */}
                     <td className="py-4 px-4">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <span className="font-medium text-slate-900 truncate max-w-[120px]">
-                          {trip.mineSite}
-                        </span>
-                        <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span className="text-slate-600 truncate max-w-[120px]">
-                          {trip.destination}
-                        </span>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="font-medium text-slate-900 truncate max-w-[140px]" title={formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}>
+                            {formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}
+                          </span>
+                          <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="text-slate-600 truncate max-w-[120px]">
+                            {trip.destination}
+                          </span>
+                        </div>
+                        {trip.leadKm != null && trip.leadKm > 0 && (
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {trip.leadKm} km lead {trip.leadRate != null && trip.leadRate > 0 ? `• ₹${trip.leadRate}/T` : ''}
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -342,17 +353,29 @@ export function TripTable({
                           <span className="font-semibold text-slate-900">
                             {trip.netWeightTons.toFixed(2)} T
                           </span>
+                          {trip.tripCount && trip.tripCount > 1 && (
+                            <span className="text-[10px] text-blue-700 font-semibold">
+                              {trip.tripCount} Trips ({trip.averageTonnage || 35}T avg)
+                            </span>
+                          )}
                           {trip.grossRevenue > 0 && (
                             <span
                               className="text-[11px] text-slate-500 font-medium"
-                              title="Estimated Commercial Value (Indicative)"
+                              title="Calculated Haulage Amount (Indicative)"
                             >
-                              Est. ₹{trip.grossRevenue.toLocaleString('en-IN')}
+                              ₹{trip.grossRevenue.toLocaleString('en-IN')}
                             </span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">Pending</span>
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-slate-400 italic">Pending</span>
+                          {trip.calculatedQuantity != null && trip.calculatedQuantity > 0 && (
+                            <span className="text-[11px] text-blue-700 font-semibold">
+                              Est. {trip.calculatedQuantity.toFixed(2)} T
+                            </span>
+                          )}
+                        </div>
                       )}
                     </td>
 
@@ -362,6 +385,13 @@ export function TripTable({
                         <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span>{formatDateTime(trip.dispatchDateTime)}</span>
                       </div>
+                      {trip.shift && (
+                        <div className="mt-1">
+                          <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                            {trip.shift} Shift
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Actions */}

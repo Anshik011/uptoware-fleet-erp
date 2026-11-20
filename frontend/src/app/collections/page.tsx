@@ -1,196 +1,246 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageContainer } from '@/components/ui/PageContainer';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { CollectionsTable } from '@/components/finance/CollectionsTable';
+import { PaymentDetailDrawer } from '@/components/finance/PaymentDetailDrawer';
 import { PaymentEntryRecord } from '@/lib/frappe';
+import { useAuth } from '@/context/AuthContext';
 import { formatCurrency } from '@/config/branding';
-import Link from 'next/link';
 import {
   CreditCard,
   RefreshCw,
   AlertCircle,
-  CheckCircle,
+  Loader2,
+  IndianRupee,
+  CheckCircle2,
   Clock,
-  FileSpreadsheet,
+  PlusCircle,
+  Landmark,
 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 
-export default function CollectionsPage() {
+interface CollectionsSummary {
+  totalReceived: number;
+  totalAllocated: number;
+  totalUnallocated: number;
+  collectionsCount: number;
+}
+
+function CollectionsContent() {
+  const { hasRole } = useAuth();
+  const canCreate = hasRole(['Fleet Manager', 'Sales', 'Administrator']);
+  const canViewFinancials = hasRole(['Administrator', 'Accountant', 'Fleet Manager']);
+
   const [payments, setPayments] = useState<PaymentEntryRecord[]>([]);
-  const [summary, setSummary] = useState<any>({
-    totalReceived: 0,
-    totalAllocated: 0,
-    totalUnallocated: 0,
-    totalCollectionsCount: 0,
-  });
-  const [paymentModes, setPaymentModes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<CollectionsSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCollections = async () => {
-    setLoading(true);
+  // Modals
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+
+  const fetchPayments = useCallback(async () => {
+    setIsLoading(true);
     setError(null);
+
     try {
       const res = await fetch('/api/finance/collections');
       const json = await res.json();
-      if (json.success) {
-        setPayments(json.payments || []);
-        setSummary(json.summary || {});
-        setPaymentModes(json.paymentModes || []);
-      } else {
-        setError(json.error || 'Failed to load collections data.');
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to fetch collections');
       }
+
+      setPayments(json.payments || []);
+      setSummary({
+        totalReceived: json.summary?.totalReceived || 0,
+        totalAllocated: json.summary?.totalAllocated || 0,
+        totalUnallocated: json.summary?.totalUnallocated || 0,
+        collectionsCount: json.summary?.totalCollectionsCount || 0,
+      });
     } catch (err: any) {
-      setError(err.message || 'Network error fetching collections data.');
+      setError(err.message || 'An unexpected error occurred');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
+  }, []);
+
+  const handlePaymentCreated = () => {
+    fetchPayments();
   };
 
   useEffect(() => {
-    fetchCollections();
-  }, []);
+    if (!canViewFinancials) return;
+    fetchPayments();
+  }, [canViewFinancials, fetchPayments]);
+
+  if (!canViewFinancials) {
+    return (
+      <AppShell headerTitle="Customer Collections" headerSubtitle="Payment tracking">
+        <PageContainer>
+          <ErrorState
+            title="Access Denied"
+            message="You do not have permission to view the collections register."
+          />
+        </PageContainer>
+      </AppShell>
+    );
+  }
+
+  const totalReceived = summary?.totalReceived || 0;
+  const collectionRate = summary && summary.totalReceived > 0
+    ? Math.round(((summary.totalReceived - summary.totalUnallocated) / summary.totalReceived) * 100)
+    : 0;
 
   return (
-    <AppShell>
-      <PageContainer>
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 mb-6 border-b border-slate-200 gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-lg">
-              <CreditCard className="w-6 h-6" />
+    <>
+      {/* Page Header */}
+      <PageHeader
+        title="Customer Collections"
+        subtitle="Payment entries, receipts, and customer settlement tracking"
+        breadcrumbs={[
+          { label: 'Finance', href: '/finance' },
+          { label: 'Customer Collections', href: '/collections' },
+        ]}
+        actions={
+          canCreate && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={PlusCircle}
+              onClick={() => {
+                // Open payment recording modal
+                // Future: implement payment recording form
+              }}
+            >
+              Record Payment
+            </Button>
+          )
+        }
+      />
+
+      {/* Error State */}
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 mb-6">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Dynamic KPI Cards Strip */}
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {/* Total Received */}
+          <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+              <IndianRupee className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                Customer Collections & Receipts
-              </h1>
-              <p className="text-sm text-slate-500">
-                Liquid receipts and invoice settlements from submitted ERPNext Payment Entries
-              </p>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Total Received
+              </span>
+              <div
+                className="text-xl font-bold text-slate-900 font-mono"
+                data-testid="metric-total-received"
+              >
+                {formatCurrency(totalReceived)}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <Link
-              href="/reports"
-              className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span>Collections Reports</span>
-            </Link>
+          {/* Allocated Amount */}
+          <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-center shrink-0">
+              <Landmark className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Allocated to Invoices
+              </span>
+              <div
+                className="text-xl font-bold text-slate-900 font-mono"
+                data-testid="metric-allocated"
+              >
+                {formatCurrency(summary.totalAllocated)}
+              </div>
+            </div>
+          </div>
 
-            <button
-              onClick={fetchCollections}
-              disabled={loading}
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+          {/* Unallocated (Advance) */}
+          <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Unallocated (Advance)
+              </span>
+              <div
+                className="text-xl font-bold text-slate-900 font-mono"
+                data-testid="metric-unallocated"
+              >
+                {formatCurrency(summary.totalUnallocated)}
+              </div>
+            </div>
+          </div>
+
+          {/* Collections Count */}
+          <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 border border-emerald-200 text-emerald-900 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Collections Count
+              </span>
+              <div
+                className="text-xl font-bold text-slate-900 font-mono"
+                data-testid="metric-collections-count"
+              >
+                {summary.collectionsCount}
+              </div>
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="space-y-6">
-          {/* Top Period Badge */}
-          <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Receipt Source:
-              </span>
-              <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md">
-                ERPNext Payment Entries (Type: Receive, docstatus = 1)
-              </span>
-            </div>
-            <div className="text-xs text-slate-400">
-              Payments are recognized as cash realization, not top-line revenue
-            </div>
-          </div>
+      {/* Collections Table */}
+      <CollectionsTable
+        payments={payments}
+        loading={isLoading}
+        onRefresh={fetchPayments}
+      />
 
-          {error && (
-            <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
+      {/* Payment Detail Slide-Over Drawer */}
+      <PaymentDetailDrawer
+        paymentId={selectedPaymentId}
+        onClose={() => setSelectedPaymentId(null)}
+      />
+    </>
+  );
+}
 
-          {/* Collections KPI Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* 1. Total Received */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider">Total Collected</span>
-                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-emerald-700 tracking-tight">
-                  {formatCurrency(summary.totalReceived || 0)}
-                </div>
-                <div className="mt-2 text-xs text-slate-500">
-                  {summary.totalCollectionsCount || 0} payment receipts
-                </div>
-              </div>
+export default function CollectionsPage() {
+  return (
+    <AppShell
+      headerTitle="Customer Collections"
+      headerSubtitle="Payment entries and receipt tracking"
+    >
+      <PageContainer>
+        <Suspense
+          fallback={
+            <div className="py-24 flex flex-col items-center justify-center gap-3 text-slate-400">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+              <span className="text-xs font-medium">Loading collections data...</span>
             </div>
-
-            {/* 2. Total Allocated */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider">Allocated to Invoices</span>
-                <div className="p-2 rounded-lg bg-blue-50 text-blue-700">
-                  <CheckCircle className="w-5 h-5" />
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-slate-900 tracking-tight">
-                  {formatCurrency(summary.totalAllocated || 0)}
-                </div>
-                <div className="mt-2 text-xs text-slate-500">
-                  Applied against open receivables
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Unallocated Advances */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider">Unallocated Advances</span>
-                <div className="p-2 rounded-lg bg-amber-50 text-amber-700">
-                  <Clock className="w-5 h-5" />
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-slate-900 tracking-tight">
-                  {formatCurrency(summary.totalUnallocated || 0)}
-                </div>
-                <div className="mt-2 text-xs text-slate-500">
-                  Client deposit / advance buffer
-                </div>
-              </div>
-            </div>
-
-            {/* 4. Payment Modes Breakdown */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                Channels ({paymentModes.length})
-              </div>
-              <div className="space-y-1">
-                {paymentModes.slice(0, 2).map((m) => (
-                  <div key={m.mode} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-600 truncate">{m.mode}</span>
-                    <span className="font-semibold text-slate-900 font-mono">{formatCurrency(m.amount)}</span>
-                  </div>
-                ))}
-                {paymentModes.length === 0 && (
-                  <div className="text-xs text-slate-400">No payment channels active</div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Collections Table */}
-          <CollectionsTable payments={payments} loading={loading} onRefresh={fetchCollections} />
-        </div>
+          }
+        >
+          <CollectionsContent />
+        </Suspense>
       </PageContainer>
     </AppShell>
   );

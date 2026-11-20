@@ -1,6 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CreatePurchaseOrderInput } from '@/types/fleet';
+import { toLocalDateString } from '@/lib/datetime';
 import { X, ShoppingCart, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { LinkedField } from '@/components/ui/LinkedField';
+import { AddSupplierModal } from '@/components/procurement/AddSupplierModal';
+import { SupplierDetailDrawer } from '@/components/procurement/SupplierDetailDrawer';
+import { AddVehicleModal } from '@/components/vehicles/AddVehicleModal';
+import { VehicleDrawer } from '@/components/vehicles/VehicleDrawer';
+import { AddSparePartModal } from '@/components/inventory/AddSparePartModal';
+import { SparePartDrawer } from '@/components/inventory/SparePartDrawer';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface CreatePurchaseOrderModalProps {
   isOpen: boolean;
@@ -28,7 +37,23 @@ export function CreatePurchaseOrderModal({
   vehicles,
   breakdowns,
 }: CreatePurchaseOrderModalProps) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateString();
+
+  const [localSuppliers, setLocalSuppliers] = useState(suppliers);
+  const [localItems, setLocalItems] = useState(items);
+  const [localVehicles, setLocalVehicles] = useState(vehicles);
+
+  useEffect(() => {
+    setLocalSuppliers(suppliers);
+  }, [suppliers]);
+
+  useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
+
+  useEffect(() => {
+    setLocalVehicles(vehicles);
+  }, [vehicles]);
 
   const [supplier, setSupplier] = useState(suppliers[0]?.id || '');
   const [transactionDate, setTransactionDate] = useState(todayStr);
@@ -49,6 +74,17 @@ export function CreatePurchaseOrderModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Contextual modal & drawer states
+  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
+  const [viewSupplierId, setViewSupplierId] = useState<string | null>(null);
+
+  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
+  const [viewVehicleId, setViewVehicleId] = useState<string | null>(null);
+
+  const [showAddPartModal, setShowAddPartModal] = useState(false);
+  const [viewPartId, setViewPartId] = useState<string | null>(null);
+  const [activePartRowIndex, setActivePartRowIndex] = useState<number | null>(null);
+
   const handleBreakdownSelect = (bkdId: string) => {
     setSelectedBreakdown(bkdId);
     if (!bkdId) return;
@@ -58,7 +94,7 @@ export function CreatePurchaseOrderModal({
       if (bkd.vehicle) setSelectedVehicle(bkd.vehicle);
       if (bkd.parts && bkd.parts.length > 0) {
         const newRows = bkd.parts.map((p) => {
-          const matched = items.find((i) => i.itemCode === p.itemCode);
+          const matched = localItems.find((i) => i.itemCode === p.itemCode);
           return {
             itemCode: p.itemCode,
             qty: p.plannedQty || 1,
@@ -71,7 +107,7 @@ export function CreatePurchaseOrderModal({
   };
 
   const handleItemChange = (index: number, itemCode: string) => {
-    const matched = items.find((i) => i.itemCode === itemCode);
+    const matched = localItems.find((i) => i.itemCode === itemCode);
     const updated = [...rows];
     updated[index] = {
       ...updated[index],
@@ -94,12 +130,64 @@ export function CreatePurchaseOrderModal({
   };
 
   const addRow = () => {
-    setRows([...rows, { itemCode: items[0]?.itemCode || '', qty: 5, rate: items[0]?.rate || 100 }]);
+    setRows([...rows, { itemCode: localItems[0]?.itemCode || '', qty: 5, rate: localItems[0]?.rate || 100 }]);
   };
 
   const removeRow = (index: number) => {
     if (rows.length === 1) return;
     setRows(rows.filter((_, idx) => idx !== index));
+  };
+
+  const refreshSuppliers = async () => {
+    try {
+      const res = await fetch('/api/procurement/suppliers');
+      const data = await res.json();
+      if (res.ok && data.success && data.suppliers) {
+        setLocalSuppliers(data.suppliers.map((s: any) => ({ id: s.id, name: s.supplierName || s.id })));
+        if (data.suppliers.length > 0) {
+          setSupplier(data.suppliers[data.suppliers.length - 1].id);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to refresh suppliers:', err);
+    }
+  };
+
+  const refreshVehicles = async () => {
+    try {
+      const res = await fetch('/api/vehicles');
+      const data = await res.json();
+      if (res.ok && data.success && data.data) {
+        setLocalVehicles(data.data.map((v: any) => ({ id: v.id, licensePlate: v.licensePlate || v.id })));
+        if (data.data.length > 0) {
+          setSelectedVehicle(data.data[data.data.length - 1].id);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to refresh vehicles:', err);
+    }
+  };
+
+  const refreshItems = async () => {
+    try {
+      const res = await fetch('/api/inventory/items');
+      const data = await res.json();
+      if (res.ok && data.success && data.items) {
+        const mapped = data.items.map((i: any) => ({
+          itemCode: i.itemCode,
+          itemName: i.itemName,
+          uom: i.stockUom || 'Nos',
+          rate: i.valuationRate || 0,
+        }));
+        setLocalItems(mapped);
+        if (activePartRowIndex !== null && mapped.length > 0) {
+          const newest = mapped[mapped.length - 1];
+          handleItemChange(activePartRowIndex, newest.itemCode);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to refresh items:', err);
+    }
   };
 
   const totalAmount = rows.reduce((sum, r) => sum + r.qty * r.rate, 0);
@@ -174,256 +262,349 @@ export function CreatePurchaseOrderModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl border border-slate-200 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
-              <ShoppingCart className="w-5 h-5" />
+    <>
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl border border-slate-200 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
+                <ShoppingCart className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">New Purchase Order</h3>
+                <p className="text-xs text-slate-500">
+                  Raise an official procurement order in ERPNext with linked master records
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">New Purchase Order</h3>
-              <p className="text-xs text-slate-500">
-                Raise an official procurement order in ERPNext
-              </p>
-            </div>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-md">
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-md">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-700 flex items-start space-x-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
+          {/* Form Body */}
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {error && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-700 flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Supplier */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Supplier / Vendor <span className="text-rose-500">*</span>
-              </label>
-              <select
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Supplier LinkedField */}
+              <LinkedField
+                label="Supplier / Vendor"
                 required
                 value={supplier}
-                onChange={(e) => setSupplier(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
-              >
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Procurement Type */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Procurement Purpose
-              </label>
-              <select
-                value={procurementType}
-                onChange={(e) => setProcurementType(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="Spare Parts Replenishment">Spare Parts Replenishment</option>
-                <option value="Vehicle Breakdown">Vehicle Breakdown</option>
-                <option value="Vehicle Maintenance">Vehicle Maintenance</option>
-                <option value="Mine Site Requirement">Mine Site Requirement</option>
-                <option value="General Fleet Operations">General Fleet Operations</option>
-              </select>
-            </div>
-
-            {/* Dates */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Order Date <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={transactionDate}
-                onChange={(e) => setTransactionDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
+                onChange={setSupplier}
+                options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
+                entityName="Supplier"
+                placeholder="Select or register supplier..."
+                onCreateNew={() => setShowAddSupplierModal(true)}
+                onViewRecord={supplier ? () => setViewSupplierId(supplier) : undefined}
+                hint="Authorized vendor for spare parts replenishment"
               />
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Expected Delivery Date <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Target Warehouse */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Receiving Warehouse
-              </label>
-              <select
-                value={warehouse}
-                onChange={(e) => setWarehouse(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
-              >
-                {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Vehicle Breakdown Link (if selected) */}
-            {procurementType === 'Vehicle Breakdown' && (
+              {/* Procurement Type */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Active Breakdown Incident <span className="text-rose-500">*</span>
+                  Procurement Purpose
                 </label>
                 <select
-                  required
-                  value={selectedBreakdown}
-                  onChange={(e) => handleBreakdownSelect(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 bg-amber-50/50 focus:ring-2 focus:ring-blue-500"
+                  value={procurementType}
+                  onChange={(e) => setProcurementType(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select Breakdown Incident</option>
-                  {breakdowns.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.id} — {b.vehicle} ({b.description.slice(0, 30)})
+                  <option value="Spare Parts Replenishment">Spare Parts Replenishment</option>
+                  <option value="Vehicle Breakdown">Vehicle Breakdown</option>
+                  <option value="Vehicle Maintenance">Vehicle Maintenance</option>
+                  <option value="Mine Site Requirement">Mine Site Requirement</option>
+                  <option value="General Fleet Operations">General Fleet Operations</option>
+                </select>
+              </div>
+
+              {/* Vehicle LinkedField (shown if breakdown or maintenance or when selected) */}
+              {(procurementType === 'Vehicle Breakdown' ||
+                procurementType === 'Vehicle Maintenance' ||
+                selectedVehicle) && (
+                <LinkedField
+                  label="Target Fleet Vehicle"
+                  value={selectedVehicle}
+                  onChange={setSelectedVehicle}
+                  options={localVehicles.map((v) => ({ value: v.id, label: v.licensePlate }))}
+                  entityName="Vehicle"
+                  placeholder="Select vehicle requiring parts..."
+                  onCreateNew={() => setShowAddVehicleModal(true)}
+                  onViewRecord={selectedVehicle ? () => setViewVehicleId(selectedVehicle) : undefined}
+                  hint="Commercial transport asset parts are requisitioned for"
+                />
+              )}
+
+              {/* Vehicle Breakdown Link (if selected) */}
+              {procurementType === 'Vehicle Breakdown' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Active Breakdown Incident <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={selectedBreakdown}
+                    onChange={(e) => handleBreakdownSelect(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 bg-amber-50/50 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Breakdown Incident</option>
+                    {breakdowns.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {formatVehicleDisplay(b.vehicle, vehicles)} — Workshop Repair ({b.description?.slice(0, 30)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Dates */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Order Date <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={transactionDate}
+                  onChange={(e) => setTransactionDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Expected Delivery Date <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Target Warehouse */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Receiving Warehouse
+                </label>
+                <select
+                  value={warehouse}
+                  onChange={(e) => setWarehouse(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
+                >
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Items Line Table */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-slate-700">Order Line Items</label>
+            {/* Items Line Table */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-slate-700">Order Line Items</label>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivePartRowIndex(null);
+                      setShowAddPartModal(true);
+                    }}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded transition-colors"
+                  >
+                    <Plus className="w-3 h-3 mr-1 text-slate-500" /> New Catalog Part
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Add Line
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-md overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-700 font-semibold uppercase">
+                    <tr>
+                      <th className="py-2.5 px-3">Spare Part</th>
+                      <th className="py-2.5 px-3 w-28 text-right">Quantity</th>
+                      <th className="py-2.5 px-3 w-32 text-right">Unit Rate (₹)</th>
+                      <th className="py-2.5 px-3 w-32 text-right">Amount (₹)</th>
+                      <th className="py-2.5 px-3 w-12 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {rows.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="p-2">
+                          <div className="flex items-center space-x-1.5">
+                            <select
+                              value={row.itemCode}
+                              onChange={(e) => {
+                                if (e.target.value === '__create_new__') {
+                                  setActivePartRowIndex(idx);
+                                  setShowAddPartModal(true);
+                                } else {
+                                  handleItemChange(idx, e.target.value);
+                                }
+                              }}
+                              className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-xs text-slate-900 bg-white focus:ring-2 focus:ring-blue-500"
+                            >
+                              {localItems.map((i) => (
+                                <option key={i.itemCode} value={i.itemCode}>
+                                  {i.itemName || i.itemCode} ({i.itemCode})
+                                </option>
+                              ))}
+                              <option value="__create_new__" className="text-blue-600 font-semibold">
+                                ➕ + Create New Spare Part...
+                              </option>
+                            </select>
+                            {row.itemCode && (
+                              <button
+                                type="button"
+                                onClick={() => setViewPartId(row.itemCode)}
+                                className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                title="View spare part details"
+                              >
+                                <span className="text-[10px] font-mono px-1 border border-slate-200 rounded">View</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-2 text-right">
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={row.qty}
+                            onChange={(e) => handleQtyChange(idx, Number(e.target.value))}
+                            className="w-20 px-2 py-1.5 border border-slate-300 rounded text-xs text-right text-slate-900 font-mono focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="p-2 text-right">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={row.rate}
+                            onChange={(e) => handleRateChange(idx, Number(e.target.value))}
+                            className="w-28 px-2 py-1.5 border border-slate-300 rounded text-xs text-right text-slate-900 font-mono focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="p-2 text-right font-mono font-semibold text-slate-900">
+                          ₹{(row.qty * row.rate).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeRow(idx)}
+                            disabled={rows.length === 1}
+                            className="text-slate-400 hover:text-rose-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-50 border-t border-slate-200">
+                    <tr>
+                      <td colSpan={3} className="py-2.5 px-3 font-semibold text-slate-700 text-right">
+                        Estimated Grand Total:
+                      </td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900 text-right text-sm">
+                        ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
-                onClick={addRow}
-                className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                <Plus className="w-3.5 h-3.5 mr-1" /> Add Line
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold shadow-sm transition-colors disabled:opacity-50 flex items-center space-x-2"
+              >
+                {isSubmitting && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                <span>Create Purchase Order</span>
               </button>
             </div>
-
-            <div className="border border-slate-200 rounded-md overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-700 font-semibold uppercase">
-                  <tr>
-                    <th className="py-2.5 px-3">Spare Part</th>
-                    <th className="py-2.5 px-3 w-28 text-right">Quantity</th>
-                    <th className="py-2.5 px-3 w-32 text-right">Unit Rate (₹)</th>
-                    <th className="py-2.5 px-3 w-32 text-right">Amount (₹)</th>
-                    <th className="py-2.5 px-3 w-12 text-center"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {rows.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50">
-                      <td className="p-2">
-                        <select
-                          value={row.itemCode}
-                          onChange={(e) => handleItemChange(idx, e.target.value)}
-                          className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs text-slate-900 bg-white focus:ring-2 focus:ring-blue-500"
-                        >
-                          {items.map((i) => (
-                            <option key={i.itemCode} value={i.itemCode}>
-                              {i.itemCode} — {i.itemName}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="p-2 text-right">
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={row.qty}
-                          onChange={(e) => handleQtyChange(idx, Number(e.target.value))}
-                          className="w-20 px-2 py-1.5 border border-slate-300 rounded text-xs text-right text-slate-900 font-mono focus:ring-2 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="p-2 text-right">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={row.rate}
-                          onChange={(e) => handleRateChange(idx, Number(e.target.value))}
-                          className="w-28 px-2 py-1.5 border border-slate-300 rounded text-xs text-right text-slate-900 font-mono focus:ring-2 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="p-2 text-right font-mono font-semibold text-slate-900">
-                        ₹{(row.qty * row.rate).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="p-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => removeRow(idx)}
-                          disabled={rows.length === 1}
-                          className="text-slate-400 hover:text-rose-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-slate-50 border-t border-slate-200">
-                  <tr>
-                    <td colSpan={3} className="py-2.5 px-3 font-semibold text-slate-700 text-right">
-                      Estimated Grand Total:
-                    </td>
-                    <td className="py-2.5 px-3 font-mono font-bold text-slate-900 text-right text-sm">
-                      ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-
-          {/* Modal Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-semibold shadow-sm transition-colors disabled:opacity-50 flex items-center space-x-2"
-            >
-              {isSubmitting && (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              )}
-              <span>Create Purchase Order</span>
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+
+      {/* Contextual Sub-Modals and Drawers */}
+      <AddSupplierModal
+        isOpen={showAddSupplierModal}
+        onClose={() => setShowAddSupplierModal(false)}
+        onSuccess={() => {
+          setShowAddSupplierModal(false);
+          refreshSuppliers();
+        }}
+        groups={['Parts & Consumables', 'Services', 'Fuel', 'Hardware']}
+      />
+
+      <SupplierDetailDrawer
+        supplierId={viewSupplierId}
+        onClose={() => setViewSupplierId(null)}
+      />
+
+      <AddVehicleModal
+        isOpen={showAddVehicleModal}
+        onClose={() => setShowAddVehicleModal(false)}
+        onSuccess={() => {
+          setShowAddVehicleModal(false);
+          refreshVehicles();
+        }}
+      />
+
+      <VehicleDrawer
+        vehicleId={viewVehicleId}
+        onClose={() => setViewVehicleId(null)}
+      />
+
+      <AddSparePartModal
+        isOpen={showAddPartModal}
+        onClose={() => setShowAddPartModal(false)}
+        onSuccess={() => {
+          setShowAddPartModal(false);
+          refreshItems();
+        }}
+        itemGroups={['Spare Parts', 'Consumables', 'Lubricants', 'Tyres', 'Mechanical', 'Electrical']}
+        suppliers={localSuppliers}
+      />
+
+      <SparePartDrawer
+        itemId={viewPartId}
+        onClose={() => setViewPartId(null)}
+      />
+    </>
   );
 }
-

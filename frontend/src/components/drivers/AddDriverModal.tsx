@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Driver, CreateDriverInput, DriverStatus } from '@/types/fleet';
+import { useMine } from '@/context/MineContext';
 import { X, UserCheck, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -14,6 +15,8 @@ interface AddDriverModalProps {
 }
 
 export function AddDriverModal({ isOpen, onClose, onSuccess }: AddDriverModalProps) {
+  const { currentMine, allowedMines, isAllMines, isSingleMine, mineOptions, activeMineLabel } = useMine();
+  const [mineSite, setMineSite] = useState<string>('');
   const [fullName, setFullName] = useState('');
   const [status, setStatus] = useState<DriverStatus>('Active');
   const [cellNumber, setCellNumber] = useState('');
@@ -26,22 +29,41 @@ export function AddDriverModal({ isOpen, onClose, onSuccess }: AddDriverModalPro
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLock = useRef(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const defaultMine = currentMine !== 'ALL' ? currentMine : (mineOptions[0]?.value || '');
+      setMineSite(defaultMine);
+    }
+  }, [isOpen, currentMine, mineOptions]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLock.current) return;
+    submitLock.current = true;
     setError(null);
 
     if (!fullName.trim()) {
       setError('Full name is required.');
+      submitLock.current = false;
+      return;
+    }
+
+    if (!mineSite.trim()) {
+      setError('Assigned mine site is required.');
+      submitLock.current = false;
       return;
     }
 
     const payload: CreateDriverInput = {
       fullName: fullName.trim(),
       status,
+      customMineSite: mineSite.trim(),
+      mineSite: mineSite.trim(),
       cellNumber: cellNumber.trim() || undefined,
       licenseNumber: licenseNumber.trim() || undefined,
       issuingDate: issuingDate || undefined,
@@ -63,6 +85,13 @@ export function AddDriverModal({ isOpen, onClose, onSuccess }: AddDriverModalPro
       });
 
       const json = await res.json();
+      if (res.status === 202 && json.warning) {
+        // Partial success: driver exists but some fields were not saved
+        // Display warning to the user; do not silently close the modal
+        setError(`Partial Registration: ${json.warning}`);
+        setIsSubmitting(false);
+        return;
+      }
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Failed to register driver in Frappe backend');
       }
@@ -73,6 +102,7 @@ export function AddDriverModal({ isOpen, onClose, onSuccess }: AddDriverModalPro
       console.error('Driver registration error:', err);
       setError(err.message || 'Error communicating with ERPNext server');
     } finally {
+      submitLock.current = false;
       setIsSubmitting(false);
     }
   };
@@ -144,6 +174,33 @@ export function AddDriverModal({ isOpen, onClose, onSuccess }: AddDriverModalPro
                 <option value="Suspended">Suspended (Restricted)</option>
                 <option value="Left">Left (Resigned / Inactive)</option>
               </Select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Assigned Mine Site <span className="text-rose-500">*</span>
+              </label>
+              {isSingleMine ? (
+                <div className="w-full text-xs px-3.5 py-2 border border-slate-200 bg-slate-100 rounded-lg text-slate-800 font-semibold">
+                  {activeMineLabel}
+                </div>
+              ) : (
+                <Select
+                  label=""
+                  value={mineSite}
+                  onChange={(e) => setMineSite(e.target.value)}
+                  data-testid="select-driver-mine-site"
+                >
+                  <option value="">Select Assigned Mine...</option>
+                  {mineOptions
+                    .filter((opt) => isAllMines || allowedMines.includes(opt.value))
+                    .map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                </Select>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -242,6 +299,7 @@ export function AddDriverModal({ isOpen, onClose, onSuccess }: AddDriverModalPro
               variant="primary"
               size="md"
               isLoading={isSubmitting}
+              disabled={isSubmitting}
               data-testid="btn-submit-driver"
             >
               Register Operator
