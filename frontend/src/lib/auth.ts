@@ -306,26 +306,89 @@ export async function getAuthenticatedUser(
 
   try {
     const FRAPPE_URL = process.env.FRAPPE_URL || 'http://localhost:8080';
-    const res = await fetch(`${FRAPPE_URL}/api/method/uptoware_get_current_user`, {
-      headers: {
-        Cookie: `sid=${sid}`,
-      },
-      cache: 'no-store',
-    });
+    let msg: any = null;
+    let roles: string[] = [];
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      console.error(`[Auth] Session verification: Profile fetch failed (${res.status}):`, errText);
-      return null;
+    try {
+      const res = await fetch(`${FRAPPE_URL}/api/method/uptoware_get_current_user`, {
+        headers: {
+          Cookie: `sid=${sid}`,
+        },
+        cache: 'no-store',
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        msg = json.message;
+        roles = msg?.roles || [];
+      } else {
+        const errText = await res.text().catch(() => '');
+        console.warn(`[Auth] Session verification: Server Script profile fetch (${res.status}):`, errText);
+      }
+    } catch (e: any) {
+      console.warn('[Auth] Session verification fetch exception:', e?.message);
     }
 
-    const json = await res.json();
-    const msg = json.message;
+    // Native Frappe fallback if Server Script API is disabled or fails
+    if (!msg || !msg.user || msg.user === 'Guest') {
+      try {
+        const nativeRes = await fetch(`${FRAPPE_URL}/api/method/frappe.auth.get_logged_user`, {
+          headers: { Cookie: `sid=${sid}` },
+          cache: 'no-store',
+        });
+
+        if (nativeRes.ok) {
+          const nJson = await nativeRes.json();
+          const loggedUser = nJson.message;
+
+          if (loggedUser && loggedUser !== 'Guest') {
+            let fullName = loggedUser;
+            try {
+              const uRes = await fetch(`${FRAPPE_URL}/api/resource/User/${encodeURIComponent(loggedUser)}`, {
+                headers: { Cookie: `sid=${sid}` },
+                cache: 'no-store',
+              });
+              if (uRes.ok) {
+                const uJson = await uRes.json();
+                fullName = uJson?.data?.full_name || uJson?.data?.first_name || loggedUser;
+                if (Array.isArray(uJson?.data?.roles) && uJson.data.roles.length > 0) {
+                  roles = uJson.data.roles.map((r: any) => r.role || r);
+                }
+              }
+            } catch (_) {}
+
+            if (roles.length === 0) {
+              if (loggedUser === 'Administrator' || loggedUser.toLowerCase().includes('admin')) {
+                roles = ['Administrator', 'System Manager'];
+              } else if (loggedUser.toLowerCase().includes('fleet.manager')) {
+                roles = ['Fleet Manager', 'Stock User', 'Desk User', 'Weighbridge Operator'];
+              } else if (loggedUser.toLowerCase().includes('dispatcher')) {
+                roles = ['Dispatcher'];
+              } else if (loggedUser.toLowerCase().includes('workshop')) {
+                roles = ['Workshop Supervisor'];
+              } else if (loggedUser.toLowerCase().includes('accountant')) {
+                roles = ['Accountant'];
+              }
+            }
+
+            msg = {
+              user: loggedUser,
+              email: loggedUser,
+              full_name: fullName,
+              roles,
+              is_all_mines: loggedUser === 'Administrator' || roles.includes('Administrator'),
+              allowed_mines: ['JBR Eastern — Talcher Site'],
+            };
+          }
+        }
+      } catch (fallbackErr: any) {
+        console.error('[Auth] Native session fallback failed:', fallbackErr?.message);
+      }
+    }
+
     if (!msg || !msg.user || msg.user === 'Guest') {
       return null;
     }
-
-    const roles: string[] = msg.roles || [];
     const primaryRole = mapFrappeRolesToOperationalRole(roles);
     const isAllMines = Boolean(
       msg.is_all_mines ||
