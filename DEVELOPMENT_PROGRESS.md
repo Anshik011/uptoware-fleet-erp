@@ -16102,3 +16102,21 @@ Following an acceptance audit, an unrequested redesign of `frontend/src/app/page
 - **TypeScript Static Check:** 0 errors across 137 components (`node verify-typescript.js`).
 - **Comprehensive Report:** `DASHBOARD_RESTORATION_AND_SIDEBAR_BEHAVIOUR_REPORT.md` (Workspace root).
 - **Screenshots:** 10 browser verification screenshots archived in `scratch/dashboard_and_accordion_screenshots/` and copied to artifact directory (`01_dashboard_restored_overview.png` through `10_mobile_drawer_single_open.png`).
+
+
+---
+
+## 🔐 AWS Production Authentication Diagnostic & Remediations (20-November-2026)
+
+### 1. Issue Summary & Incident Diagnosis
+Upon production deployment at `https://fleet.uptoware.com`, login attempts returned `Failed to retrieve authenticated user profile`. Direct diagnostic requests to the live production endpoint revealed that Frappe credential verification (`POST /api/method/login`) succeeded with HTTP 200 OK and generated a valid session cookie `sid`. However, the subsequent profile resolution call to `GET /api/method/uptoware_get_current_user` was rejected by Frappe with **HTTP 403 Forbidden** (`ServerScriptNotEnabled: Server Scripts are disabled. Please enable server scripts from bench configuration`).
+
+### 2. Remediations & Hardening Implemented
+1. **Repository Tooling & Configuration:**
+   - Created [fix-auth.sh](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/erpnext/fix-auth.sh) to detect the running Frappe backend container, enable `server_script_enabled` both globally and per-site (`frontend`), and restart backend workers.
+   - Updated [frontend/src/app/api/auth/login/route.ts](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/erpnext/frontend/src/app/api/auth/login/route.ts) with explicit detection for `ServerScriptNotEnabled` and structured diagnostic logging.
+   - Hardened [frontend/src/lib/auth.ts](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/erpnext/frontend/src/lib/auth.ts) session verification error reporting.
+2. **Repository Synchronisation:**
+   - Changes committed and pushed to `main` on GitHub (`Anshik011/uptoware-fleet-erp`, commit `ec46bef`).
+3. **Comprehensive Audit Report:**
+   - Generated [AWS_PRODUCTION_AUTHENTICATION_DIAGNOSTIC_REPORT.md](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/erpnext/AWS_PRODUCTION_AUTHENTICATION_DIAGNOSTIC_REPORT.md).
