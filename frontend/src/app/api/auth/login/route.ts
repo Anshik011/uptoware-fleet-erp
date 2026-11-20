@@ -144,6 +144,20 @@ export async function POST(request: NextRequest) {
     });
 
     if (!profileRes.ok) {
+      const errText = await profileRes.text().catch(() => '');
+      console.error(`[Auth] Profile fetch failed (${profileRes.status}):`, errText);
+
+      if (errText.includes('ServerScriptNotEnabled') || errText.includes('Server Scripts are disabled')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Server Scripts are disabled in Frappe backend. Run: bench --site frontend set-config server_script_enabled true',
+          },
+          { status: 503 }
+        );
+      }
+
       return NextResponse.json(
         { success: false, error: 'Failed to retrieve authenticated user profile.' },
         { status: 500 }

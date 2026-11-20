@@ -314,6 +314,8 @@ export async function getAuthenticatedUser(
     });
 
     if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.error(`[Auth] Session verification: Profile fetch failed (${res.status}):`, errText);
       return null;
     }
 
