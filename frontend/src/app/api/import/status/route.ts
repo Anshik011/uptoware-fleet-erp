@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       console.warn('get_import_status error:', e?.message);
     }
 
-    // 3. Fetch Row-by-Row Import Logs
+    // 3. Fetch Row-by-Row Import Logs & Warnings
     let importLogs: any[] = [];
     try {
       const logsRes = await frappeFetch<any>(
@@ -62,6 +62,26 @@ export async function GET(request: NextRequest) {
       }
     } catch (e: any) {
       console.warn('get_import_logs error:', e?.message);
+    }
+
+    // Parse template warnings if blocked by schema/mapping warnings
+    let warnings: any[] = [];
+    if (doc.template_warnings) {
+      try {
+        warnings = typeof doc.template_warnings === 'string' ? JSON.parse(doc.template_warnings) : doc.template_warnings;
+      } catch {
+        // ignore parse error
+      }
+    }
+
+    // If no row logs exist but blocking warnings exist, map warnings into logs display
+    if (importLogs.length === 0 && warnings.length > 0) {
+      importLogs = warnings.map((w: any, idx: number) => ({
+        row_number: w.row || idx + 2,
+        success: 0,
+        docname: '—',
+        messages: [w.message ? w.message.replace(/<[^>]*>/g, '') : JSON.stringify(w)],
+      }));
     }
 
     return NextResponse.json({
