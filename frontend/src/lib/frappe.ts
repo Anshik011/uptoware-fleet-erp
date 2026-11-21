@@ -4656,12 +4656,47 @@ export async function createSparePart(
     ];
   }
 
-  const res = await frappeFetch<{ data: any }>('/api/resource/Item', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    sessionCookie,
-  });
+  let res: { data: any };
+  try {
+    res = await frappeFetch<{ data: any }>('/api/resource/Item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      sessionCookie,
+    });
+  } catch (err: any) {
+    if (err?.message?.includes('Item Group') || err?.message?.includes('Could not find Item Group')) {
+      // Auto-create missing Item Group or fallback to 'All Item Groups'
+      try {
+        await frappeFetch('/api/resource/Item Group', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            item_group_name: payload.item_group,
+            parent_item_group: 'All Item Groups',
+            is_group: 0,
+          }),
+          sessionCookie,
+        });
+        res = await frappeFetch<{ data: any }>('/api/resource/Item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          sessionCookie,
+        });
+      } catch {
+        payload.item_group = 'All Item Groups';
+        res = await frappeFetch<{ data: any }>('/api/resource/Item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          sessionCookie,
+        });
+      }
+    } else {
+      throw err;
+    }
+  }
 
   return getSparePartDetails(sessionCookie, res.data.name);
 }
