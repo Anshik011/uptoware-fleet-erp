@@ -342,7 +342,7 @@ export async function POST(request: NextRequest) {
         ? 'A vehicle with this license plate already exists.'
         : error.status === 403
           ? 'Forbidden: Insufficient permissions to create vehicle in Frappe.'
-          : 'Failed to create vehicle record.';
+          : error.message || 'Failed to create vehicle record.';
     return NextResponse.json({ success: false, error: cleanError }, { status });
   }
 }
