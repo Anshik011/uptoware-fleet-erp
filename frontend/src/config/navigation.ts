@@ -218,6 +218,7 @@ export const administrationNavSection = {
     { name: 'Statutory Compliance', href: '/compliance', icon: ShieldCheck },
     { name: 'Approval Center', href: '/approvals', icon: CheckSquare },
     { name: 'Operational Alerts', href: '/alerts', icon: Bell },
+    { name: 'Data Import Hub', href: '/import', icon: FileSpreadsheet },
     { name: 'System Settings', href: '/admin', icon: Settings },
   ],
 };
