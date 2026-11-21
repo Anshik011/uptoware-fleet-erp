@@ -99,7 +99,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
-    if (!body || !body.employee || !body.attendanceDate || !body.attendanceStatus) {
+    const attendanceDate = body?.attendanceDate || body?.date;
+    const attendanceStatus = body?.attendanceStatus || body?.status;
+
+    if (!body || !body.employee || !attendanceDate || !attendanceStatus) {
       return NextResponse.json(
         { success: false, error: 'Missing mandatory fields: employee, attendanceDate, attendanceStatus.' },
         { status: 400, headers: { 'Cache-Control': 'no-store' } }
@@ -107,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     const validStatuses = ['Present', 'Half Day', 'Absent', 'On Leave'];
-    if (!validStatuses.includes(body.attendanceStatus)) {
+    if (!validStatuses.includes(attendanceStatus)) {
       return NextResponse.json(
         { success: false, error: `Invalid attendanceStatus. Must be one of: ${validStatuses.join(', ')}` },
         { status: 400, headers: { 'Cache-Control': 'no-store' } }
@@ -121,8 +124,8 @@ export async function POST(request: NextRequest) {
 
     const saved = await markEmployeeAttendance(auth.sid, {
       employee: body.employee,
-      attendanceDate: body.attendanceDate,
-      attendanceStatus: body.attendanceStatus,
+      attendanceDate: attendanceDate,
+      attendanceStatus: attendanceStatus,
       shift: body.shift || 'Day',
       vehicle: body.vehicle,
       mineSite: body.mineSite,

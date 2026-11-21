@@ -321,7 +321,7 @@ export function CreateTripModal({
         openingOdometer: openingOdometer !== '' ? Number(openingOdometer) : undefined,
         challanNumber: challanNumber.trim() || undefined,
         lead: selectedLead || undefined,
-        leadKm: leadKm !== '' ? Number(leadKm) : undefined,
+        leadKm: leadKm !== '' ? leadKm : undefined,
         leadRate: leadRate !== '' ? Number(leadRate) : undefined,
         tripCount: Number(tripCount || 1),
         averageTonnage: effectiveTonnage,

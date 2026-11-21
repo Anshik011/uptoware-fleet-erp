@@ -79,7 +79,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
-    if (!body || !body.leadName || !body.mineSite || body.leadKm == null || body.leadRate == null) {
+    const leadName = body?.leadName || body?.lead_name;
+    const mineSite = body?.mineSite || body?.mine_site;
+    const leadKm = body?.leadKm != null ? body?.leadKm : body?.lead_km;
+    const leadRate = body?.leadRate != null ? body?.leadRate : body?.lead_rate;
+
+    if (!body || !leadName || !mineSite || leadKm == null || leadRate == null) {
       return NextResponse.json(
         { success: false, error: 'Missing mandatory fields: leadName, mineSite, leadKm, leadRate.' },
         { status: 400, headers: { 'Cache-Control': 'no-store' } }
@@ -87,15 +92,15 @@ export async function POST(request: NextRequest) {
     }
 
     const mineScope = await resolveUserMineScope(request);
-    validateWriteMineSite(mineScope, body.mineSite);
+    validateWriteMineSite(mineScope, mineSite);
 
     const lead = await createFleetLead(auth.sid, {
-      leadName: body.leadName,
-      mineSite: body.mineSite,
-      leadKm: body.leadKm,
-      leadRate: Number(body.leadRate),
-      validFrom: body.validFrom,
-      validTo: body.validTo,
+      leadName: String(leadName).trim(),
+      mineSite: String(mineSite).trim(),
+      leadKm: leadKm,
+      leadRate: Number(leadRate),
+      validFrom: body.validFrom || body.valid_from,
+      validTo: body.validTo || body.valid_to,
       description: body.description,
     });
 

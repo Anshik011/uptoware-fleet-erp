@@ -9327,12 +9327,25 @@ export async function createEmployee(
     form_o_done: (empData as any).formO || 'YES',
   };
 
-  const res = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
-    method: 'POST',
-    body: JSON.stringify({ doc: payload }),
-  });
-
-  const created = res.message;
+  let created: any;
+  try {
+    const res = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
+      method: 'POST',
+      body: JSON.stringify({ doc: payload }),
+    });
+    created = res.message;
+  } catch (err: any) {
+    if (err?.message?.includes('Department') || err?.message?.includes('department')) {
+      delete (payload as any).department;
+      const retryRes = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
+        method: 'POST',
+        body: JSON.stringify({ doc: payload }),
+      });
+      created = retryRes.message;
+    } else {
+      throw err;
+    }
+  }
   return {
     id: created.name,
     employeeName: created.employee_name,
