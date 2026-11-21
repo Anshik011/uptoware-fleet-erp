@@ -24,13 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full bg-slate-50">
-      <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/branding/favicon.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/branding/icon.png" />
-      </head>
-      <body className="h-full antialiased bg-slate-50 text-slate-900 overflow-hidden">
+    <html lang="en" className="h-full bg-slate-900">
+      <body className="min-h-full antialiased bg-slate-900 text-slate-900">
         <BrandingProvider>
           <AuthProvider>
             <MineProvider>

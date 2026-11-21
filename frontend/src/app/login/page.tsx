@@ -19,6 +19,7 @@ import {
   Zap,
 } from 'lucide-react';
 
+
 interface DemoUser {
   id: string;
   name: string;
@@ -135,7 +136,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="fixed inset-0 overflow-y-auto bg-slate-900 flex flex-col justify-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen w-full bg-slate-900 flex items-center justify-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8 relative overflow-x-hidden">
       {/* Background Accent Gradients */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -143,12 +144,12 @@ function LoginForm() {
       {/* Main Responsive Card Container */}
       <div className="w-full max-w-4xl mx-auto my-auto z-10">
         <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-12">
+          <div className="grid grid-cols-1 md:grid-cols-12">
             
             {/* Left Column: Brand Header & Manual Credentials Form */}
-            <div className="lg:col-span-6 p-6 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200">
+            <div className="md:col-span-6 p-6 sm:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200">
               <div>
-                <div className="relative w-48 h-10 mb-4">
+                <div className="relative w-44 h-9 mb-3">
                   <Image
                     src={branding.assets.logoDark}
                     alt={branding.name}
@@ -158,14 +159,14 @@ function LoginForm() {
                     className="object-contain object-left"
                   />
                 </div>
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
                   Enterprise Fleet Portal
                 </h1>
                 <p className="mt-1 text-xs text-slate-500 font-medium">
                   Fleet operations, dispatch authorization & statutory compliance
                 </p>
 
-                <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
                   {error && (
                     <div
                       data-testid="login-error-message"
@@ -197,7 +198,7 @@ function LoginForm() {
                     autoComplete="current-password"
                   />
 
-                  <div className="flex items-center justify-between text-xs pt-1">
+                  <div className="flex items-center justify-between text-xs pt-0.5">
                     <label className="flex items-center gap-2 cursor-pointer text-slate-600 font-medium select-none">
                       <input
                         type="checkbox"
@@ -215,7 +216,7 @@ function LoginForm() {
                     size="lg"
                     isLoading={isLoading && !authenticatingUser}
                     disabled={isLoading}
-                    className="w-full justify-center mt-2"
+                    className="w-full justify-center mt-1"
                   >
                     Access Fleet Portal
                   </Button>
@@ -223,7 +224,7 @@ function LoginForm() {
               </div>
 
               {/* Security Footnote */}
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                 <div className="flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <span>Frappe v16 Business Engine</span>
@@ -233,7 +234,7 @@ function LoginForm() {
             </div>
 
             {/* Right Column: Quick Demo Access (1-Click Login) */}
-            <div className="lg:col-span-6 p-6 sm:p-8 bg-slate-50/75 flex flex-col justify-between">
+            <div className="md:col-span-6 p-6 sm:p-8 bg-slate-50/75 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
@@ -248,11 +249,11 @@ function LoginForm() {
                     1-Click Login
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mb-4">
+                <p className="text-xs text-slate-500 mb-3">
                   Select an operational role to authenticate immediately:
                 </p>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {DEMO_USERS.map((demo) => {
                     const Icon = demo.icon;
                     const isThisUserAuthenticating = authenticatingUser === demo.email;
@@ -263,13 +264,13 @@ function LoginForm() {
                         type="button"
                         disabled={isLoading}
                         onClick={() => handleQuickLogin(demo.email)}
-                        className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between group cursor-pointer ${
+                        className={`w-full text-left p-2 rounded-xl border transition-all flex items-center justify-between group cursor-pointer ${
                           demo.isPrimaryAdmin
                             ? 'bg-blue-50/70 border-blue-200 hover:bg-blue-50 hover:border-blue-300'
                             : 'bg-white border-slate-200 hover:bg-slate-100/80 hover:border-slate-300'
                         } ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <div className="flex items-center gap-2 min-w-0 pr-1.5">
                           <div
                             className={`p-1.5 rounded-lg flex-shrink-0 ${
                               demo.isPrimaryAdmin
@@ -315,7 +316,7 @@ function LoginForm() {
               </div>
 
               {/* Informational Hint */}
-              <div className="mt-4 pt-3 border-t border-slate-200/60 text-[11px] text-slate-500 flex items-center justify-between">
+              <div className="mt-3 pt-2.5 border-t border-slate-200/60 text-[11px] text-slate-500 flex items-center justify-between">
                 <span>Demo Admin: View, Edit & Delete</span>
                 <span>Code management locked</span>
               </div>
@@ -325,7 +326,7 @@ function LoginForm() {
         </div>
 
         {/* Brand Copyright Notice */}
-        <p className="mt-4 text-center text-xs text-slate-500 font-medium">
+        <p className="mt-3 text-center text-xs text-slate-500 font-medium">
           © 2026 {branding.company}. All rights reserved.
         </p>
       </div>
