@@ -627,7 +627,159 @@ else:
         "Monthly Fleet Income and Expense Summary",
         monthly_script
     )
-    print("=== All Defect Fixes Successfully Applied and Verified ===")
+
+    # -------------------------------------------------------------------------
+    # 6. CONFIGURE DEMO USERS AND OPERATIONAL PERMISSIONS
+    # -------------------------------------------------------------------------
+    print("--- Step 6: Configuring Demo Users and Delete Permissions ---")
+    from frappe.utils.password import update_password
+    from frappe.permissions import setup_custom_perms
+
+    demo_admin_email = "demo.admin@uptoware.com"
+    if not frappe.db.exists("User", demo_admin_email):
+        user_doc = frappe.get_doc({
+            "doctype": "User",
+            "email": demo_admin_email,
+            "first_name": "Demo",
+            "last_name": "Admin",
+            "enabled": 1,
+            "send_welcome_email": 0,
+            "user_type": "System User"
+        }).insert(ignore_permissions=True)
+    else:
+        user_doc = frappe.get_doc("User", demo_admin_email)
+        user_doc.enabled = 1
+        user_doc.save(ignore_permissions=True)
+
+    demo_admin_roles = ["Fleet Head Office Admin", "Fleet Manager", "Desk User", "All"]
+    existing_roles = [r.role for r in user_doc.roles]
+    for r in demo_admin_roles:
+        if r not in existing_roles:
+            user_doc.append("roles", {"role": r})
+    user_doc.roles = [r for r in user_doc.roles if r.role not in ["System Manager", "Administrator", "Script Manager"]]
+    user_doc.save(ignore_permissions=True)
+    update_password(demo_admin_email, "admin")
+
+    demo_users = {
+        "fleet.manager@uptoware.com": {
+            "first_name": "Fleet",
+            "last_name": "Manager",
+            "roles": ["Fleet Manager", "Weighbridge Operator", "Stock User", "Desk User", "All"]
+        },
+        "dispatcher@uptoware.com": {
+            "first_name": "Trip",
+            "last_name": "Dispatcher",
+            "roles": ["Dispatcher", "Desk User", "All"]
+        },
+        "workshop.supervisor@uptoware.com": {
+            "first_name": "Workshop",
+            "last_name": "Supervisor",
+            "roles": ["Workshop Supervisor", "Desk User", "All"]
+        },
+        "accountant@uptoware.com": {
+            "first_name": "Financial",
+            "last_name": "Accountant",
+            "roles": ["Accountant", "Accounts User", "Desk User", "All"]
+        }
+    }
+
+    for email, details in demo_users.items():
+        if not frappe.db.exists("User", email):
+            u = frappe.get_doc({
+                "doctype": "User",
+                "email": email,
+                "first_name": details["first_name"],
+                "last_name": details["last_name"],
+                "enabled": 1,
+                "send_welcome_email": 0,
+                "user_type": "System User"
+            }).insert(ignore_permissions=True)
+        else:
+            u = frappe.get_doc("User", email)
+            u.enabled = 1
+            u.first_name = details["first_name"]
+            u.last_name = details["last_name"]
+            u.save(ignore_permissions=True)
+
+        existing = [r.role for r in u.roles]
+        for r in details["roles"]:
+            if r not in existing:
+                u.append("roles", {"role": r})
+        u.save(ignore_permissions=True)
+        update_password(email, "admin")
+
+    fleet_doctypes = [
+        "Vehicle", "Driver", "Mining Trip", "Mine Site", "Fuel Log",
+        "Vehicle Breakdown", "Vehicle Insurance Policy", "Fleet Alert Log",
+        "Fleet Mine Transfer Log", "Vehicle Driver Shift Allocation", "Operational Expense"
+    ]
+    for dt in fleet_doctypes:
+        if not frappe.db.exists("DocType", dt):
+            continue
+        setup_custom_perms(dt)
+        perm = frappe.db.get_value("Custom DocPerm", {"parent": dt, "role": "Fleet Head Office Admin", "permlevel": 0}, "name")
+        if not perm:
+            frappe.get_doc({
+                "doctype": "Custom DocPerm",
+                "parent": dt,
+                "parenttype": "DocType",
+                "parentfield": "permissions",
+                "role": "Fleet Head Office Admin",
+                "permlevel": 0,
+                "read": 1, "write": 1, "create": 1, "delete": 1,
+                "report": 1, "export": 1, "print": 1, "email": 1
+            }).insert(ignore_permissions=True)
+        else:
+            p_doc = frappe.get_doc("Custom DocPerm", perm)
+            p_doc.read = 1
+            p_doc.write = 1
+            p_doc.create = 1
+            p_doc.delete = 1
+            p_doc.report = 1
+            p_doc.export = 1
+            p_doc.save(ignore_permissions=True)
+
+    deletion_scripts = {
+        "Vehicle Breakdown - Deletion Safeguard": """# SERVER SCRIPT: Vehicle Breakdown - Deletion Safeguard (Before Delete)
+user_roles = [r.role for r in frappe.db.get_all("Has Role", filters={"parent": frappe.session.user}, fields=["role"])]
+is_admin = ("System Manager" in user_roles) or ("Fleet Head Office Admin" in user_roles) or (frappe.session.user == "Administrator")
+if not is_admin:
+    frappe.throw("Operational breakdown records cannot be deleted. Deletion of Vehicle Breakdown records is restricted to Administrators.")
+""",
+        "Vehicle Insurance Policy - Deletion Safeguard": """user = frappe.session.user
+user_roles = [r[0] for r in frappe.db.sql("SELECT role FROM `tabHas Role` WHERE parent = %s", (user,))]
+is_admin = ("System Manager" in user_roles) or ("Fleet Head Office Admin" in user_roles) or (user == "Administrator")
+
+if not is_admin:
+    frappe.throw("Physical deletion of insurance policy records is restricted to Administrators.")
+
+if doc.policy_status == "Active":
+    frappe.throw("Active insurance policies cannot be deleted. The policy must be cancelled first.")
+""",
+        "Operational Expense - Deletion Safeguard": """# SERVER SCRIPT: Operational Expense - Deletion Safeguard (Before Delete)
+user_roles = [r.role for r in frappe.db.get_all("Has Role", filters={"parent": frappe.session.user}, fields=["role"])]
+is_admin = ("System Manager" in user_roles) or ("Fleet Head Office Admin" in user_roles) or (frappe.session.user == "Administrator")
+if not is_admin:
+    frappe.throw("Operational expense records cannot be deleted. Deletion of Operational Expense records is restricted to Administrators.")
+
+if doc.accounting_status == "Posted" or doc.posting_document_name:
+    frappe.throw(f"Cannot delete Operational Expense linked to posted accounting document '{doc.posting_document_name}'. Reverse or cancel the accounting document first.")
+""",
+        "Fleet Alert Log - Deletion Safeguard": """user = frappe.session.user or "Administrator"
+roles = [r[0] for r in frappe.db.sql("SELECT role FROM `tabHas Role` WHERE parent = %s", (user,))]
+is_admin = ("System Manager" in roles) or ("Fleet Head Office Admin" in roles) or (user == "Administrator")
+if not is_admin and not doc.is_test_record:
+    frappe.throw("Physical deletion of Fleet Alert Log records is strictly prohibited. Resolve the alert instead.")
+"""
+    }
+    for s_name, s_code in deletion_scripts.items():
+        if frappe.db.exists("Server Script", s_name):
+            ss = frappe.get_doc("Server Script", s_name)
+            ss.script = s_code
+            ss.save(ignore_permissions=True)
+
+    frappe.db.commit()
+    print("=== All Defect Fixes & Demo Accounts Successfully Applied and Verified ===")
 
 if __name__ == "__main__":
     run()
