@@ -340,16 +340,16 @@ export function CreateTripModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-4 sm:my-8">
         {/* Modal Header */}
-        <div className="p-6 border-b border-slate-200 bg-slate-50/75 flex items-center justify-between">
+        <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50/75 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-900 text-white flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-blue-900 text-white flex items-center justify-center shrink-0">
               <Compass className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Dispatch New Mining Trip</h2>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">Dispatch New Mining Trip</h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isMineLocked ? (
                   <span className="inline-flex items-center gap-1 font-medium text-slate-700">
@@ -403,7 +403,7 @@ export function CreateTripModal({
           ) : (
             <>
               {/* Row 1: Vehicle & Driver */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                 <LinkedField
                   label="Select Vehicle"
                   required
@@ -445,7 +445,7 @@ export function CreateTripModal({
               </div>
 
               {/* Row 2: Mine Site, Lead Siding & Destination */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
                 <LinkedField
                   label="Origin Mine Site / Pit"
                   required
@@ -504,7 +504,7 @@ export function CreateTripModal({
               </div>
 
               {/* Row 3: Material Type & Challan Number */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Material / Commodity <span className="text-rose-500">*</span>
@@ -538,7 +538,7 @@ export function CreateTripModal({
               </div>
 
               {/* Row 4: Dispatch Date, Shift, Trip Count & Average Tonnage */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Dispatch Time <span className="text-rose-500">*</span>
@@ -599,7 +599,7 @@ export function CreateTripModal({
               </div>
 
               {/* Row 5: Opening Odometer & Rate per Ton */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Opening Odometer (km)
