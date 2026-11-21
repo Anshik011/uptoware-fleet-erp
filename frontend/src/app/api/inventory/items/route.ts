@@ -69,18 +69,16 @@ export async function POST(request: NextRequest) {
 
     const body: CreateSparePartInput = await request.json();
 
-    if (!body.itemCode || !body.itemCode.trim()) {
-      return NextResponse.json(
-        { success: false, error: 'Item Code is mandatory.' },
-        { status: 400 }
-      );
-    }
-
     if (!body.itemName || !body.itemName.trim()) {
       return NextResponse.json(
         { success: false, error: 'Item Name is mandatory.' },
         { status: 400 }
       );
+    }
+
+    if (!body.itemCode || !body.itemCode.trim()) {
+      const cleanName = body.itemName.trim().replace(/[^a-zA-Z0-9]/g, '-').toUpperCase().slice(0, 15);
+      body.itemCode = `SP-${cleanName}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
     const newPart = await createSparePart(auth.sid, body);

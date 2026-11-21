@@ -144,12 +144,11 @@ function LeadsContent() {
     setModalError(null);
 
     if (!newLeadName.trim()) {
-      setModalError('Lead corridor name is required.');
+      setModalError('Lead name is required.');
       return;
     }
-    const km = parseFloat(newLeadKm);
-    if (isNaN(km) || km <= 0) {
-      setModalError('Distance in KM must be greater than zero.');
+    if (!newLeadKm.trim()) {
+      setModalError('Distance (One-Way KM) is required (e.g. 3-4 or 4-5).');
       return;
     }
     const rate = parseFloat(newLeadRate);
@@ -166,7 +165,7 @@ function LeadsContent() {
         body: JSON.stringify({
           leadName: newLeadName.trim(),
           mineSite: newMineSite,
-          leadKm: km,
+          leadKm: newLeadKm.trim(),
           leadRate: rate,
           validFrom: newValidFrom || undefined,
           validTo: newValidTo || undefined,
@@ -509,8 +508,8 @@ function LeadsContent() {
             <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden my-8">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Register Haulage Lead Corridor</h2>
-                  <p className="text-xs text-slate-500">Configure standard distance and freight rates for trip auto-population</p>
+                  <h2 className="text-base font-bold text-slate-900">Lead Name Entry</h2>
+                  <p className="text-xs text-slate-500">Configure lead name, distance slabs (e.g. 3-4, 4-5 km), and freight rates</p>
                 </div>
                 <button
                   type="button"
@@ -569,12 +568,11 @@ function LeadsContent() {
                       Distance (One-Way KM) <span className="text-rose-600">*</span>
                     </label>
                     <input
-                      type="number"
-                      step="0.1"
+                      type="text"
                       required
                       value={newLeadKm}
                       onChange={(e) => setNewLeadKm(e.target.value)}
-                      placeholder="12.5"
+                      placeholder="e.g. 3-4 or 4-5"
                       className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-mono"
                     />
                   </div>

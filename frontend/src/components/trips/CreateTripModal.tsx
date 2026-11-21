@@ -68,9 +68,10 @@ export function CreateTripModal({
   const [ratePerTon, setRatePerTon] = useState<number | ''>('');
   const [openingOdometer, setOpeningOdometer] = useState<number | ''>('');
   const [dispatchDateTime, setDispatchDateTime] = useState('');
-  const [shift, setShift] = useState<'Day' | 'Night' | 'General'>('Day');
+  const [shift, setShift] = useState<'Shift A' | 'Shift B' | 'Shift C' | 'Day' | 'Night' | 'General'>('Shift A');
+  const [tripEntryMode, setTripEntryMode] = useState<'supervisor' | 'reconcile'>('supervisor');
   const [selectedLead, setSelectedLead] = useState<string>('');
-  const [leadKm, setLeadKm] = useState<number | ''>('');
+  const [leadKm, setLeadKm] = useState<number | string | ''>('');
   const [leadRate, setLeadRate] = useState<number | ''>('');
   const [tripCount, setTripCount] = useState<number>(1);
   const [averageTonnage, setAverageTonnage] = useState<number | ''>('');
@@ -170,7 +171,8 @@ export function CreateTripModal({
     setRatePerTon('');
     setOpeningOdometer('');
     setDispatchDateTime('');
-    setShift('Day');
+    setShift('Shift A');
+    setTripEntryMode('supervisor');
     setSelectedLead('');
     setLeadKm('');
     setLeadRate('');
@@ -271,17 +273,26 @@ export function CreateTripModal({
       setError('Please select an active operational vehicle.');
       return;
     }
-    if (!driver) {
-      setError('Please select an active driver.');
-      return;
-    }
-    if (!destination.trim()) {
-      setError('Destination location or delivery terminal is required.');
-      return;
-    }
-    if (!materialType) {
-      setError('Material type must be specified.');
-      return;
+
+    const leadObj = leads.find((l) => l.id === selectedLead || l.leadName === selectedLead);
+    const effectiveDriver =
+      driver ||
+      selectedVehicleObj?.assignedDriverId ||
+      (drivers.length > 0 ? drivers[0].id : 'DRV-DEFAULT');
+    const effectiveDestination =
+      destination.trim() || leadObj?.leadName || 'Mine Delivery Siding';
+    const effectiveMaterial =
+      materialType || (materials.length > 0 ? materials[0] : 'Iron Ore');
+
+    if (tripEntryMode === 'reconcile') {
+      if (!effectiveDriver) {
+        setError('Please select an active driver.');
+        return;
+      }
+      if (!effectiveDestination) {
+        setError('Destination location or delivery terminal is required.');
+        return;
+      }
     }
 
     if (
@@ -301,20 +312,20 @@ export function CreateTripModal({
       const formattedDt = dispatchDateTime.replace('T', ' ') + ':00';
       const input: CreateMiningTripInput = {
         vehicle,
-        driver,
+        driver: effectiveDriver,
         mineSite,
-        destination: destination.trim(),
-        materialType,
+        destination: effectiveDestination,
+        materialType: effectiveMaterial,
         dispatchDateTime: formattedDt,
-        ratePerTon: ratePerTon !== '' ? Number(ratePerTon) : undefined,
+        ratePerTon: effectiveRate > 0 ? effectiveRate : undefined,
         openingOdometer: openingOdometer !== '' ? Number(openingOdometer) : undefined,
         challanNumber: challanNumber.trim() || undefined,
         lead: selectedLead || undefined,
         leadKm: leadKm !== '' ? Number(leadKm) : undefined,
         leadRate: leadRate !== '' ? Number(leadRate) : undefined,
         tripCount: Number(tripCount || 1),
-        averageTonnage: averageTonnage !== '' ? Number(averageTonnage) : undefined,
-        shift: shift || 'Day',
+        averageTonnage: effectiveTonnage,
+        shift: shift || 'Shift A',
       };
 
       const res = await fetch('/api/trips', {
@@ -349,14 +360,14 @@ export function CreateTripModal({
               <Compass className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">Dispatch New Mining Trip</h2>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">Trip entry site supervisor</h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isMineLocked ? (
                   <span className="inline-flex items-center gap-1 font-medium text-slate-700">
                     <Lock className="w-3 h-3 text-slate-400" /> Locked to {activeMineLabel}
                   </span>
                 ) : (
-                  'Assign vehicle, driver, and destination for ore haulage'
+                  'Site Supervisor Daily Trip Log & Reconciliation'
                 )}
               </p>
             </div>
@@ -367,6 +378,34 @@ export function CreateTripModal({
             className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Two-Tab Entry Mode Switcher */}
+        <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-100/70 px-4 pt-2">
+          <button
+            type="button"
+            onClick={() => setTripEntryMode('supervisor')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
+              tripEntryMode === 'supervisor'
+                ? 'border-blue-900 text-blue-900 bg-white rounded-t-lg shadow-2xs'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>1. Site Supervisor Trip Entry</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTripEntryMode('reconcile')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
+              tripEntryMode === 'reconcile'
+                ? 'border-blue-900 text-blue-900 bg-white rounded-t-lg shadow-2xs'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>2. Reconcile Trip Entry</span>
           </button>
         </div>
 
@@ -400,155 +439,35 @@ export function CreateTripModal({
               <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
               <span className="text-xs font-medium">Loading fleet operational assets...</span>
             </div>
-          ) : (
+          ) : tripEntryMode === 'supervisor' ? (
+            /* ======================================================== */
+            /* MODE 1: SITE SUPERVISOR TRIP ENTRY                      */
+            /* Fields: Date, Shift, Vehicle, Lead/Route, Trip count    */
+            /* ======================================================== */
             <>
-              {/* Row 1: Vehicle & Driver */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
-                <LinkedField
-                  label="Select Vehicle"
-                  required
-                  value={vehicle}
-                  onChange={handleVehicleChange}
-                  options={vehicles.map((v) => ({
-                    id: v.id,
-                    label: v.licensePlate,
-                    subtext: `${(v as any).make || ''} ${(v as any).model || ''} • ${v.payloadCapacityTons}T`,
-                  }))}
-                  placeholder="-- Choose Active Vehicle --"
-                  entityName="Vehicle"
-                  icon={Truck}
-                  onCreateNew={() => setShowAddVehicle(true)}
-                  onViewRecord={(id) => setViewVehicleId(id)}
-                  helperText={
-                    selectedVehicleObj
-                      ? `Last recorded odometer: ${selectedVehicleObj.lastOdometer.toLocaleString()} km`
-                      : undefined
-                  }
-                />
-
-                <LinkedField
-                  label="Assign Driver"
-                  required
-                  value={driver}
-                  onChange={setDriver}
-                  options={drivers.map((d) => ({
-                    id: d.id,
-                    label: d.fullName,
-                    subtext: d.licenseNumber ? `Lic: ${d.licenseNumber}` : 'Commercial Operator',
-                  }))}
-                  placeholder="-- Choose Active Driver --"
-                  entityName="Driver"
-                  icon={User}
-                  onCreateNew={() => setShowAddDriver(true)}
-                  onViewRecord={(id) => setViewDriverId(id)}
-                />
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs flex items-center justify-between">
+                <span>Fast pit-head dispatch entry for site supervisor.</span>
+                <button
+                  type="button"
+                  onClick={() => setTripEntryMode('reconcile')}
+                  className="font-bold underline text-blue-900 hover:text-blue-700"
+                >
+                  View Reconciliation & Value →
+                </button>
               </div>
 
-              {/* Row 2: Mine Site, Lead Siding & Destination */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-                <LinkedField
-                  label="Origin Mine Site / Pit"
-                  required
-                  disabled={isMineLocked}
-                  value={mineSite}
-                  onChange={handleMineSiteChange}
-                  options={availableMineSites.map((s) => ({
-                    id: s.id,
-                    label: s.siteName,
-                    subtext: s.mineralType,
-                  }))}
-                  placeholder="-- Choose Mine Site --"
-                  entityName="Mine Site"
-                  icon={MapPin}
-                  onCreateNew={() => setShowAddMineSite(true)}
-                  onViewRecord={(id) => setViewMineSiteId(id)}
-                  hint={isMineLocked ? 'Locked to assigned mine' : undefined}
-                />
-
+              {/* Row: Date & Shift */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Haulage Lead / Route
-                  </label>
-                  <select
-                    value={selectedLead}
-                    onChange={(e) => handleLeadChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-slate-900 font-medium"
-                  >
-                    <option value="">-- Manual Destination --</option>
-                    {leads.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.leadName} ({l.leadKm} km • ₹{l.leadRate}/T)
-                      </option>
-                    ))}
-                  </select>
-                  {leadKm !== '' && (
-                    <span className="text-[11px] text-slate-500 font-medium mt-1 block">
-                      Route: {leadKm} km • Rate: ₹{leadRate}/T
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Destination Terminal <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. NTPC Siding"
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-slate-900"
-                  />
-                </div>
-              </div>
-
-              {/* Row 3: Material Type & Challan Number */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Material / Commodity <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={materialType}
-                    onChange={(e) => setMaterialType(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-slate-900 font-medium"
-                  >
-                    {materials.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Challan / Transit Pass #
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. CH-2026-908"
-                    value={challanNumber}
-                    onChange={(e) => setChallanNumber(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-slate-900"
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: Dispatch Date, Shift, Trip Count & Average Tonnage */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Dispatch Time <span className="text-rose-500">*</span>
+                    Trip Date & Time <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="datetime-local"
                     value={dispatchDateTime}
                     onChange={(e) => setDispatchDateTime(e.target.value)}
                     required
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900"
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900"
                   />
                 </div>
 
@@ -559,14 +478,69 @@ export function CreateTripModal({
                   <select
                     value={shift}
                     onChange={(e) => setShift(e.target.value as any)}
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900 font-medium"
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
                   >
+                    <option value="Shift A">Shift A (06:00 - 14:00)</option>
+                    <option value="Shift B">Shift B (14:00 - 22:00)</option>
+                    <option value="Shift C">Shift C (22:00 - 06:00)</option>
                     <option value="Day">Day Shift</option>
                     <option value="Night">Night Shift</option>
                     <option value="General">General Shift</option>
                   </select>
                 </div>
+              </div>
 
+              {/* Row: Vehicle & Lead / Route */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                <LinkedField
+                  label="Vehicle No"
+                  required
+                  value={vehicle}
+                  onChange={handleVehicleChange}
+                  options={vehicles.map((v) => ({
+                    id: v.id,
+                    label: v.licensePlate,
+                    subtext: `${(v as any).make || ''} ${(v as any).model || ''} • ${v.payloadCapacityTons}T`,
+                  }))}
+                  placeholder="-- Select Vehicle --"
+                  entityName="Vehicle"
+                  icon={Truck}
+                  onCreateNew={() => setShowAddVehicle(true)}
+                  onViewRecord={(id) => setViewVehicleId(id)}
+                  helperText={
+                    selectedVehicleObj
+                      ? `Payload: ${selectedVehicleObj.payloadCapacityTons}T • Last Odo: ${selectedVehicleObj.lastOdometer} km`
+                      : undefined
+                  }
+                />
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Lead / Route <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={selectedLead}
+                    onChange={(e) => handleLeadChange(e.target.value)}
+                    required
+                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
+                  >
+                    <option value="">-- Choose Lead / Route --</option>
+                    {leads.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.leadName} ({l.leadKm} km • ₹{l.leadRate}/T)
+                      </option>
+                    ))}
+                  </select>
+                  {leadKm !== '' && (
+                    <span className="text-[11px] text-slate-500 font-medium mt-1 block">
+                      Distance: {leadKm} km • Agreed Rate: ₹{leadRate}/T
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Row: Trip Count & Origin Mine */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Trip Count <span className="text-rose-500">*</span>
@@ -578,7 +552,126 @@ export function CreateTripModal({
                     value={tripCount}
                     onChange={(e) => setTripCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
                     required
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900 font-mono"
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
+                  />
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Number of round trips completed in this shift
+                  </span>
+                </div>
+
+                <LinkedField
+                  label="Mine Site / Pit"
+                  required
+                  disabled={isMineLocked}
+                  value={mineSite}
+                  onChange={handleMineSiteChange}
+                  options={availableMineSites.map((s) => ({
+                    id: s.id,
+                    label: s.siteName,
+                    subtext: s.mineralType,
+                  }))}
+                  placeholder="-- Origin Pit --"
+                  entityName="Mine Site"
+                  icon={MapPin}
+                  onCreateNew={() => setShowAddMineSite(true)}
+                  onViewRecord={(id) => setViewMineSiteId(id)}
+                  hint={isMineLocked ? 'Locked to assigned mine' : undefined}
+                />
+              </div>
+
+              {/* Quick Summary Strip */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+                <span className="text-slate-600">
+                  Estimated Quantity: <strong className="text-slate-900">{calculatedQuantity.toFixed(2)} Tons</strong> ({tripCount} trips × {effectiveTonnage}T)
+                </span>
+                <span className="text-slate-600">
+                  Est. Value: <strong className="text-emerald-700">₹{calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </span>
+              </div>
+            </>
+          ) : (
+            /* ======================================================== */
+            /* MODE 2: RECONCILE TRIP ENTRY                            */
+            /* Fields: Date, Vehicle, Lead, Trip Count, Avg,           */
+            /* Quantity, Amount                                        */
+            /* ======================================================== */
+            <>
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center justify-between">
+                <span>Reconciliation mode: Auto-populates supervisor trip counts with tonnage and rates.</span>
+                <button
+                  type="button"
+                  onClick={() => setTripEntryMode('supervisor')}
+                  className="font-bold underline text-emerald-900 hover:text-emerald-700"
+                >
+                  ← Back to Supervisor Entry
+                </button>
+              </div>
+
+              {/* Auto-shown Supervisor Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Date & Shift
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={dispatchDateTime}
+                    onChange={(e) => setDispatchDateTime(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900"
+                  />
+                </div>
+
+                <LinkedField
+                  label="Vehicle No"
+                  required
+                  value={vehicle}
+                  onChange={handleVehicleChange}
+                  options={vehicles.map((v) => ({
+                    id: v.id,
+                    label: v.licensePlate,
+                    subtext: `${v.payloadCapacityTons}T`,
+                  }))}
+                  placeholder="-- Vehicle --"
+                  entityName="Vehicle"
+                  icon={Truck}
+                  onCreateNew={() => setShowAddVehicle(true)}
+                  onViewRecord={(id) => setViewVehicleId(id)}
+                />
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Lead / Route
+                  </label>
+                  <select
+                    value={selectedLead}
+                    onChange={(e) => handleLeadChange(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
+                  >
+                    <option value="">-- Choose Lead --</option>
+                    {leads.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.leadName} ({l.leadKm} km)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Reconcile Metrics: Trip Count, Avg, Quantity, Rate, Amount */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Trip Count <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={tripCount}
+                    onChange={(e) => setTripCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    required
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
                   />
                 </div>
 
@@ -590,48 +683,38 @@ export function CreateTripModal({
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder={selectedVehicleObj ? `${selectedVehicleObj.payloadCapacityTons} Tons` : '35.00'}
                     value={averageTonnage}
                     onChange={(e) => setAverageTonnage(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900 font-mono"
+                    placeholder={selectedVehicleObj ? `${selectedVehicleObj.payloadCapacityTons}` : '35.00'}
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
                   />
                 </div>
-              </div>
 
-              {/* Row 5: Opening Odometer & Rate per Ton */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Opening Odometer (km)
+                    Quantity (Tons)
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 62100"
-                    value={openingOdometer}
-                    onChange={(e) =>
-                      setOpeningOdometer(e.target.value === '' ? '' : Number(e.target.value))
-                    }
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900 font-mono"
-                  />
+                  <div className="w-full px-3 py-2 text-sm bg-slate-100 border border-slate-300 rounded-lg text-blue-900 font-mono font-bold">
+                    {calculatedQuantity.toFixed(2)} T
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Contract Rate / Ton (₹)
+                    Rate / Ton (₹)
                   </label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="e.g. 120"
+                    placeholder="120"
                     value={leadRate !== '' ? leadRate : ratePerTon}
                     onChange={(e) => {
                       const val = e.target.value === '' ? '' : Number(e.target.value);
                       setRatePerTon(val);
                       if (selectedLead) setLeadRate(val);
                     }}
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-900 font-mono"
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono"
                   />
                 </div>
               </div>
@@ -640,7 +723,7 @@ export function CreateTripModal({
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col">
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Calculated Mineral Quantity
+                    Reconciled Mineral Quantity
                   </span>
                   <span className="text-sm font-semibold text-slate-900 mt-0.5">
                     {tripCount || 1} Trip(s) × {effectiveTonnage} Tons = <span className="text-blue-900 font-bold">{calculatedQuantity.toFixed(2)} Tons</span>
@@ -648,11 +731,43 @@ export function CreateTripModal({
                 </div>
                 <div className="flex flex-col sm:items-end">
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Calculated Haulage Amount
+                    Calculated Reconciled Amount
                   </span>
                   <span className="text-base font-bold text-emerald-700 mt-0.5">
                     ₹{calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
+                </div>
+              </div>
+
+              {/* Row: Driver & Challan Number */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                <LinkedField
+                  label="Assign Driver"
+                  value={driver}
+                  onChange={setDriver}
+                  options={drivers.map((d) => ({
+                    id: d.id,
+                    label: d.fullName,
+                    subtext: d.licenseNumber ? `Lic: ${d.licenseNumber}` : 'Operator',
+                  }))}
+                  placeholder="-- Choose Driver --"
+                  entityName="Driver"
+                  icon={User}
+                  onCreateNew={() => setShowAddDriver(true)}
+                  onViewRecord={(id) => setViewDriverId(id)}
+                />
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Challan / Transit Pass #
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. CH-2026-908"
+                    value={challanNumber}
+                    onChange={(e) => setChallanNumber(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900"
+                  />
                 </div>
               </div>
             </>
@@ -672,7 +787,7 @@ export function CreateTripModal({
               disabled={loadingOptions || submitting || isUnassigned}
               data-testid="btn-submit-trip"
             >
-              Create Mining Trip
+              {tripEntryMode === 'supervisor' ? 'Save Supervisor Trip Entry' : 'Confirm & Reconcile Trip Entry'}
             </Button>
           </div>
         </form>

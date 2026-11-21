@@ -948,6 +948,7 @@ export async function getVehicles(
       'is_test_record',
       'custom_mine_site',
       'custom_vehicle_type',
+      'custom_transport_type',
       'custom_owner_name',
       'chassis_no',
       'custom_engine_number',
@@ -994,6 +995,7 @@ export async function getVehicles(
         payloadCapacityTons: Number(v.payload_capacity_tons) || 35,
         fuelType: v.fuel_type || 'Diesel',
         vehicleType: v.custom_vehicle_type || undefined,
+        customTransportType: (v.custom_transport_type as any) || 'Transport',
         ownerName: v.custom_owner_name || null,
         chassisNumber: v.chassis_no || null,
         engineNumber: v.custom_engine_number || null,
@@ -1182,6 +1184,7 @@ export async function createVehicle(
     permit_expiry_date: input.permitExpiryDate || null,
     custom_mine_site: input.customMineSite || input.mineSite || undefined,
     custom_vehicle_type: input.vehicleType || undefined,
+    custom_transport_type: input.customTransportType || 'Transport',
     custom_owner_name: input.ownerName || undefined,
     chassis_no: input.chassisNumber || undefined,
     custom_engine_number: input.engineNumber || undefined,
@@ -2105,7 +2108,7 @@ export async function getFleetLeads(
     id: l.name,
     leadName: l.lead_name || l.name,
     mineSite: l.mine_site,
-    leadKm: Number(l.lead_km || 0),
+    leadKm: l.lead_km || '0',
     leadRate: Number(l.lead_rate || 0),
     validFrom: l.valid_from || null,
     validTo: l.valid_to || null,
@@ -2119,7 +2122,7 @@ export async function createFleetLead(
   input: {
     leadName: string;
     mineSite: string;
-    leadKm: number;
+    leadKm: number | string;
     leadRate: number;
     validFrom?: string;
     validTo?: string;
@@ -2129,7 +2132,7 @@ export async function createFleetLead(
   const payload: any = {
     lead_name: input.leadName.trim(),
     mine_site: input.mineSite,
-    lead_km: Number(input.leadKm || 0),
+    lead_km: input.leadKm,
     lead_rate: Number(input.leadRate || 0),
     is_active: 1,
   };
@@ -9170,7 +9173,10 @@ export async function getEmployees(
       'company_email', 'personal_email', 'department', 'designation',
       'branch', 'reports_to', 'user_id', 'image',
       'custom_mine_site', 'custom_assigned_vehicle', 'custom_daily_salary',
-      'custom_ifsc_code', 'custom_aadhaar_no', 'custom_pan_no', 'bank_name', 'bank_ac_no'
+      'custom_ifsc_code', 'custom_aadhaar_no', 'custom_pan_no', 'bank_name', 'bank_ac_no',
+      'father_or_spouse_name', 'current_address', 'permanent_address', 'skill_category',
+      'pf_type', 'uan_or_cmpf_no', 'social_category', 'driving_license_number',
+      'driving_license_validity', 'vt_no', 'vt_period', 'form_o_done'
     ]),
     filters: JSON.stringify(filters),
     order_by: 'employee_name asc',
@@ -9226,6 +9232,18 @@ export async function getEmployees(
     panNo: e.custom_pan_no || null,
     bankName: e.bank_name || null,
     bankAcNo: e.bank_ac_no || null,
+    fatherOrSpouseName: e.father_or_spouse_name || null,
+    presentAddress: e.current_address || null,
+    permanentAddress: e.permanent_address || null,
+    skillCategory: e.skill_category || null,
+    pfType: e.pf_type || null,
+    uanOrCmpfNo: e.uan_or_cmpf_no || null,
+    socialCategory: e.social_category || null,
+    dlNo: e.driving_license_number || null,
+    dlValidity: e.driving_license_validity || null,
+    vtNo: e.vt_no || null,
+    vtPeriod: e.vt_period || null,
+    formO: e.form_o_done || null,
   }));
 }
 
@@ -9260,6 +9278,18 @@ export async function createEmployee(
     bank_name: (empData as any).bankName || null,
     bank_ac_no: (empData as any).bankAcNo || (empData as any).bankAccountNo || null,
     relieving_date: empData.relievingDate || null,
+    father_or_spouse_name: (empData as any).fatherOrSpouseName || null,
+    current_address: (empData as any).presentAddress || null,
+    permanent_address: (empData as any).permanentAddress || null,
+    skill_category: (empData as any).skillCategory || 'SKILL',
+    pf_type: (empData as any).pfType || 'CMPF',
+    uan_or_cmpf_no: (empData as any).uanOrCmpfNo || null,
+    social_category: (empData as any).socialCategory || 'GENERAL',
+    driving_license_number: (empData as any).dlNo || null,
+    driving_license_validity: (empData as any).dlValidity || null,
+    vt_no: (empData as any).vtNo || null,
+    vt_period: (empData as any).vtPeriod || null,
+    form_o_done: (empData as any).formO || 'YES',
   };
 
   const res = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
@@ -9293,6 +9323,18 @@ export async function createEmployee(
     ifscCode: created.custom_ifsc_code || undefined,
     aadhaarNo: created.custom_aadhaar_no || undefined,
     panNo: created.custom_pan_no || undefined,
+    fatherOrSpouseName: created.father_or_spouse_name || null,
+    presentAddress: created.current_address || null,
+    permanentAddress: created.permanent_address || null,
+    skillCategory: created.skill_category || null,
+    pfType: created.pf_type || null,
+    uanOrCmpfNo: created.uan_or_cmpf_no || null,
+    socialCategory: created.social_category || null,
+    dlNo: created.driving_license_number || null,
+    dlValidity: created.driving_license_validity || null,
+    vtNo: created.vt_no || null,
+    vtPeriod: created.vt_period || null,
+    formO: created.form_o_done || null,
   };
 }
 
@@ -9513,19 +9555,24 @@ export async function markEmployeeAttendance(
     employee: string;
     attendanceDate: string;
     attendanceStatus: 'Present' | 'Half Day' | 'Absent' | 'On Leave';
-    shift?: 'Day' | 'Night' | 'General';
+    shift?: 'Shift A' | 'Shift B' | 'Shift C' | 'Day' | 'Night' | 'General';
     vehicle?: string;
     mineSite?: string;
     dailySalaryRate?: number;
     remarks?: string;
   }
 ): Promise<EmployeeAttendance> {
+  const queryFilters: any[] = [
+    ['employee', '=', record.employee],
+    ['attendance_date', '=', record.attendanceDate],
+  ];
+  if (record.shift) {
+    queryFilters.push(['shift', '=', record.shift]);
+  }
+
   const existingList = await callFrappeApi(
     `/api/method/frappe.client.get_list?doctype=Employee Attendance&filters=${encodeURIComponent(
-      JSON.stringify([
-        ['employee', '=', record.employee],
-        ['attendance_date', '=', record.attendanceDate]
-      ])
+      JSON.stringify(queryFilters)
     )}&fields=["name"]`,
     sessionCookie,
     { method: 'GET' }
@@ -9612,6 +9659,7 @@ export async function getEmployeeAttendanceSummary(
       empMap.set(emp.id, {
         employee: emp.id,
         employeeName: emp.employeeName,
+        designation: emp.designation || 'Staff',
         mineSite: emp.customMineSite || emp.mineSite || '',
         assignedVehicle: emp.assignedVehicle || null,
         dailySalaryRate: emp.dailySalary || 0,
@@ -9621,6 +9669,7 @@ export async function getEmployeeAttendanceSummary(
         absentDays: 0,
         leaveDays: 0,
         totalCalculatedSalary: 0,
+        dailyStatus: {},
       });
     }
   }
@@ -9631,6 +9680,7 @@ export async function getEmployeeAttendanceSummary(
       summary = {
         employee: att.employee,
         employeeName: att.employeeName,
+        designation: 'Staff',
         mineSite: att.mineSite,
         assignedVehicle: att.vehicle || null,
         dailySalaryRate: att.dailySalaryRate,
@@ -9640,6 +9690,7 @@ export async function getEmployeeAttendanceSummary(
         absentDays: 0,
         leaveDays: 0,
         totalCalculatedSalary: 0,
+        dailyStatus: {},
       };
       empMap.set(att.employee, summary);
     }
@@ -9654,6 +9705,25 @@ export async function getEmployeeAttendanceSummary(
       summary.leaveDays += 1;
     }
     summary.totalCalculatedSalary += att.calculatedSalaryAmount;
+
+    if (att.attendanceDate) {
+      const parts = att.attendanceDate.split('-');
+      if (parts.length === 3) {
+        const day = parseInt(parts[2], 10);
+        if (day >= 1 && day <= 31) {
+          if (!summary.dailyStatus) summary.dailyStatus = {};
+          const code =
+            att.attendanceStatus === 'Present'
+              ? 'P'
+              : att.attendanceStatus === 'Half Day'
+              ? 'HD'
+              : att.attendanceStatus === 'On Leave'
+              ? 'L'
+              : 'A';
+          summary.dailyStatus[day] = code;
+        }
+      }
+    }
   }
 
   return Array.from(empMap.values());

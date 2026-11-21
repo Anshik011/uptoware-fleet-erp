@@ -25,6 +25,7 @@ export interface Vehicle {
   model: string;
   status: VehicleStatus;
   vehicleType?: string;
+  customTransportType?: 'Transport' | 'Non Transport';
   ownerName?: string | null;
   chassisNumber?: string | null;
   engineNumber?: string | null;
@@ -123,7 +124,7 @@ export interface MiningTrip {
   invoicedAmount?: number;
   isTestRecord?: boolean;
   lead?: string | null;
-  leadKm?: number;
+  leadKm?: number | string;
   leadRate?: number;
   tripCount?: number;
   averageTonnage?: number;
@@ -140,7 +141,7 @@ export interface FleetLead {
   id: string;
   leadName: string;
   mineSite: string;
-  leadKm: number;
+  leadKm: number | string;
   leadRate: number;
   validFrom?: string | null;
   validTo?: string | null;
@@ -160,11 +161,11 @@ export interface CreateMiningTripInput {
   openingOdometer?: number;
   isTestRecord?: boolean;
   lead?: string;
-  leadKm?: number;
+  leadKm?: number | string;
   leadRate?: number;
   tripCount?: number;
   averageTonnage?: number;
-  shift?: 'Day' | 'Night' | 'General';
+  shift?: 'Shift A' | 'Shift B' | 'Shift C' | 'Day' | 'Night' | 'General' | string;
 }
 
 export interface TripTransitionInput {
@@ -229,6 +230,7 @@ export interface CreateVehicleInput {
   model: string;
   status: VehicleStatus;
   vehicleType?: string;
+  customTransportType?: 'Transport' | 'Non Transport';
   ownerName?: string;
   chassisNumber?: string;
   engineNumber?: string;
@@ -1450,6 +1452,18 @@ export interface EmployeeProfile {
   panNo?: string | null;
   bankName?: string | null;
   bankAcNo?: string | null;
+  fatherOrSpouseName?: string | null;
+  presentAddress?: string | null;
+  permanentAddress?: string | null;
+  skillCategory?: 'SKILL' | 'SEMI SKILL' | 'UNSKILL' | string | null;
+  pfType?: 'CMPF' | 'PF' | string | null;
+  uanOrCmpfNo?: string | null;
+  socialCategory?: 'OBC' | 'SC' | 'ST' | 'GENERAL' | string | null;
+  dlNo?: string | null;
+  dlValidity?: string | null;
+  vtNo?: string | null;
+  vtPeriod?: string | null;
+  formO?: 'YES' | 'NO' | string | null;
 }
 
 export interface EmployeeAttendance {
@@ -1458,7 +1472,7 @@ export interface EmployeeAttendance {
   employeeName: string;
   attendanceDate: string;
   attendanceStatus: 'Present' | 'Half Day' | 'Absent' | 'On Leave';
-  shift: 'Day' | 'Night' | 'General';
+  shift: 'Shift A' | 'Shift B' | 'Shift C' | 'Day' | 'Night' | 'General' | string;
   vehicle?: string | null;
   mineSite: string;
   dailySalaryRate: number;
@@ -1470,6 +1484,7 @@ export interface EmployeeAttendance {
 export interface EmployeeAttendanceSummary {
   employee: string;
   employeeName: string;
+  designation?: string;
   mineSite: string;
   assignedVehicle?: string | null;
   dailySalaryRate: number;
@@ -1479,4 +1494,5 @@ export interface EmployeeAttendanceSummary {
   absentDays: number;
   leaveDays: number;
   totalCalculatedSalary: number;
+  dailyStatus?: Record<number, 'P' | 'A' | 'HD' | 'L'>;
 }

@@ -98,22 +98,43 @@ function EmployeesContent() {
   const [relievingDate, setRelievingDate] = useState('');
   const [aadhaarNo, setAadhaarNo] = useState('');
   const [panNo, setPanNo] = useState('');
+
+  // Statutory Indian Mining workforce fields
+  const [fatherOrSpouseName, setFatherOrSpouseName] = useState('');
+  const [presentAddress, setPresentAddress] = useState('');
+  const [permanentAddress, setPermanentAddress] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState<'Male' | 'Female' | 'Other'>('Male');
+  const [skillCategory, setSkillCategory] = useState<'SKILL' | 'SEMI SKILL' | 'UNSKILL'>('SKILL');
+  const [pfType, setPfType] = useState<'CMPF' | 'PF'>('CMPF');
+  const [uanOrCmpfNo, setUanOrCmpfNo] = useState('');
+  const [socialCategory, setSocialCategory] = useState<'OBC' | 'SC' | 'ST' | 'GENERAL'>('GENERAL');
+  const [dlNo, setDlNo] = useState('');
+  const [dlValidity, setDlValidity] = useState('');
+  const [vtNo, setVtNo] = useState('');
+  const [vtPeriod, setVtPeriod] = useState('');
+  const [formO, setFormO] = useState<'YES' | 'NO'>('YES');
+
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Tab 2: Attendance Roster state
   const [rosterDate, setRosterDate] = useState<string>(todayStr);
-  const [rosterShift, setRosterShift] = useState<'Day' | 'Night' | 'General'>('Day');
+  const [rosterShift, setRosterShift] = useState<'Shift A' | 'Shift B' | 'Shift C' | 'Day' | 'Night' | 'General'>('Shift A');
+  const [rosterFormat, setRosterFormat] = useState<'drivers' | 'staff'>('drivers');
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, EmployeeAttendance>>({});
   const [isAttendanceLoading, setIsAttendanceLoading] = useState(false);
   const [savingAttendanceId, setSavingAttendanceId] = useState<string | null>(null);
   const [attendanceSuccessMsg, setAttendanceSuccessMsg] = useState<string | null>(null);
+  const [vehicles, setVehicles] = useState<any[]>([]);
 
   // Tab 3: Summary state
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
   const [summaryMonth, setSummaryMonth] = useState<number>(currentMonth);
   const [summaryYear, setSummaryYear] = useState<number>(currentYear);
+  const [summaryDesignationFilter, setSummaryDesignationFilter] = useState<string>('ALL');
+  const [summarySearchQuery, setSummarySearchQuery] = useState<string>('');
   const [attendanceSummary, setAttendanceSummary] = useState<EmployeeAttendanceSummary[]>([]);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
 
@@ -136,6 +157,19 @@ function EmployeesContent() {
     }
   }, []);
 
+  // Load Vehicles for driver matrix
+  const loadVehicles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/vehicles?limit=200');
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setVehicles(json.data || []);
+      }
+    } catch (err) {
+      console.error('Error loading vehicles:', err);
+    }
+  }, []);
+
   // Load Attendance for selected roster date
   const loadAttendanceForDate = useCallback(async (date: string, mine: string) => {
     try {
@@ -150,6 +184,12 @@ function EmployeesContent() {
         const map: Record<string, EmployeeAttendance> = {};
         for (const item of json.data || []) {
           map[item.employee] = item;
+          if (item.shift) {
+            map[`${item.employee}_${item.shift}`] = item;
+          }
+          if (item.vehicle && item.shift) {
+            map[`${item.vehicle}_${item.shift}`] = item;
+          }
         }
         setAttendanceRecords(map);
       }
@@ -185,7 +225,8 @@ function EmployeesContent() {
 
   useEffect(() => {
     loadEmployees();
-  }, [loadEmployees]);
+    loadVehicles();
+  }, [loadEmployees, loadVehicles]);
 
   useEffect(() => {
     if (activeTab === 'roster') {
@@ -195,7 +236,7 @@ function EmployeesContent() {
     }
   }, [activeTab, rosterDate, mineFilter, summaryMonth, summaryYear, loadAttendanceForDate, loadAttendanceSummary]);
 
-  // Handle Mark Attendance for a single employee
+  // Handle Mark Attendance for a single employee (General / Current Shift)
   const handleMarkAttendance = async (
     emp: EmployeeProfile,
     status: 'Present' | 'Half Day' | 'Absent' | 'On Leave'
@@ -225,8 +266,57 @@ function EmployeesContent() {
       setAttendanceRecords((prev) => ({
         ...prev,
         [emp.id]: json.data,
+        [`${emp.id}_${rosterShift}`]: json.data,
+        ...(emp.assignedVehicle ? { [`${emp.assignedVehicle}_${rosterShift}`]: json.data } : {}),
       }));
       setAttendanceSuccessMsg(`Recorded ${status} for ${emp.employeeName}`);
+      setTimeout(() => setAttendanceSuccessMsg(null), 3000);
+    } catch (err: any) {
+      alert(`Error saving attendance: ${err.message}`);
+    } finally {
+      setSavingAttendanceId(null);
+    }
+  };
+
+  // Handle Mark Attendance for specific Shift & optional Vehicle
+  const handleMarkShiftAttendance = async (
+    empId: string,
+    shift: 'Shift A' | 'Shift B' | 'Shift C' | 'Day' | 'Night' | 'General',
+    status: 'Present' | 'Half Day' | 'Absent' | 'On Leave',
+    vehiclePlate?: string
+  ) => {
+    const emp = employees.find((e) => e.id === empId);
+    if (!emp) return;
+    try {
+      const lockKey = vehiclePlate ? `${vehiclePlate}_${shift}` : `${empId}_${shift}`;
+      setSavingAttendanceId(lockKey);
+      setAttendanceSuccessMsg(null);
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee: emp.id,
+          attendanceDate: rosterDate,
+          attendanceStatus: status,
+          shift,
+          vehicle: vehiclePlate || emp.assignedVehicle || undefined,
+          mineSite: emp.customMineSite || emp.mineSite || selectedMine,
+          dailySalaryRate: emp.dailySalary || 0,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to update attendance.');
+      }
+
+      setAttendanceRecords((prev) => ({
+        ...prev,
+        [emp.id]: json.data,
+        [`${emp.id}_${shift}`]: json.data,
+        ...(vehiclePlate ? { [`${vehiclePlate}_${shift}`]: json.data } : {}),
+      }));
+      setAttendanceSuccessMsg(`Recorded ${status} for ${emp.employeeName} (${shift})`);
       setTimeout(() => setAttendanceSuccessMsg(null), 3000);
     } catch (err: any) {
       alert(`Error saving attendance: ${err.message}`);
@@ -273,6 +363,10 @@ function EmployeesContent() {
       setModalError('First name is required.');
       return;
     }
+    if (!fatherOrSpouseName.trim()) {
+      setModalError('Father/Mother/Spouse Name is required for statutory mining compliance.');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -297,6 +391,20 @@ function EmployeesContent() {
           relievingDate: relievingDate.trim() || undefined,
           aadhaarNo: aadhaarNo.trim() || undefined,
           panNo: panNo.trim() || undefined,
+          fatherOrSpouseName: fatherOrSpouseName.trim(),
+          presentAddress: presentAddress.trim() || undefined,
+          permanentAddress: permanentAddress.trim() || undefined,
+          dateOfBirth: dateOfBirth.trim() || undefined,
+          gender: gender || 'Male',
+          skillCategory: skillCategory || 'SKILL',
+          pfType: pfType || 'CMPF',
+          uanOrCmpfNo: uanOrCmpfNo.trim() || undefined,
+          socialCategory: socialCategory || 'GENERAL',
+          dlNo: dlNo.trim() || undefined,
+          dlValidity: dlValidity.trim() || undefined,
+          vtNo: vtNo.trim() || undefined,
+          vtPeriod: vtPeriod.trim() || undefined,
+          formO: formO || 'YES',
         }),
       });
 
@@ -316,6 +424,20 @@ function EmployeesContent() {
       setRelievingDate('');
       setAadhaarNo('');
       setPanNo('');
+      setFatherOrSpouseName('');
+      setPresentAddress('');
+      setPermanentAddress('');
+      setDateOfBirth('');
+      setGender('Male');
+      setSkillCategory('SKILL');
+      setPfType('CMPF');
+      setUanOrCmpfNo('');
+      setSocialCategory('GENERAL');
+      setDlNo('');
+      setDlValidity('');
+      setVtNo('');
+      setVtPeriod('');
+      setFormO('YES');
       await loadEmployees();
     } catch (err: any) {
       setModalError(err.message || 'Error creating employee.');
@@ -602,6 +724,8 @@ function EmployeesContent() {
                                 <div>{emp.employeeName}</div>
                                 <div className="text-[10px] text-slate-500 font-medium">
                                   {emp.id} • {emp.designation || 'Fleet Personnel'}
+                                  {emp.skillCategory ? ` • ${emp.skillCategory}` : ''}
+                                  {emp.formO === 'YES' ? ' • Form O' : ''}
                                 </div>
                               </div>
                             </div>
@@ -683,6 +807,7 @@ function EmployeesContent() {
         )}
 
         {/* ======================================================== */}
+        {/* ======================================================== */}
         {/* TAB 2: DAILY ATTENDANCE ROSTER */}
         {/* ======================================================== */}
         {activeTab === 'roster' && (
@@ -690,6 +815,34 @@ function EmployeesContent() {
             {/* Roster Controls */}
             <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
+                {/* Format Toggle: Driver / Operator vs Other Staff */}
+                <div className="inline-flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setRosterFormat('drivers')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      rosterFormat === 'drivers'
+                        ? 'bg-blue-900 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Truck className="w-3.5 h-3.5" />
+                    <span>Driver & Operator (Vehicle Matrix)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRosterFormat('staff')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      rosterFormat === 'staff'
+                        ? 'bg-blue-900 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Other Staff (Shift Matrix)</span>
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-slate-500" />
                   <input
@@ -707,19 +860,6 @@ function EmployeesContent() {
                 >
                   Today
                 </button>
-
-                <div className="flex items-center gap-1.5 ml-2">
-                  <Clock className="w-4 h-4 text-slate-500" />
-                  <select
-                    value={rosterShift}
-                    onChange={(e) => setRosterShift(e.target.value as any)}
-                    className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
-                  >
-                    <option value="Day">Day Shift (06:00 - 18:00)</option>
-                    <option value="Night">Night Shift (18:00 - 06:00)</option>
-                    <option value="General">General Shift (09:00 - 17:00)</option>
-                  </select>
-                </div>
 
                 {mineOptions.length > 0 && (
                   <select
@@ -760,140 +900,269 @@ function EmployeesContent() {
               </div>
             )}
 
-            {/* Attendance Roster Table */}
-            {isAttendanceLoading ? (
-              <div className="p-12 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
-                <p className="text-xs text-slate-500">Retrieving attendance for {rosterDate}...</p>
-              </div>
-            ) : filteredEmployees.length === 0 ? (
-              <div className="p-12 rounded-xl border border-dashed border-slate-300 bg-white shadow-sm text-center">
-                <Users className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <h3 className="text-sm font-semibold text-slate-700">No personnel eligible for attendance</h3>
-              </div>
-            ) : (
+            {/* ======================================================== */}
+            {/* FORMAT 1: DRIVER / OPERATOR ATTENDANCE MATRIX */}
+            {/* Format: Vehicle No | Shift A | Shift B | Shift C */}
+            {/* ======================================================== */}
+            {rosterFormat === 'drivers' && (
               <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-blue-900" />
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Driver & Operator Attendance Entry (By Vehicle)
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500">
+                    Assigned driver listed first in each shift selector
+                  </span>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4">Personnel</th>
-                        <th className="py-3 px-4">Mine & Vehicle</th>
-                        <th className="py-3 px-4 text-right">Daily Wage Rate</th>
-                        <th className="py-3 px-4 text-center">Attendance Status Selection</th>
-                        <th className="py-3 px-4 text-right">
-                          <span>Indicative Payout</span>
-                          <span className="block text-[9px] font-normal text-slate-400 lowercase">(provisional)</span>
-                        </th>
-                        <th className="py-3 px-4 text-center">Status</th>
+                        <th className="py-3 px-4 w-48">Vehicle No</th>
+                        <th className="py-3 px-4 w-32">Vehicle Type</th>
+                        <th className="py-3 px-4">Shift A (06:00 - 14:00)</th>
+                        <th className="py-3 px-4">Shift B (14:00 - 22:00)</th>
+                        <th className="py-3 px-4">Shift C (22:00 - 06:00)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredEmployees.map((emp) => {
-                        const att = attendanceRecords[emp.id];
-                        const currentStatus = att ? att.attendanceStatus : null;
-                        const isSaving = savingAttendanceId === emp.id;
+                      {vehicles.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-slate-400">
+                            No active vehicles found in master.
+                          </td>
+                        </tr>
+                      ) : (
+                        vehicles.map((veh) => {
+                          const vPlate = veh.licensePlate || veh.name;
+                          const assignedDriverId = veh.assignedDriverId || veh.assignedDriver;
+                          const assignedDriverObj = employees.find(
+                            (e) => e.id === assignedDriverId || e.assignedVehicle === vPlate
+                          );
 
-                        return (
+                          // Drivers list with assigned driver first
+                          const sortedDrivers = [...employees].sort((a, b) => {
+                            if (a.id === assignedDriverId || a.assignedVehicle === vPlate) return -1;
+                            if (b.id === assignedDriverId || b.assignedVehicle === vPlate) return 1;
+                            return a.employeeName.localeCompare(b.employeeName);
+                          });
+
+                          return (
+                            <tr key={veh.id || vPlate} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-3 px-4">
+                                <div className="font-bold text-slate-900 font-mono text-xs">
+                                  {formatVehicleDisplay(vPlate)}
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  {veh.make || 'Tipper'} {veh.model || ''}
+                                </div>
+                              </td>
+
+                              <td className="py-3 px-4">
+                                <Badge
+                                  variant={veh.customTransportType === 'Non Transport' ? 'warning' : 'neutral'}
+                                  size="sm"
+                                >
+                                  {veh.customTransportType || 'Transport'}
+                                </Badge>
+                              </td>
+
+                              {/* Shifts A, B, C */}
+                              {(['Shift A', 'Shift B', 'Shift C'] as const).map((shift) => {
+                                const attRecord =
+                                  attendanceRecords[`${vPlate}_${shift}`] ||
+                                  attendanceRecords[`${veh.id}_${shift}`];
+                                const isSaving = savingAttendanceId === `${vPlate}_${shift}`;
+
+                                return (
+                                  <td key={shift} className="py-3 px-4">
+                                    <div className="flex flex-col gap-1.5">
+                                      <select
+                                        defaultValue={attRecord?.employee || assignedDriverObj?.id || ''}
+                                        onChange={(e) => {
+                                          const driverId = e.target.value;
+                                          if (driverId) {
+                                            handleMarkShiftAttendance(driverId, shift, 'Present', vPlate);
+                                          }
+                                        }}
+                                        disabled={!canManage || isSaving}
+                                        className="text-[11px] px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-900 bg-white"
+                                      >
+                                        <option value="">-- Assign Driver --</option>
+                                        {sortedDrivers.map((d) => {
+                                          const isAssigned =
+                                            d.id === assignedDriverId || d.assignedVehicle === vPlate;
+                                          return (
+                                            <option key={d.id} value={d.id}>
+                                              {isAssigned ? `★ ${d.employeeName} (Assigned)` : d.employeeName}
+                                            </option>
+                                          );
+                                        })}
+                                      </select>
+
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          disabled={!canManage || isSaving}
+                                          onClick={() => {
+                                            const targetId = attRecord?.employee || assignedDriverObj?.id;
+                                            if (targetId) {
+                                              handleMarkShiftAttendance(targetId, shift, 'Present', vPlate);
+                                            } else {
+                                              alert('Please select a driver first.');
+                                            }
+                                          }}
+                                          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                                            attRecord?.attendanceStatus === 'Present'
+                                              ? 'bg-emerald-600 text-white shadow-xs'
+                                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                          }`}
+                                        >
+                                          P
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={!canManage || isSaving}
+                                          onClick={() => {
+                                            const targetId = attRecord?.employee || assignedDriverObj?.id;
+                                            if (targetId) {
+                                              handleMarkShiftAttendance(targetId, shift, 'Absent', vPlate);
+                                            } else {
+                                              alert('Please select a driver first.');
+                                            }
+                                          }}
+                                          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                                            attRecord?.attendanceStatus === 'Absent'
+                                              ? 'bg-rose-600 text-white shadow-xs'
+                                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                          }`}
+                                        >
+                                          A
+                                        </button>
+                                        {attRecord && (
+                                          <span className="text-[10px] text-slate-500 font-mono ml-1">
+                                            {attRecord.attendanceStatus}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* FORMAT 2: OTHER STAFF ATTENDANCE MATRIX */}
+            {/* Format: Name | Designation | Shift A | Shift B | Shift C */}
+            {/* ======================================================== */}
+            {rosterFormat === 'staff' && (
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-blue-900" />
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Other Staff Attendance Entry (Shift P / A)
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500">
+                    Mark Present (P) or Absent (A) across operational shifts
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3 px-4 w-60">Name</th>
+                        <th className="py-3 px-4 w-44">Designation</th>
+                        <th className="py-3 px-4 text-center">Shift A (06:00 - 14:00)</th>
+                        <th className="py-3 px-4 text-center">Shift B (14:00 - 22:00)</th>
+                        <th className="py-3 px-4 text-center">Shift C (22:00 - 06:00)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredEmployees.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-slate-400">
+                            No personnel match current filters.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredEmployees.map((emp) => (
                           <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3 px-4">
                               <div className="font-semibold text-slate-900">{emp.employeeName}</div>
-                              <div className="text-[10px] text-slate-500 font-mono">
-                                {emp.id} • {emp.designation || 'Staff'}
-                              </div>
+                              <div className="text-[10px] text-slate-500 font-mono">{emp.id}</div>
                             </td>
 
                             <td className="py-3 px-4">
-                              <div className="text-slate-800 font-medium">
-                                {formatMineSiteDisplay(emp.customMineSite || emp.mineSite) || 'Talcher Site'}
-                              </div>
-                              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                                {emp.assignedVehicle ? `Vehicle: ${formatVehicleDisplay(emp.assignedVehicle)}` : 'No Vehicle Assigned'}
-                              </div>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                {emp.designation || 'Staff'}
+                              </span>
                             </td>
 
-                            <td className="py-3 px-4 text-right font-mono font-medium text-slate-800">
-                              ₹{(emp.dailySalary || 0).toLocaleString('en-IN')}
-                            </td>
+                            {(['Shift A', 'Shift B', 'Shift C'] as const).map((shift) => {
+                              const att = attendanceRecords[`${emp.id}_${shift}`];
+                              const isSaving = savingAttendanceId === `${emp.id}_${shift}`;
 
-                            <td className="py-3 px-4 text-center">
-                              <div className="inline-flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200">
-                                <button
-                                  type="button"
-                                  disabled={isSaving || !canManage}
-                                  onClick={() => handleMarkAttendance(emp, 'Present')}
-                                  className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-                                    currentStatus === 'Present'
-                                      ? 'bg-emerald-600 text-white shadow-sm'
-                                      : 'text-slate-600 hover:bg-white'
-                                  }`}
-                                >
-                                  Present
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isSaving || !canManage}
-                                  onClick={() => handleMarkAttendance(emp, 'Half Day')}
-                                  className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-                                    currentStatus === 'Half Day'
-                                      ? 'bg-amber-600 text-white shadow-sm'
-                                      : 'text-slate-600 hover:bg-white'
-                                  }`}
-                                >
-                                  Half Day
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isSaving || !canManage}
-                                  onClick={() => handleMarkAttendance(emp, 'Absent')}
-                                  className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-                                    currentStatus === 'Absent'
-                                      ? 'bg-rose-600 text-white shadow-sm'
-                                      : 'text-slate-600 hover:bg-white'
-                                  }`}
-                                >
-                                  Absent
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isSaving || !canManage}
-                                  onClick={() => handleMarkAttendance(emp, 'On Leave')}
-                                  className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-                                    currentStatus === 'On Leave'
-                                      ? 'bg-purple-600 text-white shadow-sm'
-                                      : 'text-slate-600 hover:bg-white'
-                                  }`}
-                                >
-                                  Leave
-                                </button>
-                              </div>
-                            </td>
-
-                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                              {att ? (
-                                <span className={att.calculatedSalaryAmount > 0 ? 'text-emerald-700' : 'text-slate-400'}>
-                                  ₹{att.calculatedSalaryAmount.toLocaleString('en-IN')}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400 font-normal">Pending</span>
-                              )}
-                            </td>
-
-                            <td className="py-3 px-4 text-center">
-                              {isSaving ? (
-                                <Loader2 className="w-4 h-4 animate-spin text-blue-900 mx-auto" />
-                              ) : att ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  <span>Logged</span>
-                                </span>
-                              ) : (
-                                <span className="text-[11px] text-slate-400 italic">Unmarked</span>
-                              )}
-                            </td>
+                              return (
+                                <td key={shift} className="py-3 px-4 text-center">
+                                  <div className="inline-flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200">
+                                    <button
+                                      type="button"
+                                      disabled={isSaving || !canManage}
+                                      onClick={() => handleMarkShiftAttendance(emp.id, shift, 'Present')}
+                                      className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
+                                        att?.attendanceStatus === 'Present'
+                                          ? 'bg-emerald-600 text-white shadow-xs'
+                                          : 'text-slate-600 hover:bg-white'
+                                      }`}
+                                    >
+                                      P
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isSaving || !canManage}
+                                      onClick={() => handleMarkShiftAttendance(emp.id, shift, 'Absent')}
+                                      className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
+                                        att?.attendanceStatus === 'Absent'
+                                          ? 'bg-rose-600 text-white shadow-xs'
+                                          : 'text-slate-600 hover:bg-white'
+                                      }`}
+                                    >
+                                      A
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isSaving || !canManage}
+                                      onClick={() => handleMarkShiftAttendance(emp.id, shift, 'On Leave')}
+                                      className={`px-2 py-1 rounded text-xs font-semibold transition-all ${
+                                        att?.attendanceStatus === 'On Leave'
+                                          ? 'bg-purple-600 text-white shadow-xs'
+                                          : 'text-slate-600 hover:bg-white'
+                                      }`}
+                                    >
+                                      L
+                                    </button>
+                                  </div>
+                                </td>
+                              );
+                            })}
                           </tr>
-                        );
-                      })}
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -904,209 +1173,308 @@ function EmployeesContent() {
 
         {/* ======================================================== */}
         {/* TAB 3: ATTENDANCE & SALARY SUMMARY */}
+        {/* Format: Month-wise & Designation-wise search at top */}
+        {/* 1 to 31 Monthly Matrix Report */}
         {/* ======================================================== */}
-        {activeTab === 'summary' && (
-          <>
-            {/* Month & Year Selectors */}
-            <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Payroll Month:</span>
-                  <select
-                    value={summaryMonth}
-                    onChange={(e) => setSummaryMonth(parseInt(e.target.value, 10))}
-                    className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
-                  >
-                    <option value={1}>January</option>
-                    <option value={2}>February</option>
-                    <option value={3}>March</option>
-                    <option value={4}>April</option>
-                    <option value={5}>May</option>
-                    <option value={6}>June</option>
-                    <option value={7}>July</option>
-                    <option value={8}>August</option>
-                    <option value={9}>September</option>
-                    <option value={10}>October</option>
-                    <option value={11}>November</option>
-                    <option value={12}>December</option>
-                  </select>
-                </div>
+        {activeTab === 'summary' && (() => {
+          const daysInMonth = new Date(summaryYear, summaryMonth, 0).getDate();
+          const dayNumbers = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Year:</span>
-                  <select
-                    value={summaryYear}
-                    onChange={(e) => setSummaryYear(parseInt(e.target.value, 10))}
-                    className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
-                  >
-                    <option value={2026}>2026</option>
-                    <option value={2025}>2025</option>
-                  </select>
-                </div>
+          // Unique designations for filter dropdown
+          const uniqueDesignations = Array.from(
+            new Set(
+              employees
+                .map((e) => e.designation)
+                .concat(attendanceSummary.map((s) => s.designation || ''))
+                .filter(Boolean)
+            )
+          ) as string[];
 
-                {mineOptions.length > 0 && (
-                  <select
-                    value={mineFilter}
-                    onChange={(e) => setMineFilter(e.target.value)}
-                    className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white"
-                  >
-                    <option value="ALL">All Mine Sites</option>
-                    {mineOptions.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+          // Filter summary by designation and search query
+          const filteredSummary = attendanceSummary.filter((sum) => {
+            if (
+              summaryDesignationFilter !== 'ALL' &&
+              (sum.designation || 'Staff') !== summaryDesignationFilter
+            ) {
+              return false;
+            }
+            if (summarySearchQuery.trim()) {
+              const q = summarySearchQuery.toLowerCase().trim();
+              const matchName = sum.employeeName.toLowerCase().includes(q);
+              const matchId = sum.employee.toLowerCase().includes(q);
+              const matchDesig = (sum.designation || '').toLowerCase().includes(q);
+              if (!matchName && !matchId && !matchDesig) return false;
+            }
+            return true;
+          });
 
-              <div className="text-xs text-slate-500 font-medium">
-                Period: {summaryMonth}/01/{summaryYear} – End of Month
-              </div>
-            </div>
+          return (
+            <>
+              {/* Search Filters at the Top: Month-wise and Designation-wise */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Month:
+                    </span>
+                    <select
+                      value={summaryMonth}
+                      onChange={(e) => setSummaryMonth(parseInt(e.target.value, 10))}
+                      className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                    >
+                      <option value={1}>January</option>
+                      <option value={2}>February</option>
+                      <option value={3}>March</option>
+                      <option value={4}>April</option>
+                      <option value={5}>May</option>
+                      <option value={6}>June</option>
+                      <option value={7}>July</option>
+                      <option value={8}>August</option>
+                      <option value={9}>September</option>
+                      <option value={10}>October</option>
+                      <option value={11}>November</option>
+                      <option value={12}>December</option>
+                    </select>
+                  </div>
 
-            {/* Aggregates Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  <span>Enrolled Roster</span>
-                  <Users className="w-4 h-4 text-blue-600" />
-                </div>
-                <div className="text-2xl font-bold text-slate-900">{attendanceSummary.length}</div>
-                <p className="text-[11px] text-slate-400 mt-1">Personnel evaluated</p>
-              </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Year:
+                    </span>
+                    <select
+                      value={summaryYear}
+                      onChange={(e) => setSummaryYear(parseInt(e.target.value, 10))}
+                      className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                    >
+                      <option value={2026}>2026</option>
+                      <option value={2025}>2025</option>
+                      <option value={2027}>2027</option>
+                    </select>
+                  </div>
 
-              <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  <span>Logged Shifts</span>
-                  <Calendar className="w-4 h-4 text-slate-600" />
-                </div>
-                <div className="text-2xl font-bold text-slate-900">{summaryTotalDays}</div>
-                <p className="text-[11px] text-slate-400 mt-1">Total recorded shifts</p>
-              </div>
-
-              <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  <span>Present Days</span>
-                  <UserCheck className="w-4 h-4 text-emerald-600" />
-                </div>
-                <div className="text-2xl font-bold text-emerald-700">{summaryPresentDays}</div>
-                <p className="text-[11px] text-slate-400 mt-1">Full operational days</p>
-              </div>
-
-              <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  <span>Indicative Salary Total</span>
-                  <IndianRupee className="w-4 h-4 text-blue-900" />
-                </div>
-                <div className="text-2xl font-bold text-blue-900 font-mono">
-                  ₹{summaryTotalPayout.toLocaleString('en-IN')}
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1">Indicative wage total (provisional rules)</p>
-              </div>
-            </div>
-
-            {/* Summary Table */}
-            {isSummaryLoading ? (
-              <div className="p-12 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
-                <p className="text-xs text-slate-500">Compiling monthly salary report...</p>
-              </div>
-            ) : attendanceSummary.length === 0 ? (
-              <div className="p-12 rounded-xl border border-dashed border-slate-300 bg-white shadow-sm text-center">
-                <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <h3 className="text-sm font-semibold text-slate-700">No attendance data found for this period</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Ensure attendance has been logged in the Daily Attendance Roster tab.
-                </p>
-              </div>
-            ) : (
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4">Employee</th>
-                        <th className="py-3 px-4">Mine & Vehicle</th>
-                        <th className="py-3 px-4 text-right">Daily Rate</th>
-                        <th className="py-3 px-4 text-right">Logged</th>
-                        <th className="py-3 px-4 text-right">Present</th>
-                        <th className="py-3 px-4 text-right">Half Day</th>
-                        <th className="py-3 px-4 text-right">Absent</th>
-                        <th className="py-3 px-4 text-right">Leave</th>
-                        <th className="py-3 px-4 text-right">Indicative Payout*</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {attendanceSummary.map((sum) => (
-                        <tr key={sum.employee} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="font-semibold text-slate-900">{sum.employeeName}</div>
-                            <div className="text-[10px] text-slate-500 font-mono">{sum.employee}</div>
-                          </td>
-
-                          <td className="py-3 px-4">
-                            <div className="text-slate-800 font-medium">
-                              {formatMineSiteDisplay(sum.mineSite) || 'Talcher Site'}
-                            </div>
-                            {sum.assignedVehicle && (
-                              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                                {formatVehicleDisplay(sum.assignedVehicle)}
-                              </div>
-                            )}
-                          </td>
-
-                          <td className="py-3 px-4 text-right font-mono text-slate-800">
-                            ₹{(sum.dailySalaryRate || 0).toLocaleString('en-IN')}
-                          </td>
-
-                          <td className="py-3 px-4 text-right font-mono text-slate-600 font-medium">
-                            {sum.totalLoggedDays}
-                          </td>
-
-                          <td className="py-3 px-4 text-right font-mono text-emerald-700 font-semibold">
-                            {sum.presentDays}
-                          </td>
-
-                          <td className="py-3 px-4 text-right font-mono text-amber-700">
-                            {sum.halfDays}
-                          </td>
-
-                          <td className="py-3 px-4 text-right font-mono text-rose-600">
-                            {sum.absentDays}
-                          </td>
-
-                          <td className="py-3 px-4 text-right font-mono text-purple-600">
-                            {sum.leaveDays}
-                          </td>
-
-                          <td className="py-3 px-4 text-right font-mono font-bold text-blue-900 text-sm">
-                            ₹{(sum.totalCalculatedSalary || 0).toLocaleString('en-IN')}
-                          </td>
-                        </tr>
+                  {/* Designation-wise search option at the top */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Designation:
+                    </span>
+                    <select
+                      value={summaryDesignationFilter}
+                      onChange={(e) => setSummaryDesignationFilter(e.target.value)}
+                      className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                    >
+                      <option value="ALL">All Designations</option>
+                      {uniqueDesignations.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
                       ))}
-                    </tbody>
-                  </table>
+                    </select>
+                  </div>
+
+                  {/* Text search */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search Name / ID..."
+                      value={summarySearchQuery}
+                      onChange={(e) => setSummarySearchQuery(e.target.value)}
+                      className="text-xs pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white w-48"
+                    />
+                  </div>
+
+                  {mineOptions.length > 0 && (
+                    <select
+                      value={mineFilter}
+                      onChange={(e) => setMineFilter(e.target.value)}
+                      className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white"
+                    >
+                      <option value="ALL">All Mine Sites</option>
+                      {mineOptions.map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
-                <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200">
-                  <p className="text-[10px] text-slate-500 italic">
-                    * Indicative calculation (1.0x Present, 0.5x Half Day, 0.0x Absent/Leave). Official wage multipliers and leave compensation rules are provisional pending formal client payroll policy sign-off.
+
+                <div className="text-xs text-slate-500 font-medium">
+                  {daysInMonth} Days in Month ({summaryMonth}/{summaryYear})
+                </div>
+              </div>
+
+              {/* Aggregates Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    <span>Enrolled Roster</span>
+                    <Users className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900">{filteredSummary.length}</div>
+                  <p className="text-[11px] text-slate-400 mt-1">Personnel evaluated</p>
+                </div>
+
+                <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    <span>Logged Shifts</span>
+                    <Calendar className="w-4 h-4 text-slate-600" />
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900">{summaryTotalDays}</div>
+                  <p className="text-[11px] text-slate-400 mt-1">Total recorded shifts</p>
+                </div>
+
+                <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    <span>Present Days</span>
+                    <UserCheck className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div className="text-2xl font-bold text-emerald-700">{summaryPresentDays}</div>
+                  <p className="text-[11px] text-slate-400 mt-1">Full operational days</p>
+                </div>
+
+                <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    <span>Indicative Salary Total</span>
+                    <IndianRupee className="w-4 h-4 text-blue-900" />
+                  </div>
+                  <div className="text-2xl font-bold text-blue-900 font-mono">
+                    ₹{summaryTotalPayout.toLocaleString('en-IN')}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">Indicative wage total</p>
+                </div>
+              </div>
+
+              {/* 1 to 31 Monthly Attendance Matrix Table */}
+              {isSummaryLoading ? (
+                <div className="p-12 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
+                  <p className="text-xs text-slate-500">Compiling 1-31 monthly matrix report...</p>
+                </div>
+              ) : filteredSummary.length === 0 ? (
+                <div className="p-12 rounded-xl border border-dashed border-slate-300 bg-white shadow-sm text-center">
+                  <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <h3 className="text-sm font-semibold text-slate-700">No personnel match current summary criteria</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Try adjusting the month or designation filter.
                   </p>
                 </div>
-              </div>
-            )}
-          </>
-        )}
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                          <th className="py-3 px-3 sticky left-0 bg-slate-50 z-10 w-28">Emp ID</th>
+                          <th className="py-3 px-3 sticky left-28 bg-slate-50 z-10 w-44">Name</th>
+                          <th className="py-3 px-3 w-28">Designation</th>
+                          {dayNumbers.map((d) => (
+                            <th key={d} className="py-2 px-1.5 text-center font-mono w-7">
+                              {d}
+                            </th>
+                          ))}
+                          <th className="py-3 px-3 text-right w-20">Present</th>
+                          <th className="py-3 px-3 text-right w-20">Absent</th>
+                          <th className="py-3 px-3 text-right w-28">Total Salary</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredSummary.map((sum) => (
+                          <tr key={sum.employee} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-2.5 px-3 font-mono font-bold text-slate-800 sticky left-0 bg-white z-10">
+                              {sum.employee}
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold text-slate-900 sticky left-28 bg-white z-10">
+                              {sum.employeeName}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-600">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                {sum.designation || 'Staff'}
+                              </span>
+                            </td>
 
-        {/* Add Employee Modal */}
+                            {/* 1 to 31 Day Cells */}
+                            {dayNumbers.map((d) => {
+                              const code = sum.dailyStatus?.[d];
+                              return (
+                                <td key={d} className="py-2 px-1 text-center font-mono">
+                                  {code === 'P' ? (
+                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                      P
+                                    </span>
+                                  ) : code === 'A' ? (
+                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
+                                      A
+                                    </span>
+                                  ) : code === 'HD' ? (
+                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                                      HD
+                                    </span>
+                                  ) : code === 'L' ? (
+                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
+                                      L
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-300 text-[10px]">-</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
+                              {sum.presentDays}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono text-rose-600">
+                              {sum.absentDays}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-blue-900">
+                              ₹{(sum.totalCalculatedSalary || 0).toLocaleString('en-IN')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+                    <div className="flex items-center gap-4">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 inline-block text-[8px] text-center font-bold">P</span>
+                        <span>Present</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded bg-rose-100 border border-rose-300 text-rose-800 inline-block text-[8px] text-center font-bold">A</span>
+                        <span>Absent</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded bg-amber-100 border border-amber-300 text-amber-800 inline-block text-[8px] text-center font-bold">HD</span>
+                        <span>Half Day</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded bg-purple-100 border border-purple-300 text-purple-800 inline-block text-[8px] text-center font-bold">L</span>
+                        <span>Leave</span>
+                      </span>
+                    </div>
+                    <span className="italic">
+                      Month matrix generated live from Frappe Employee Attendance records.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
+
+        {/* ======================================================== */}
+        {/* ADD EMPLOYEE PROFILE MODAL (Indian Statutory Mining Master) */}
+        {/* ======================================================== */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden my-8">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Add Employee Profile</h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Enroll new personnel with mine site attribution, vehicle assignment, and daily wage
+                    Statutory Indian Mining workforce registration (DGMS Form O, CMPF/PF, Skill & VT)
                   </p>
                 </div>
                 <button
@@ -1118,7 +1486,7 @@ function EmployeesContent() {
                 </button>
               </div>
 
-              <form onSubmit={handleCreateEmployee} className="p-6 space-y-4">
+              <form onSubmit={handleCreateEmployee} className="p-6 space-y-5 overflow-y-auto">
                 {modalError && (
                   <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
@@ -1126,209 +1494,425 @@ function EmployeesContent() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      First Name <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="e.g. Ramesh"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                      required
-                    />
+                {/* Section 1: Personal & Statutory Identity */}
+                <div>
+                  <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 border-b border-slate-200 pb-1">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Personal & Statutory Identity</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        First Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="e.g. Ramesh"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="e.g. Nayak"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="e.g. Nayak"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Father / Mother / Spouse Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={fatherOrSpouseName}
+                        onChange={(e) => setFatherOrSpouseName(e.target.value)}
+                        placeholder="e.g. Satish Nayak"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                          DOB
+                        </label>
+                        <input
+                          type="date"
+                          value={dateOfBirth}
+                          onChange={(e) => setDateOfBirth(e.target.value)}
+                          className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                          Gender
+                        </label>
+                        <select
+                          value={gender}
+                          onChange={(e) => setGender(e.target.value as any)}
+                          className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white"
+                        >
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Social Category
+                      </label>
+                      <select
+                        value={socialCategory}
+                        onChange={(e) => setSocialCategory(e.target.value as any)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                      >
+                        <option value="GENERAL">GENERAL</option>
+                        <option value="OBC">OBC</option>
+                        <option value="SC">SC</option>
+                        <option value="ST">ST</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Mobile Number
+                      </label>
+                      <input
+                        type="text"
+                        value={cellNumber}
+                        onChange={(e) => setCellNumber(e.target.value)}
+                        placeholder="+91 98765 43210"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Mobile Number
-                    </label>
-                    <input
-                      type="text"
-                      value={cellNumber}
-                      onChange={(e) => setCellNumber(e.target.value)}
-                      placeholder="+91 98765 43210"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Company Email
-                    </label>
-                    <input
-                      type="email"
-                      value={companyEmail}
-                      onChange={(e) => setCompanyEmail(e.target.value)}
-                      placeholder="ramesh@uptoware.com"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Department
-                    </label>
-                    <input
-                      type="text"
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Designation
-                    </label>
-                    <input
-                      type="text"
-                      value={designation}
-                      onChange={(e) => setDesignation(e.target.value)}
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
+                {/* Section 2: Address Details */}
+                <div>
+                  <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 border-b border-slate-200 pb-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Address Details</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Present Address
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={presentAddress}
+                        onChange={(e) => setPresentAddress(e.target.value)}
+                        placeholder="Village/Colony, Post, Dist, State"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Permanent Address
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={permanentAddress}
+                        onChange={(e) => setPermanentAddress(e.target.value)}
+                        placeholder="Native Village, Post, Dist, State"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Assigned Mine Site
-                    </label>
-                    <select
-                      value={selectedMine}
-                      onChange={(e) => setSelectedMine(e.target.value)}
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white"
-                    >
-                      {mineOptions.length > 0 ? (
-                        mineOptions.map((m) => (
-                          <option key={m.value} value={m.value}>
-                            {m.label}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="JBR Eastern — Talcher Site">JBR Eastern — Talcher Site</option>
-                      )}
-                    </select>
+                {/* Section 3: Statutory Mining & Skills (DGMS Rules) */}
+                <div>
+                  <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 border-b border-slate-200 pb-1">
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>Mining Statutory Compliance & Competency</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Skill Category
+                      </label>
+                      <select
+                        value={skillCategory}
+                        onChange={(e) => setSkillCategory(e.target.value as any)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                      >
+                        <option value="SKILL">SKILL</option>
+                        <option value="SEMI SKILL">SEMI SKILL</option>
+                        <option value="UNSKILL">UNSKILL</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Form O (Mines Medical)
+                      </label>
+                      <select
+                        value={formO}
+                        onChange={(e) => setFormO(e.target.value as any)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                      >
+                        <option value="YES">YES (Completed)</option>
+                        <option value="NO">NO (Pending)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        VT No (Vocational)
+                      </label>
+                      <input
+                        type="text"
+                        value={vtNo}
+                        onChange={(e) => setVtNo(e.target.value)}
+                        placeholder="e.g. VT/MCL/2026/89"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Assigned Vehicle
-                    </label>
-                    <input
-                      type="text"
-                      value={assignedVehicle}
-                      onChange={(e) => setAssignedVehicle(e.target.value)}
-                      placeholder="e.g. DEMO-OD-01"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        VT Period
+                      </label>
+                      <input
+                        type="text"
+                        value={vtPeriod}
+                        onChange={(e) => setVtPeriod(e.target.value)}
+                        placeholder="e.g. 2024-2027"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        DL No (Driving License)
+                      </label>
+                      <input
+                        type="text"
+                        value={dlNo}
+                        onChange={(e) => setDlNo(e.target.value)}
+                        placeholder="e.g. OD-05-201800045"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-mono uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        DL Validity
+                      </label>
+                      <input
+                        type="date"
+                        value={dlValidity}
+                        onChange={(e) => setDlValidity(e.target.value)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Daily Wage Rate (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={dailySalary}
-                      onChange={(e) => setDailySalary(e.target.value)}
-                      placeholder="850"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-mono"
-                    />
+                {/* Section 4: Provident Fund & Banking */}
+                <div>
+                  <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 border-b border-slate-200 pb-1">
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>Provident Fund (CMPF/PF) & Banking</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        PF Type
+                      </label>
+                      <select
+                        value={pfType}
+                        onChange={(e) => setPfType(e.target.value as any)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                      >
+                        <option value="CMPF">CMPF (Coal Mines PF)</option>
+                        <option value="PF">EPFO / Regular PF</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        UAN / CMPF No
+                      </label>
+                      <input
+                        type="text"
+                        value={uanOrCmpfNo}
+                        onChange={(e) => setUanOrCmpfNo(e.target.value)}
+                        placeholder="e.g. 100987654321 / CMPF-89"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-mono"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Date of Joining (DOJ)
-                    </label>
-                    <input
-                      type="date"
-                      value={dateOfJoining}
-                      onChange={(e) => setDateOfJoining(e.target.value)}
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Bank Name
+                      </label>
+                      <input
+                        type="text"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        placeholder="State Bank of India"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Bank Account No
+                      </label>
+                      <input
+                        type="text"
+                        value={bankAccountNo}
+                        onChange={(e) => setBankAccountNo(e.target.value)}
+                        placeholder="10293847561"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Bank IFSC Code
+                      </label>
+                      <input
+                        type="text"
+                        value={ifscCode}
+                        onChange={(e) => setIfscCode(e.target.value)}
+                        placeholder="SBIN0001234"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-mono uppercase"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Date of Exit (DOE)
-                    </label>
-                    <input
-                      type="date"
-                      value={relievingDate}
-                      onChange={(e) => setRelievingDate(e.target.value)}
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Aadhaar / PAN
+                      </label>
+                      <input
+                        type="text"
+                        value={aadhaarNo}
+                        onChange={(e) => setAadhaarNo(e.target.value)}
+                        placeholder="Aadhaar or PAN No"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Bank Name
-                    </label>
-                    <input
-                      type="text"
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      placeholder="e.g. State Bank of India"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
+                {/* Section 5: Employment & Daily Wage */}
+                <div>
+                  <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5 border-b border-slate-200 pb-1">
+                    <Building className="w-3.5 h-3.5" />
+                    <span>Mine Operations & Daily Wage</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Department
+                      </label>
+                      <input
+                        type="text"
+                        value={department}
+                        onChange={(e) => setDepartment(e.target.value)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Designation
+                      </label>
+                      <input
+                        type="text"
+                        value={designation}
+                        onChange={(e) => setDesignation(e.target.value)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Bank Account No
-                    </label>
-                    <input
-                      type="text"
-                      value={bankAccountNo}
-                      onChange={(e) => setBankAccountNo(e.target.value)}
-                      placeholder="e.g. 10293847561"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Bank IFSC Code
-                    </label>
-                    <input
-                      type="text"
-                      value={ifscCode}
-                      onChange={(e) => setIfscCode(e.target.value)}
-                      placeholder="SBIN0001234"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-mono uppercase"
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                      Aadhaar / PAN
-                    </label>
-                    <input
-                      type="text"
-                      value={aadhaarNo}
-                      onChange={(e) => setAadhaarNo(e.target.value)}
-                      placeholder="Aadhaar or PAN No"
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Assigned Mine Site
+                      </label>
+                      <select
+                        value={selectedMine}
+                        onChange={(e) => setSelectedMine(e.target.value)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white"
+                      >
+                        {mineOptions.length > 0 ? (
+                          mineOptions.map((m) => (
+                            <option key={m.value} value={m.value}>
+                              {m.label}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="JBR Eastern — Talcher Site">JBR Eastern — Talcher Site</option>
+                        )}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Assigned Vehicle
+                      </label>
+                      <input
+                        type="text"
+                        value={assignedVehicle}
+                        onChange={(e) => setAssignedVehicle(e.target.value)}
+                        placeholder="e.g. DEMO-OD-01"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Daily Wage Rate (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={dailySalary}
+                        onChange={(e) => setDailySalary(e.target.value)}
+                        placeholder="850"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Date of Joining (DOJ)
+                      </label>
+                      <input
+                        type="date"
+                        value={dateOfJoining}
+                        onChange={(e) => setDateOfJoining(e.target.value)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Date of Exit (DOE)
+                      </label>
+                      <input
+                        type="date"
+                        value={relievingDate}
+                        onChange={(e) => setRelievingDate(e.target.value)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1354,7 +1938,7 @@ function EmployeesContent() {
                     ) : (
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Save Employee</span>
+                        <span>Save Employee Profile</span>
                       </>
                     )}
                   </button>

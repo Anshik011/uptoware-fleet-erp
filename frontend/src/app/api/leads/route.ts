@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     const lead = await createFleetLead(auth.sid, {
       leadName: body.leadName,
       mineSite: body.mineSite,
-      leadKm: Number(body.leadKm),
+      leadKm: body.leadKm,
       leadRate: Number(body.leadRate),
       validFrom: body.validFrom,
       validTo: body.validTo,

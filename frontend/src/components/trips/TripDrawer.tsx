@@ -479,7 +479,7 @@ export function TripDrawer({
                     <span className="font-semibold text-slate-900 mt-0.5 block">
                       {trip.destination}
                     </span>
-                    {trip.leadKm != null && trip.leadKm > 0 && (
+                    {trip.leadKm != null && trip.leadKm !== '' && trip.leadKm !== 0 && (
                       <span className="text-[11px] text-blue-700 font-semibold block mt-0.5">
                         Haulage Lead: {trip.leadKm} km {trip.leadRate != null && trip.leadRate > 0 ? `• ₹${trip.leadRate}/T` : ''}
                       </span>

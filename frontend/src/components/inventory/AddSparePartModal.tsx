@@ -73,10 +73,6 @@ export function AddSparePartModal({
     e.preventDefault();
     setError(null);
 
-    if (!itemCode.trim()) {
-      setError('Item Code is required.');
-      return;
-    }
     if (!itemName.trim()) {
       setError('Item Name is required.');
       return;
@@ -84,8 +80,9 @@ export function AddSparePartModal({
 
     setIsSubmitting(true);
     try {
+      const generatedCode = 'SP-' + itemName.trim().replace(/[^a-zA-Z0-9]/g, '-').toUpperCase().slice(0, 15) + '-' + Math.floor(100 + Math.random() * 900);
       const payload: CreateSparePartInput = {
-        itemCode: itemCode.trim(),
+        itemCode: itemCode.trim() || generatedCode,
         itemName: itemName.trim(),
         itemGroup,
         stockUom,
@@ -152,23 +149,8 @@ export function AddSparePartModal({
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Item Code */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Item Code <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. SP-BRK-PAD-01"
-                  value={itemCode}
-                  onChange={(e) => setItemCode(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
               {/* Item Name */}
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Item Name <span className="text-rose-500">*</span>
                 </label>

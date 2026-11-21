@@ -160,7 +160,7 @@ function TripsTableSection() {
               onClick={() => setIsCreateModalOpen(true)}
               data-testid="btn-create-trip-header"
             >
-              New Trip
+              Trip entry site supervisor
             </Button>
           ) : undefined
         }

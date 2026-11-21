@@ -31,6 +31,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
     model: '3528CM',
     status: 'Active',
     vehicleType: 'Hyva',
+    customTransportType: 'Transport',
     ownerName: '',
     chassisNumber: '',
     engineNumber: '',
@@ -308,30 +309,25 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
               </div>
             </div>
 
-            {/* Section 2: Driver & Specifications */}
+            {/* Section 2: Vehicle Type & Fuel */}
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                2. Operations & Driver Allocation
+                2. Operations & Vehicle Classification
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <LinkedField
-                  label="Assigned Driver"
-                  value={formData.assignedDriverId || ''}
-                  onChange={(val) => setFormData({ ...formData, assignedDriverId: val })}
-                  options={drivers.map((d) => ({
-                    value: d.id,
-                    label: d.name,
-                  }))}
-                  entityName="Driver"
-                  placeholder="Select or register primary driver..."
-                  onCreateNew={() => setShowAddDriverModal(true)}
-                  onViewRecord={
-                    formData.assignedDriverId
-                      ? () => setViewDriverId(formData.assignedDriverId || null)
-                      : undefined
-                  }
-                  hint="Primary commercial operator dedicated to this asset"
-                />
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Vehicle Type <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={formData.customTransportType || 'Transport'}
+                    onChange={(e) => setFormData({ ...formData, customTransportType: e.target.value as any })}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  >
+                    <option value="Transport">Transport</option>
+                    <option value="Non Transport">Non Transport</option>
+                  </select>
+                </div>
 
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">

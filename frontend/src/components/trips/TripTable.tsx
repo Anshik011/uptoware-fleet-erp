@@ -338,7 +338,7 @@ export function TripTable({
                             {trip.destination}
                           </span>
                         </div>
-                        {trip.leadKm != null && trip.leadKm > 0 && (
+                        {trip.leadKm != null && trip.leadKm !== '' && trip.leadKm !== 0 && (
                           <span className="text-[11px] text-slate-500 font-medium">
                             {trip.leadKm} km lead {trip.leadRate != null && trip.leadRate > 0 ? `• ₹${trip.leadRate}/T` : ''}
                           </span>

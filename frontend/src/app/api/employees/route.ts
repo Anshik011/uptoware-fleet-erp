@@ -77,6 +77,20 @@ export async function POST(request: NextRequest) {
       relievingDate,
       bankAccountNo,
       bankName,
+      fatherOrSpouseName,
+      presentAddress,
+      permanentAddress,
+      dateOfBirth,
+      gender,
+      skillCategory,
+      pfType,
+      uanOrCmpfNo,
+      socialCategory,
+      dlNo,
+      dlValidity,
+      vtNo,
+      vtPeriod,
+      formO,
     } = body;
 
     if (!firstName || typeof firstName !== 'string') {
@@ -106,6 +120,20 @@ export async function POST(request: NextRequest) {
       relievingDate: relievingDate || null,
       bankAcNo: bankAccountNo || null,
       bankName: bankName || null,
+      fatherOrSpouseName: fatherOrSpouseName || null,
+      presentAddress: presentAddress || null,
+      permanentAddress: permanentAddress || null,
+      dateOfBirth: dateOfBirth || null,
+      gender: gender || null,
+      skillCategory: skillCategory || 'SKILL',
+      pfType: pfType || 'CMPF',
+      uanOrCmpfNo: uanOrCmpfNo || null,
+      socialCategory: socialCategory || 'GENERAL',
+      dlNo: dlNo || null,
+      dlValidity: dlValidity || null,
+      vtNo: vtNo || null,
+      vtPeriod: vtPeriod || null,
+      formO: formO || 'YES',
     } as any);
 
     return NextResponse.json(

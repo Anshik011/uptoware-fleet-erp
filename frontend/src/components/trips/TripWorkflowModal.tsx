@@ -446,11 +446,11 @@ export function TripWorkflowModal({
                     {trip.openingOdometer != null ? `${trip.openingOdometer.toLocaleString()} km` : '—'}
                   </span>
                 </div>
-                {trip.leadKm != null && trip.leadKm > 0 && (
+                {trip.leadKm != null && trip.leadKm !== '' && trip.leadKm !== 0 && (
                   <div className="flex items-center justify-between text-slate-700">
                     <span className="font-semibold text-slate-500">Planned Lead Distance:</span>
                     <span className="text-[11px] text-blue-800 font-medium">
-                      {trip.leadKm} km {trip.openingOdometer != null ? `(Expected closing: ~${(trip.openingOdometer + trip.leadKm).toLocaleString()} km)` : ''}
+                      {trip.leadKm} km {trip.openingOdometer != null ? `(Expected closing: ~${(trip.openingOdometer + (Number(trip.leadKm) || 0)).toLocaleString()} km)` : ''}
                     </span>
                   </div>
                 )}
@@ -463,7 +463,7 @@ export function TripWorkflowModal({
                 <input
                   type="number"
                   min="0"
-                  placeholder={trip.openingOdometer != null ? `e.g. ${trip.openingOdometer + (trip.leadKm || 25)}` : 'e.g. 62280'}
+                  placeholder={trip.openingOdometer != null ? `e.g. ${trip.openingOdometer + (Number(trip.leadKm) || 25)}` : 'e.g. 62280'}
                   value={closingOdo}
                   onChange={(e) =>
                     setClosingOdo(e.target.value === '' ? '' : Number(e.target.value))

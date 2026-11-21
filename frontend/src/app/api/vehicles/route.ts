@@ -317,6 +317,7 @@ export async function POST(request: NextRequest) {
       customMineSite: mineSite,
       mineSite,
       vehicleType: body.vehicleType || undefined,
+      customTransportType: (body.customTransportType || body.transportType || 'Transport') as 'Transport' | 'Non Transport',
       ownerName: body.ownerName || undefined,
       chassisNumber: body.chassisNumber || undefined,
       engineNumber: body.engineNumber || undefined,
