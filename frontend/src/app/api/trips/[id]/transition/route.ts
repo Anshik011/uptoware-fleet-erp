@@ -3,6 +3,7 @@ import { applyTripTransition, getMiningTripById } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission } from '@/lib/auth';
 import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 import { TripTransitionInput } from '@/types/fleet';
+import { toLocalDateTimeString } from '@/lib/datetime';
 
 const VALID_ACTIONS = [
   'Dispatch',
@@ -68,6 +69,8 @@ export async function POST(
       closingOdometer,
       returnDateTime,
       cancellationReason,
+      isWeightOverridden,
+      weightOverrideReason,
     } = body;
 
     if (!action || typeof action !== 'string' || !VALID_ACTIONS.includes(action.trim())) {
@@ -125,10 +128,29 @@ export async function POST(
           { status: 400 }
         );
       }
+      if (isWeightOverridden && (!weightOverrideReason || !String(weightOverrideReason).trim())) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'A documented reason is mandatory when authorizing an exceptional weighbridge weight override.',
+          },
+          { status: 400 }
+        );
+      }
     }
 
     if (trimmedAction === 'Mark Delivered') {
-      if (closingOdometer == null) {
+      const currentStatus = tripDetails.trip.tripStatus || tripDetails.trip.workflowState;
+      if (currentStatus !== 'Approved') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Cannot mark trip as delivered. Current trip status is '${currentStatus}'. Trip must be in 'Approved' state before completing delivery.`,
+          },
+          { status: 400 }
+        );
+      }
+      if (closingOdometer == null || closingOdometer === '') {
         return NextResponse.json(
           {
             success: false,
@@ -159,13 +181,27 @@ export async function POST(
       }
     }
 
+    let formattedReturnDateTime = returnDateTime;
+    if (trimmedAction === 'Mark Delivered') {
+      if (!formattedReturnDateTime) {
+        formattedReturnDateTime = toLocalDateTimeString();
+      } else if (typeof formattedReturnDateTime === 'string' && formattedReturnDateTime.includes('T')) {
+        formattedReturnDateTime = formattedReturnDateTime.replace('T', ' ');
+        if (formattedReturnDateTime.length === 16) {
+          formattedReturnDateTime += ':00';
+        }
+      }
+    }
+
     const input: TripTransitionInput = {
       action: trimmedAction,
       grossWeightTons: grossWeightTons != null ? Number(grossWeightTons) : undefined,
       tareWeightTons: tareWeightTons != null ? Number(tareWeightTons) : undefined,
       closingOdometer: closingOdometer != null ? Number(closingOdometer) : undefined,
-      returnDateTime: returnDateTime || undefined,
+      returnDateTime: formattedReturnDateTime || undefined,
       cancellationReason: cancellationReason ? String(cancellationReason).trim() : undefined,
+      isWeightOverridden: Boolean(isWeightOverridden),
+      weightOverrideReason: weightOverrideReason ? String(weightOverrideReason).trim() : undefined,
     };
 
     const updatedTrip = await applyTripTransition(auth.sid, id, input);

@@ -397,6 +397,70 @@ export function TripTable({
                     {/* Actions */}
                     <td className="py-4 px-4 sm:px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {canManage && trip.tripStatus === 'Approved' && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="primary"
+                            icon={CheckCircle2}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenActionModal?.(trip, 'Mark Delivered');
+                            }}
+                            className="whitespace-nowrap shadow-2xs font-semibold text-xs py-1 px-2.5"
+                            data-testid={`btn-deliver-trip-${trip.id}`}
+                          >
+                            Complete Delivery
+                          </Button>
+                        )}
+                        {canManage && trip.tripStatus === 'Weighbridge Confirmed' && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            icon={CheckCircle2}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenActionModal?.(trip, 'Approve');
+                            }}
+                            className="whitespace-nowrap font-medium text-xs py-1 px-2.5"
+                            data-testid={`btn-approve-trip-${trip.id}`}
+                          >
+                            Approve
+                          </Button>
+                        )}
+                        {canManage && trip.tripStatus === 'Dispatched' && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            icon={Scale}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenActionModal?.(trip, 'Confirm Weighbridge');
+                            }}
+                            className="whitespace-nowrap font-medium text-xs py-1 px-2.5"
+                            data-testid={`btn-weighbridge-trip-${trip.id}`}
+                          >
+                            Weighbridge
+                          </Button>
+                        )}
+                        {canManage && trip.tripStatus === 'Draft' && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            icon={Compass}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenActionModal?.(trip, 'Dispatch');
+                            }}
+                            className="whitespace-nowrap font-medium text-xs py-1 px-2.5"
+                            data-testid={`btn-dispatch-trip-${trip.id}`}
+                          >
+                            Dispatch
+                          </Button>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -405,6 +469,7 @@ export function TripTable({
                           }}
                           className="p-1.5 text-slate-400 hover:text-blue-900 hover:bg-slate-100 rounded-md transition-colors"
                           title="View Trip Details"
+                          data-testid={`btn-view-trip-${trip.id}`}
                         >
                           <Eye className="w-4 h-4" />
                         </button>

@@ -1605,6 +1605,11 @@ function mapMiningTrip(t: any, driverMap?: Map<string, string>): MiningTrip {
     calculatedQuantity: t.custom_calculated_quantity != null ? Number(t.custom_calculated_quantity) : undefined,
     calculatedAmount: t.custom_calculated_amount != null ? Number(t.custom_calculated_amount) : undefined,
     shift: t.custom_shift || null,
+    isWeightOverridden: Boolean(t.is_weight_overridden),
+    weightOverrideAuthorizedBy: t.weight_override_authorized_by || null,
+    weightOverrideTimestamp: t.weight_override_timestamp || null,
+    weightOverrideReason: t.weight_override_reason || null,
+    payloadCapacityTons: t.payload_capacity_tons != null ? Number(t.payload_capacity_tons) : (t.custom_average_tonnage != null ? Number(t.custom_average_tonnage) : undefined),
   };
 }
 
@@ -1648,6 +1653,10 @@ const TRIP_FIELDS = JSON.stringify([
   'custom_calculated_quantity',
   'custom_calculated_amount',
   'custom_shift',
+  'is_weight_overridden',
+  'weight_override_authorized_by',
+  'weight_override_timestamp',
+  'weight_override_reason',
   'creation',
 ]);
 
@@ -1868,6 +1877,9 @@ export async function getMiningTripById(
   }
 
   // Defense-in-depth: If trip is in 'Approved' state, ensure 'Mark Delivered' is available in validTransitions
+  if (trip && vehicleDetails?.payloadCapacityTons) {
+    trip.payloadCapacityTons = vehicleDetails.payloadCapacityTons;
+  }
   if (trip && (trip.tripStatus === 'Approved' || trip.workflowState === 'Approved')) {
     if (!validTransitions.includes('Mark Delivered')) {
       validTransitions.push('Mark Delivered');
@@ -1945,6 +1957,8 @@ export async function applyTripTransition(
         body: JSON.stringify({
           gross_weight_tons: input.grossWeightTons,
           tare_weight_tons: input.tareWeightTons,
+          is_weight_overridden: input.isWeightOverridden ? 1 : 0,
+          weight_override_reason: input.weightOverrideReason || undefined,
         }),
         sessionCookie,
       }

@@ -135,14 +135,11 @@ function TripsTableSection() {
     });
   };
 
+  const [drawerRefreshTrigger, setDrawerRefreshTrigger] = useState(0);
+
   const handleActionSuccess = () => {
     fetchTrips();
-    // Refresh currently open drawer if relevant
-    if (selectedTripId) {
-      const currentId = selectedTripId;
-      setSelectedTripId(null);
-      setTimeout(() => setSelectedTripId(currentId), 50);
-    }
+    setDrawerRefreshTrigger((prev) => prev + 1);
   };
 
   return (
@@ -287,6 +284,7 @@ function TripsTableSection() {
         onOpenActionModal={handleOpenActionModal}
         onOpenInvoiceModal={(trip) => setInvoicePreparationTrip(trip)}
         canManage={canManage}
+        refreshTrigger={drawerRefreshTrigger}
       />
 
       {/* Create Trip Modal */}

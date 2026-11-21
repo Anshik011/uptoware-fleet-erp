@@ -22,6 +22,8 @@ def run_tests():
     today_val = getdate(nowdate())
 
     # 1. Setup dedicated test users with distinct roles
+    test_site = "JBR Eastern — Talcher Site"
+
     users_config = [
         ("test_b12_fleet_mgr@uptoware.local", "Test B12 Fleet Manager", ["Fleet Manager", "Desk User"]),
         ("test_b12_fleet_mgr2@uptoware.local", "Test B12 Fleet Manager 2", ["Fleet Manager", "Desk User"]),
@@ -29,7 +31,7 @@ def run_tests():
         ("test_b12_store_mgr@uptoware.local", "Test B12 Store Manager", ["Store Manager", "Desk User"]),
         ("test_b12_accountant@uptoware.local", "Test B12 Accountant", ["Accountant", "Desk User", "Accounts User"]),
         ("test_b12_driver@uptoware.local", "Test B12 Driver", ["Driver", "Desk User"]),
-        ("test_b12_weighbridge@uptoware.local", "Test B12 Weighbridge", ["Weighbridge Operator", "Desk User"])
+        ("test_b12_weighbridge@uptoware.local", "Test B12 Weighbridge", ["Weighbridge Operator", "Dispatcher", "Desk User"])
     ]
 
     for email, fname, roles in users_config:
@@ -47,8 +49,19 @@ def run_tests():
         else:
             u = frappe.get_doc("User", email)
             u.enabled = 1
+            u.roles = []
             for r in roles:
                 u.add_roles(r)
+        
+        # Grant mine permission for test_site to avoid default-deny mine isolation block
+        if not frappe.db.exists("User Permission", {"user": email, "allow": "Mine Site", "for_value": test_site}):
+            up = frappe.get_doc({
+                "doctype": "User Permission",
+                "user": email,
+                "allow": "Mine Site",
+                "for_value": test_site
+            })
+            up.insert(ignore_permissions=True)
     frappe.db.commit()
 
     # 2. Setup Test Vehicles & Driver with valid statutory dates
@@ -69,6 +82,7 @@ def run_tests():
         v.road_tax_expiry_date = add_days(today_val, 365)
         v.permit_expiry_date = add_days(today_val, 365)
         v.policy_no = "POL-B12-INIT"
+        v.custom_mine_site = test_site
         v.is_test_record = 1
         v.save(ignore_permissions=True)
         frappe.db.commit()
@@ -80,6 +94,7 @@ def run_tests():
             "puc_expiry_date": add_days(today_val, 365),
             "road_tax_expiry_date": add_days(today_val, 365),
             "permit_expiry_date": add_days(today_val, 365),
+            "custom_mine_site": test_site,
             "is_test_record": 1
         })
         frappe.db.commit()
@@ -115,6 +130,7 @@ def run_tests():
         v2.puc_expiry_date = add_days(today_val, 365)
         v2.road_tax_expiry_date = add_days(today_val, 365)
         v2.permit_expiry_date = add_days(today_val, 365)
+        v2.custom_mine_site = test_site
         v2.is_test_record = 1
         v2.save(ignore_permissions=True)
         frappe.db.commit()
@@ -126,6 +142,7 @@ def run_tests():
             "puc_expiry_date": add_days(today_val, 365),
             "road_tax_expiry_date": add_days(today_val, 365),
             "permit_expiry_date": add_days(today_val, 365),
+            "custom_mine_site": test_site,
             "is_test_record": 1
         })
         frappe.db.commit()
@@ -143,6 +160,7 @@ def run_tests():
             "status": "Active",
             "expiry_date": add_days(today_val, 365),
             "medical_fitness_expiry": add_days(today_val, 365),
+            "custom_mine_site": test_site,
             "is_test_record": 1
         })
         frappe.db.commit()
@@ -152,16 +170,28 @@ def run_tests():
         d.status = "Active"
         d.expiry_date = add_days(today_val, 365)
         d.medical_fitness_expiry = add_days(today_val, 365)
+        d.custom_mine_site = test_site
         d.is_test_record = 1
         d.insert(ignore_permissions=True)
         frappe.db.commit()
         test_driver = d.name
 
-    test_site = "Kudremukh North Pit"
     test_company = "Uptoware"
-    test_customer = "NMDC Mining Corp (TEST)"
-    test_supplier = "AutoMech Central Workshop"
+    test_customer = "TEST-MINE-CLIENT"
+    test_supplier = "Talcher On-Site Workshop"
     test_item = "SP-HYD-SEAL-01"
+
+    if not frappe.db.exists("Item", test_item):
+        frappe.get_doc({
+            "doctype": "Item",
+            "item_code": test_item,
+            "item_name": "Hydraulic Seal Kit",
+            "item_group": "All Item Groups",
+            "stock_uom": "Nos",
+            "is_stock_item": 1,
+            "is_test_record": 1
+        }).insert(ignore_permissions=True)
+        frappe.db.commit()
 
     # Replenish stock for test item
     bin_qty = frappe.db.get_value("Bin", {"item_code": test_item, "warehouse": "Stores - U"}, "actual_qty") or 0.0
@@ -666,13 +696,14 @@ def run_tests():
 
     # TEST 13: Operational Expense: Valid Approval & Audit Stamping
     try:
-        frappe.set_user("test_b12_driver@uptoware.local")
+        frappe.set_user("test_b12_fleet_mgr2@uptoware.local")
         oe1 = frappe.get_doc({
             "doctype": "Operational Expense",
             "expense_date": today_val,
             "expense_category": "Toll and Road Charges",
             "amount": 750.0,
             "vehicle": test_veh,
+            "mine_site": test_site,
             "company": test_company,
             "description": "Highway toll receipt",
             "expense_account": "Cost of Goods Sold - U",
@@ -701,13 +732,14 @@ def run_tests():
 
     # TEST 14: Operational Expense: Mandatory Rejection Reason
     try:
-        frappe.set_user("test_b12_driver@uptoware.local")
+        frappe.set_user("test_b12_fleet_mgr2@uptoware.local")
         oe2 = frappe.get_doc({
             "doctype": "Operational Expense",
             "expense_date": today_val,
             "expense_category": "Parking",
             "amount": 250.0,
             "vehicle": test_veh,
+            "mine_site": test_site,
             "company": test_company,
             "description": "Unauthorized parking claim",
             "expense_account": "Cost of Goods Sold - U",
@@ -755,6 +787,7 @@ def run_tests():
             "expense_category": "Weighbridge Charges",
             "amount": 500.0,
             "vehicle": test_veh,
+            "mine_site": test_site,
             "company": test_company,
             "description": "Out-of-pocket weighbridge slip logged by fleet manager",
             "expense_account": "Cost of Goods Sold - U",
@@ -1062,7 +1095,7 @@ def run_tests():
             si_ws.company = test_company
             si_ws.due_date = add_days(today_val, 15)
             si_ws.custom_is_test_record = 1
-            si_ws.append("items", {"item_code": "B9-HAUL-103726", "qty": 10, "rate": 500, "income_account": "Sales - U", "cost_center": "Main - U"})
+            si_ws.append("items", {"item_code": test_item, "qty": 10, "rate": 500, "income_account": "Sales - U", "cost_center": "Main - U"})
             si_ws.insert(ignore_permissions=True)
             si_ws.submit()
         except Exception:
@@ -1076,7 +1109,7 @@ def run_tests():
         si_acc.company = test_company
         si_acc.due_date = add_days(today_val, 15)
         si_acc.custom_is_test_record = 1
-        si_acc.append("items", {"item_code": "B9-HAUL-103726", "qty": 10, "rate": 500, "income_account": "Sales - U", "cost_center": "Main - U"})
+        si_acc.append("items", {"item_code": test_item, "qty": 10, "rate": 500, "income_account": "Sales - U", "cost_center": "Main - U"})
         si_acc.insert(ignore_permissions=True)
         si_acc.submit()
         frappe.db.commit()

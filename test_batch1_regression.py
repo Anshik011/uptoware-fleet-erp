@@ -1,6 +1,10 @@
 import frappe
 
 def run_regression_tests():
+    if not frappe.db:
+        frappe.init(site="frontend")
+        frappe.connect()
+
     results = []
 
     def record_result(name, passed, detail=""):
@@ -12,6 +16,8 @@ def run_regression_tests():
         print(f"[{'PASS' if passed else 'FAIL'}] {name}: {detail}")
 
     print("=== STARTING BATCH 1 FINAL ACCEPTANCE & REGRESSION SUITE ===")
+
+    test_mine = "JBR Eastern — Talcher Site"
 
     # Setup dedicated test records
     # Vehicles: REG-VEH-01, REG-VEH-02
@@ -36,6 +42,7 @@ def run_regression_tests():
         "status": "Active",
         "license_number": "DL-TEST-REG-001",
         "expiry_date": "2028-01-01",
+        "custom_mine_site": test_mine,
         "is_test_record": 1
     }).insert()
 
@@ -45,6 +52,7 @@ def run_regression_tests():
         "status": "Active",
         "license_number": "DL-TEST-REG-002",
         "expiry_date": "2028-01-01",
+        "custom_mine_site": test_mine,
         "is_test_record": 1
     }).insert()
 
@@ -54,6 +62,7 @@ def run_regression_tests():
         "status": "Suspended",
         "license_number": "DL-TEST-REG-003",
         "expiry_date": "2028-01-01",
+        "custom_mine_site": test_mine,
         "is_test_record": 1
     }).insert()
 
@@ -68,6 +77,7 @@ def run_regression_tests():
         "last_odometer": 50000,
         "vehicle_status": "Active",
         "payload_capacity_tons": 35.0,
+        "custom_mine_site": test_mine,
         "is_test_record": 1
     }).insert()
 
@@ -81,6 +91,7 @@ def run_regression_tests():
         "last_odometer": 72000,
         "vehicle_status": "Active",
         "payload_capacity_tons": 35.0,
+        "custom_mine_site": test_mine,
         "is_test_record": 1
     }).insert()
 
@@ -158,18 +169,26 @@ def run_regression_tests():
         v1 = frappe.get_doc("Vehicle", "REG-VEH-01")
         v1.assigned_driver = drv_susp.name
         v1.save()
-        record_result("5A. Block Inactive Driver Assignment (Vehicle side)", False, "Failed to block suspended driver assignment from vehicle side!")
+        v1_check = frappe.get_doc("Vehicle", "REG-VEH-01")
+        if v1_check.assigned_driver is None:
+            record_result("5A. Block Inactive Driver Assignment (Vehicle side)", True, "Inactive driver safely blocked: auto-unassigned to None per operational guard.")
+        else:
+            record_result("5A. Block Inactive Driver Assignment (Vehicle side)", False, f"Failed to block suspended driver: assigned_driver is '{v1_check.assigned_driver}'")
     except Exception as e:
-        record_result("5A. Block Inactive Driver Assignment (Vehicle side)", True, f"Successfully blocked: {e}")
+        record_result("5A. Block Inactive Driver Assignment (Vehicle side)", True, f"Successfully blocked with exception: {e}")
 
     # TEST 5B: Attempting to assign a vehicle to an inactive/suspended driver (from Driver form)
     try:
         drv_susp_doc = frappe.get_doc("Driver", drv_susp.name)
         drv_susp_doc.assigned_vehicle = "REG-VEH-01"
         drv_susp_doc.save()
-        record_result("5B. Block Vehicle Assignment to Inactive Driver (Driver side)", False, "Failed to block vehicle assignment from inactive driver side!")
+        drv_susp_check = frappe.get_doc("Driver", drv_susp.name)
+        if drv_susp_check.assigned_vehicle is None:
+            record_result("5B. Block Vehicle Assignment to Inactive Driver (Driver side)", True, "Vehicle assignment safely blocked: auto-unassigned to None per operational guard.")
+        else:
+            record_result("5B. Block Vehicle Assignment to Inactive Driver (Driver side)", False, f"Failed to block vehicle assignment: assigned_vehicle is '{drv_susp_check.assigned_vehicle}'")
     except Exception as e:
-        record_result("5B. Block Vehicle Assignment to Inactive Driver (Driver side)", True, f"Successfully blocked: {e}")
+        record_result("5B. Block Vehicle Assignment to Inactive Driver (Driver side)", True, f"Successfully blocked with exception: {e}")
 
     # TEST 6: Attempting to assign a driver already assigned elsewhere
     try:
@@ -182,23 +201,44 @@ def run_regression_tests():
         v2 = frappe.get_doc("Vehicle", "REG-VEH-02")
         v2.assigned_driver = drv_a.name
         v2.save()
-        record_result("6. Block Driver Already Assigned Elsewhere", False, "Failed to block duplicate assignment of driver to another vehicle!")
+
+        v1_check = frappe.get_doc("Vehicle", "REG-VEH-01")
+        v2_check = frappe.get_doc("Vehicle", "REG-VEH-02")
+        if v1_check.assigned_driver is None and v2_check.assigned_driver == drv_a.name:
+            record_result("6. Block Driver Already Assigned Elsewhere", True, "Driver cleanly transferred from REG-VEH-01 to REG-VEH-02.")
+        else:
+            record_result("6. Block Driver Already Assigned Elsewhere", False, f"Conflicting assignment: REG-VEH-01 driver='{v1_check.assigned_driver}', REG-VEH-02 driver='{v2_check.assigned_driver}' (NOT VERIFIED: hard throw removed for shifts, but reciprocal unlink is incomplete)")
     except Exception as e:
         record_result("6. Block Driver Already Assigned Elsewhere", True, f"Successfully blocked: {e}")
 
     # TEST 7: Attempting to assign a vehicle already assigned elsewhere
     try:
-        # drv_a is currently on veh_1. Now drv_b attempts to claim veh_1
+        # Reset clean state: drv_a is on veh_1
+        v1 = frappe.get_doc("Vehicle", "REG-VEH-01")
+        v1.assigned_driver = drv_a.name
+        v1.save()
+
+        # Now drv_b attempts to claim veh_1
         drv_b_doc = frappe.get_doc("Driver", drv_b.name)
         drv_b_doc.assigned_vehicle = "REG-VEH-01"
         drv_b_doc.save()
-        record_result("7. Block Vehicle Already Assigned Elsewhere", False, "Failed to block assigning an already occupied vehicle!")
+
+        drv_a_check = frappe.get_doc("Driver", drv_a.name)
+        drv_b_check = frappe.get_doc("Driver", drv_b.name)
+        if drv_a_check.assigned_vehicle is None and drv_b_check.assigned_vehicle == "REG-VEH-01":
+            record_result("7. Block Vehicle Already Assigned Elsewhere", True, "Vehicle cleanly transferred from RegDriver-A to RegDriver-B.")
+        else:
+            record_result("7. Block Vehicle Already Assigned Elsewhere", False, f"Conflicting assignment: drv_a veh='{drv_a_check.assigned_vehicle}', drv_b veh='{drv_b_check.assigned_vehicle}' (NOT VERIFIED: hard throw removed for shifts, but reciprocal unlink is incomplete)")
     except Exception as e:
         record_result("7. Block Vehicle Already Assigned Elsewhere", True, f"Successfully blocked: {e}")
 
     # TEST 8: Changing a driver's status while they are assigned
     try:
-        # drv_a is currently assigned to REG-VEH-01. Now suspend drv_a
+        # Ensure clean assignment of drv_a to REG-VEH-01 before testing suspension
+        v1_setup = frappe.get_doc("Vehicle", "REG-VEH-01")
+        v1_setup.assigned_driver = drv_a.name
+        v1_setup.save()
+
         drv_a_doc = frappe.get_doc("Driver", drv_a.name)
         drv_a_doc.status = "Suspended"
         drv_a_doc.save()
@@ -222,7 +262,8 @@ def run_regression_tests():
             "make": "TestMake",
             "model": "TestModel",
             "last_odometer": -100,
-            "vehicle_status": "Active"
+            "vehicle_status": "Active",
+            "custom_mine_site": test_mine
         })
         v_neg.insert()
         record_result("9. Negative Odometer Validation", False, "Failed to reject negative odometer!")
@@ -251,6 +292,10 @@ def run_regression_tests():
     print(f"Total Tests: {len(results)} | Passed: {sum(1 for r in results if r['status'] == 'PASS')} | Failed: {sum(1 for r in results if r['status'] == 'FAIL')}")
     print(f"OVERALL RESULT: {'ALL PASS' if all_pass else 'SOME FAILED'}")
 
+    if not all_pass:
+        import sys
+        sys.exit(1)
     return results
 
-run_regression_tests()
+if __name__ == "__main__":
+    run_regression_tests()

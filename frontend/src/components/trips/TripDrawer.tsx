@@ -36,6 +36,7 @@ interface TripDrawerProps {
   onOpenActionModal: (trip: MiningTrip, action: string) => void;
   onOpenInvoiceModal?: (trip: MiningTrip) => void;
   canManage: boolean;
+  refreshTrigger?: number;
 }
 
 export function TripDrawer({
@@ -44,6 +45,7 @@ export function TripDrawer({
   onOpenActionModal,
   onOpenInvoiceModal,
   canManage,
+  refreshTrigger,
 }: TripDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +105,7 @@ export function TripDrawer({
     return () => {
       isMounted = false;
     };
-  }, [tripId]);
+  }, [tripId, refreshTrigger]);
 
   if (!tripId) return null;
 
@@ -324,6 +326,32 @@ export function TripDrawer({
                         </div>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Stage 5 Action Guidance Banner for Approved Trips */}
+                {currentStatus === 'Approved' && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900 uppercase tracking-wider">
+                        <Truck className="w-4 h-4 text-blue-700" />
+                        Stage 5: Delivery Completion Required
+                      </div>
+                      <p className="text-xs text-blue-800">
+                        Haulage approved and in transit to <strong className="text-blue-950">{trip.destination}</strong>. Confirm delivery and record closing odometer to complete trip and release vehicle.
+                      </p>
+                    </div>
+                    {canManage && (
+                      <Button
+                        onClick={() => onOpenActionModal(trip, 'Mark Delivered')}
+                        variant="primary"
+                        size="sm"
+                        icon={CheckCircle2}
+                        className="shrink-0 font-semibold"
+                      >
+                        Complete Delivery
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -720,7 +748,7 @@ export function TripDrawer({
                     size="sm"
                     icon={CheckCircle2}
                   >
-                    Mark Delivered
+                    Complete Delivery
                   </Button>
                 );
               }

@@ -9,9 +9,12 @@ export const metadata: Metadata = {
   title: `${branding.name} | Enterprise Operations Portal`,
   description: `${branding.company} - Commercial fleet operations, statutory compliance and dispatch management.`,
   icons: {
-    icon: branding.assets.favicon,
-    shortcut: branding.assets.favicon,
-    apple: branding.assets.icon,
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/branding/favicon.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/branding/icon.png',
   },
 };
 
@@ -23,7 +26,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full bg-slate-50">
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/branding/favicon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/branding/icon.png" />
       </head>
       <body className="h-full antialiased bg-slate-50 text-slate-900 overflow-hidden">
         <BrandingProvider>

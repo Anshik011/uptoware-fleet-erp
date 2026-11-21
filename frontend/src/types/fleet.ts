@@ -129,6 +129,11 @@ export interface MiningTrip {
   averageTonnage?: number;
   calculatedQuantity?: number;
   calculatedAmount?: number;
+  isWeightOverridden?: boolean;
+  weightOverrideAuthorizedBy?: string | null;
+  weightOverrideTimestamp?: string | null;
+  weightOverrideReason?: string | null;
+  payloadCapacityTons?: number;
 }
 
 export interface FleetLead {
@@ -169,6 +174,8 @@ export interface TripTransitionInput {
   closingOdometer?: number;
   returnDateTime?: string;
   cancellationReason?: string;
+  isWeightOverridden?: boolean;
+  weightOverrideReason?: string;
 }
 
 export interface FleetAlert {

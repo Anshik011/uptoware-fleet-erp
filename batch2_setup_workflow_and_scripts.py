@@ -56,60 +56,39 @@ def run():
             }
         ],
         "transitions": [
-            # Draft -> Dispatched
-            {
-                "state": "Draft",
-                "action": "Dispatch",
-                "next_state": "Dispatched",
-                "allowed": "Fleet Manager",
-                "allow_self_approval": 1
-            },
-            # Dispatched -> Weighbridge Confirmed
-            {
-                "state": "Dispatched",
-                "action": "Confirm Weighbridge",
-                "next_state": "Weighbridge Confirmed",
-                "allowed": "Weighbridge Operator",
-                "allow_self_approval": 1
-            },
-            # Weighbridge Confirmed -> Approved
-            {
-                "state": "Weighbridge Confirmed",
-                "action": "Approve",
-                "next_state": "Approved",
-                "allowed": "Fleet Manager",
-                "allow_self_approval": 1
-            },
-            # Approved -> Delivered
-            {
-                "state": "Approved",
-                "action": "Mark Delivered",
-                "next_state": "Delivered",
-                "allowed": "Fleet Manager",
-                "allow_self_approval": 1
-            },
+            # Stage 1 -> 2: Draft -> Dispatched
+            {"state": "Draft", "action": "Dispatch", "next_state": "Dispatched", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Draft", "action": "Dispatch", "next_state": "Dispatched", "allowed": "Dispatcher", "allow_self_approval": 1},
+            {"state": "Draft", "action": "Dispatch", "next_state": "Dispatched", "allowed": "System Manager", "allow_self_approval": 1},
+
+            # Stage 2 -> 3: Dispatched -> Weighbridge Confirmed
+            {"state": "Dispatched", "action": "Confirm Weighbridge", "next_state": "Weighbridge Confirmed", "allowed": "Weighbridge Operator", "allow_self_approval": 1},
+            {"state": "Dispatched", "action": "Confirm Weighbridge", "next_state": "Weighbridge Confirmed", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Dispatched", "action": "Confirm Weighbridge", "next_state": "Weighbridge Confirmed", "allowed": "Dispatcher", "allow_self_approval": 1},
+            {"state": "Dispatched", "action": "Confirm Weighbridge", "next_state": "Weighbridge Confirmed", "allowed": "System Manager", "allow_self_approval": 1},
+
+            # Stage 3 -> 4: Weighbridge Confirmed -> Approved
+            {"state": "Weighbridge Confirmed", "action": "Approve", "next_state": "Approved", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Weighbridge Confirmed", "action": "Approve", "next_state": "Approved", "allowed": "System Manager", "allow_self_approval": 1},
+
+            # Stage 4 -> 5: Approved -> Delivered (Stage 5 Delivery Completion)
+            {"state": "Approved", "action": "Mark Delivered", "next_state": "Delivered", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Approved", "action": "Mark Delivered", "next_state": "Delivered", "allowed": "Dispatcher", "allow_self_approval": 1},
+            {"state": "Approved", "action": "Mark Delivered", "next_state": "Delivered", "allowed": "System Manager", "allow_self_approval": 1},
+
             # Cancellations
-            {
-                "state": "Draft",
-                "action": "Cancel",
-                "next_state": "Cancelled",
-                "allowed": "Fleet Manager",
-                "allow_self_approval": 1
-            },
-            {
-                "state": "Dispatched",
-                "action": "Cancel",
-                "next_state": "Cancelled",
-                "allowed": "Fleet Manager",
-                "allow_self_approval": 1
-            },
-            {
-                "state": "Weighbridge Confirmed",
-                "action": "Cancel",
-                "next_state": "Cancelled",
-                "allowed": "Fleet Manager",
-                "allow_self_approval": 1
-            }
+            {"state": "Draft", "action": "Cancel", "next_state": "Cancelled", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Draft", "action": "Cancel", "next_state": "Cancelled", "allowed": "Dispatcher", "allow_self_approval": 1},
+            {"state": "Draft", "action": "Cancel", "next_state": "Cancelled", "allowed": "System Manager", "allow_self_approval": 1},
+            {"state": "Dispatched", "action": "Cancel", "next_state": "Cancelled", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Dispatched", "action": "Cancel", "next_state": "Cancelled", "allowed": "Dispatcher", "allow_self_approval": 1},
+            {"state": "Dispatched", "action": "Cancel", "next_state": "Cancelled", "allowed": "System Manager", "allow_self_approval": 1},
+            {"state": "Weighbridge Confirmed", "action": "Cancel", "next_state": "Cancelled", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Weighbridge Confirmed", "action": "Cancel", "next_state": "Cancelled", "allowed": "Dispatcher", "allow_self_approval": 1},
+            {"state": "Weighbridge Confirmed", "action": "Cancel", "next_state": "Cancelled", "allowed": "System Manager", "allow_self_approval": 1},
+            {"state": "Approved", "action": "Cancel", "next_state": "Cancelled", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Approved", "action": "Cancel", "next_state": "Cancelled", "allowed": "Dispatcher", "allow_self_approval": 1},
+            {"state": "Approved", "action": "Cancel", "next_state": "Cancelled", "allowed": "System Manager", "allow_self_approval": 1},
         ]
     }
 

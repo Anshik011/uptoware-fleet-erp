@@ -8,11 +8,15 @@ def run():
     print("   BATCH 5 ACCOUNTING LIFECYCLE VERIFICATION AUDIT     ")
     print("=======================================================\n")
     
+    if not frappe.db:
+        frappe.init(site="frontend")
+        frappe.connect()
+
     frappe.set_user("Administrator")
     company = "Uptoware"
     today = frappe.utils.today()
     bank_acc_name = "HDFC Bank - U"
-    supplier_name = "Audit Test Spares & Fuels"
+    supplier_name = "Talcher On-Site Workshop"
 
     # 1. Cash expense: approve, post, and verify GL
     print("\n--- 1. Testing Cash Expense ---")
@@ -23,6 +27,7 @@ def run():
         "amount": 250.0,
         "payment_method": "Cash",
         "company": company,
+        "mine_site": "JBR Eastern — Talcher Site",
         "is_test_record": 1
     }).insert(ignore_permissions=True)
     apply_workflow(cash_exp, "Approve")
@@ -47,6 +52,7 @@ def run():
         "amount": 400.0,
         "payment_method": "Wire Transfer",
         "company": company,
+        "mine_site": "JBR Eastern — Talcher Site",
         "is_test_record": 1
     }).insert(ignore_permissions=True)
     apply_workflow(bank_exp, "Approve")
@@ -71,6 +77,7 @@ def run():
         "amount": 1500.0,
         "supplier": supplier_name,
         "company": company,
+        "mine_site": "JBR Eastern — Talcher Site",
         "is_test_record": 1
     }).insert(ignore_permissions=True)
     apply_workflow(credit_exp, "Approve")
