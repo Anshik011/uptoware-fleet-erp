@@ -141,7 +141,7 @@ async function run() {
     { path: '/api/finance/reports', name: 'Finance Reports' },
     { path: '/api/weighbridge', name: 'Weighbridge' },
     { path: '/api/dispatch', name: 'Dispatch Board' },
-    { path: '/api/dispatch/eligibility', name: 'Dispatch Eligibility' },
+    { path: '/api/dispatch/eligibility?vehicle=KA-34-QA-3603&driver=DRV-DEFAULT', name: 'Dispatch Eligibility' },
     { path: '/api/shifts', name: 'Shifts Allocations' },
     { path: '/api/approvals', name: 'Approvals Workflow' },
     { path: '/api/alerts', name: 'System Alerts' },
@@ -219,7 +219,7 @@ async function run() {
     method: 'POST',
     body: {
       leadName: `QA Lead ${Date.now().toString().slice(-4)}`,
-      mineSite: 'Donimalai Mine Site',
+      mineSite: 'JBR Eastern — Ib Valley Site',
       leadKm: '3-4',
       leadRate: 150,
       description: 'Test Corridor 3-4 KM'
@@ -255,7 +255,8 @@ async function run() {
       vtPeriod: '2026-2028',
       formO: 'YES',
       cellNumber: '9888877777',
-      status: 'Active'
+      status: 'Active',
+      mineSite: 'JBR Eastern — Ib Valley Site'
     }
   });
 
@@ -281,6 +282,7 @@ async function run() {
       model: 'Prima 3530.K',
       vehicleType: 'Tipper',
       customTransportType: 'Non Transport',
+      mineSite: 'JBR Eastern — Ib Valley Site',
       status: 'Active',
       payloadCapacityTons: 35
     }
@@ -297,9 +299,8 @@ async function run() {
 
   // Test E: Mining Trip creation with Shift A / Site Supervisor Entry
   console.log('Testing: Mining Trip Creation (Shift A, Supervisor Entry)...');
-  // First fetch vehicles and drivers to use valid active ones
   const vList = await api('/api/vehicles');
-  const validVehicle = vList.body?.vehicles?.[0]?.licensePlate || plate;
+  const validVehicle = vList.body?.data?.[0]?.licensePlate || plate;
   const dList = await api('/api/drivers');
   const validDriver = dList.body?.data?.[0]?.id || 'DRV-DEFAULT';
 
@@ -308,11 +309,12 @@ async function run() {
     body: {
       vehicle: validVehicle,
       driver: validDriver,
-      mineSite: 'Donimalai Mine Site',
+      mineSite: 'JBR Eastern — Ib Valley Site',
       destination: 'Primary Crusher 1',
-      materialType: 'Iron Ore',
+      materialType: 'Coal',
       dispatchDateTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
-      ratePerTon: 120,
+      ratePerTon: 195,
+      openingOdometer: 10000,
       leadKm: '3-4',
       tripCount: 4,
       shift: 'Shift A'
@@ -338,7 +340,7 @@ async function run() {
       attendanceStatus: 'Present',
       shift: 'Shift A',
       vehicle: validVehicle,
-      mineSite: 'Donimalai Mine Site'
+      mineSite: 'JBR Eastern — Ib Valley Site'
     }
   });
 

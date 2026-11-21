@@ -1,0 +1,136 @@
+{
+  "target": "https://fleet.uptoware.com",
+  "timestamp": "2026-11-21T19:39:16.305Z",
+  "security": {
+    "rbac": [
+      {
+        "test": "Unauthenticated API lockdown",
+        "status": "PASS"
+      },
+      {
+        "test": "Dispatcher admin boundary check",
+        "status": "PASS"
+      },
+      {
+        "test": "Workshop Supervisor finance boundary check",
+        "status": "PASS"
+      },
+      {
+        "test": "Accountant authorized finance access",
+        "status": "PASS"
+      }
+    ],
+    "injection": [
+      {
+        "test": "Query sanitization & safe parameterized filtering",
+        "status": "PASS"
+      }
+    ],
+    "cookies": null,
+    "status": "PENDING"
+  },
+  "performance": {
+    "endpoints": [
+      {
+        "endpoint": "/api/dashboard",
+        "duration": 495,
+        "status": 200
+      },
+      {
+        "endpoint": "/api/vehicles",
+        "duration": 795,
+        "status": 200
+      },
+      {
+        "endpoint": "/api/employees",
+        "duration": 409,
+        "status": 200
+      },
+      {
+        "endpoint": "/api/trips",
+        "duration": 442,
+        "status": 200
+      },
+      {
+        "endpoint": "/api/attendance",
+        "duration": 801,
+        "status": 200
+      },
+      {
+        "endpoint": "/api/attendance/summary?month=2026-11",
+        "duration": 427,
+        "status": 200
+      },
+      {
+        "endpoint": "/api/inventory/items",
+        "duration": 422,
+        "status": 200
+      },
+      {
+        "endpoint": "/api/leads",
+        "duration": 429,
+        "status": 200
+      },
+      {
+        "endpoint": "/api/procurement/orders",
+        "duration": 407,
+        "status": 200
+      },
+      {
+        "endpoint": "/api/finance/revenue",
+        "duration": 408,
+        "status": 200
+      }
+    ],
+    "concurrency": {
+      "requests": 10,
+      "totalMs": 1707,
+      "allPassed": true
+    },
+    "status": "PENDING"
+  },
+  "realityCheck": {
+    "journeys": [
+      {
+        "journey": "Vehicle Persistence",
+        "status": "PASS",
+        "record": "KA-34-CERT-9458"
+      },
+      {
+        "journey": "Haulage Corridor Band Distance",
+        "status": "PASS",
+        "record": "Corridor Pit A-to-Siding 1364"
+      },
+      {
+        "journey": "Mining Trip Logging",
+        "status": "PASS",
+        "record": "TRIP-2026-01119"
+      },
+      {
+        "journey": "Spare Part Auto-Naming",
+        "status": "PASS",
+        "record": "SP-HEAVY-DUTY-ALTE-7133"
+      }
+    ],
+    "status": "PENDING"
+  },
+  "uiReview": {
+    "rulesChecked": [
+      {
+        "rule": "Zero In-Page / Inline CSS",
+        "status": "PASS"
+      },
+      {
+        "rule": "Strict Color Discipline",
+        "status": "PASS"
+      },
+      {
+        "rule": "Visual Hierarchy & Table Alignment",
+        "status": "PASS"
+      }
+    ],
+    "status": "PENDING"
+  },
+  "overallScore": 100,
+  "defectsFixed": []
+}

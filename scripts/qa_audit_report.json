@@ -1,0 +1,328 @@
+{
+  "target": "https://fleet.uptoware.com",
+  "timestamp": "2026-11-21T19:35:48.576Z",
+  "auth": "PASS",
+  "endpoints": [
+    {
+      "path": "/api/admin/health",
+      "name": "Admin Health",
+      "status": 200,
+      "ok": true,
+      "duration": 412
+    },
+    {
+      "path": "/api/admin/permissions",
+      "name": "Admin Permissions",
+      "status": 200,
+      "ok": true,
+      "duration": 411
+    },
+    {
+      "path": "/api/admin/users",
+      "name": "Admin Users",
+      "status": 200,
+      "ok": true,
+      "duration": 438
+    },
+    {
+      "path": "/api/dashboard",
+      "name": "Dashboard KPIs",
+      "status": 200,
+      "ok": true,
+      "duration": 450
+    },
+    {
+      "path": "/api/vehicles",
+      "name": "Vehicles Master",
+      "status": 200,
+      "ok": true,
+      "duration": 408
+    },
+    {
+      "path": "/api/vehicle-types",
+      "name": "Vehicle Types",
+      "status": 200,
+      "ok": true,
+      "duration": 419
+    },
+    {
+      "path": "/api/drivers",
+      "name": "Drivers Master",
+      "status": 200,
+      "ok": true,
+      "duration": 411
+    },
+    {
+      "path": "/api/employees",
+      "name": "Employees Master",
+      "status": 200,
+      "ok": true,
+      "duration": 421
+    },
+    {
+      "path": "/api/leads",
+      "name": "Fleet Leads",
+      "status": 200,
+      "ok": true,
+      "duration": 405
+    },
+    {
+      "path": "/api/trips",
+      "name": "Trips Ledger",
+      "status": 200,
+      "ok": true,
+      "duration": 411
+    },
+    {
+      "path": "/api/trips/options",
+      "name": "Trip Options",
+      "status": 200,
+      "ok": true,
+      "duration": 445
+    },
+    {
+      "path": "/api/inventory/items",
+      "name": "Spare Parts / Items",
+      "status": 200,
+      "ok": true,
+      "duration": 460
+    },
+    {
+      "path": "/api/inventory/warehouses",
+      "name": "Warehouses",
+      "status": 200,
+      "ok": true,
+      "duration": 408
+    },
+    {
+      "path": "/api/inventory/movements",
+      "name": "Stock Movements",
+      "status": 200,
+      "ok": true,
+      "duration": 412
+    },
+    {
+      "path": "/api/inventory/options",
+      "name": "Inventory Options",
+      "status": 200,
+      "ok": true,
+      "duration": 486
+    },
+    {
+      "path": "/api/procurement/orders",
+      "name": "Purchase Orders",
+      "status": 200,
+      "ok": true,
+      "duration": 437
+    },
+    {
+      "path": "/api/procurement/suppliers",
+      "name": "Suppliers",
+      "status": 200,
+      "ok": true,
+      "duration": 513
+    },
+    {
+      "path": "/api/procurement/receipts",
+      "name": "Purchase Receipts",
+      "status": 200,
+      "ok": true,
+      "duration": 481
+    },
+    {
+      "path": "/api/procurement/invoices",
+      "name": "Purchase Invoices",
+      "status": 200,
+      "ok": true,
+      "duration": 466
+    },
+    {
+      "path": "/api/procurement/reports",
+      "name": "Procurement Reports",
+      "status": 200,
+      "ok": true,
+      "duration": 419
+    },
+    {
+      "path": "/api/breakdowns",
+      "name": "Breakdowns",
+      "status": 200,
+      "ok": true,
+      "duration": 447
+    },
+    {
+      "path": "/api/breakdowns/options",
+      "name": "Breakdown Options",
+      "status": 200,
+      "ok": true,
+      "duration": 483
+    },
+    {
+      "path": "/api/fuel",
+      "name": "Fuel Logs",
+      "status": 200,
+      "ok": true,
+      "duration": 441
+    },
+    {
+      "path": "/api/fuel/options",
+      "name": "Fuel Options",
+      "status": 200,
+      "ok": true,
+      "duration": 451
+    },
+    {
+      "path": "/api/attendance",
+      "name": "Attendance Records",
+      "status": 200,
+      "ok": true,
+      "duration": 790
+    },
+    {
+      "path": "/api/attendance/summary?month=2026-11",
+      "name": "Attendance Summary Matrix",
+      "status": 200,
+      "ok": true,
+      "duration": 425
+    },
+    {
+      "path": "/api/compliance/vehicles",
+      "name": "Vehicle Compliance",
+      "status": 200,
+      "ok": true,
+      "duration": 395
+    },
+    {
+      "path": "/api/compliance/reports",
+      "name": "Compliance Reports",
+      "status": 200,
+      "ok": true,
+      "duration": 392
+    },
+    {
+      "path": "/api/insurance/policies",
+      "name": "Insurance Policies",
+      "status": 200,
+      "ok": true,
+      "duration": 422
+    },
+    {
+      "path": "/api/insurance/options",
+      "name": "Insurance Options",
+      "status": 200,
+      "ok": true,
+      "duration": 410
+    },
+    {
+      "path": "/api/finance/revenue",
+      "name": "Finance Revenue",
+      "status": 200,
+      "ok": true,
+      "duration": 406
+    },
+    {
+      "path": "/api/finance/collections",
+      "name": "Finance Collections",
+      "status": 200,
+      "ok": true,
+      "duration": 425
+    },
+    {
+      "path": "/api/finance/profitability",
+      "name": "Profitability",
+      "status": 200,
+      "ok": true,
+      "duration": 508
+    },
+    {
+      "path": "/api/finance/dashboard",
+      "name": "Finance Dashboard",
+      "status": 200,
+      "ok": true,
+      "duration": 433
+    },
+    {
+      "path": "/api/finance/reports",
+      "name": "Finance Reports",
+      "status": 200,
+      "ok": true,
+      "duration": 391
+    },
+    {
+      "path": "/api/weighbridge",
+      "name": "Weighbridge",
+      "status": 200,
+      "ok": true,
+      "duration": 410
+    },
+    {
+      "path": "/api/dispatch",
+      "name": "Dispatch Board",
+      "status": 200,
+      "ok": true,
+      "duration": 444
+    },
+    {
+      "path": "/api/dispatch/eligibility?vehicle=KA-34-QA-3603&driver=DRV-DEFAULT",
+      "name": "Dispatch Eligibility",
+      "status": 200,
+      "ok": true,
+      "duration": 404
+    },
+    {
+      "path": "/api/shifts",
+      "name": "Shifts Allocations",
+      "status": 200,
+      "ok": true,
+      "duration": 406
+    },
+    {
+      "path": "/api/approvals",
+      "name": "Approvals Workflow",
+      "status": 200,
+      "ok": true,
+      "duration": 432
+    },
+    {
+      "path": "/api/alerts",
+      "name": "System Alerts",
+      "status": 200,
+      "ok": true,
+      "duration": 781
+    },
+    {
+      "path": "/api/mine-sites",
+      "name": "Mine Sites",
+      "status": 200,
+      "ok": true,
+      "duration": 444
+    }
+  ],
+  "crudTests": [
+    {
+      "test": "Create Spare Part",
+      "ok": true
+    },
+    {
+      "test": "Create Fleet Lead Range",
+      "ok": true
+    },
+    {
+      "test": "Create Employee Statutory",
+      "ok": true
+    },
+    {
+      "test": "Create Vehicle Transport Type",
+      "ok": true
+    },
+    {
+      "test": "Create Mining Trip",
+      "ok": true
+    },
+    {
+      "test": "Create Attendance",
+      "ok": true
+    }
+  ],
+  "bugsFound": []
+}
