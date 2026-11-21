@@ -36,6 +36,7 @@ frappe_docker/
 # Backups & Archives
 backups/
 *.tar
+*.tar.gz
 *.sql.gz
 *.zip
 
