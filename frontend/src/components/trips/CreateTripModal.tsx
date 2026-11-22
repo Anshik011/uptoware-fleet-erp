@@ -375,19 +375,15 @@ export function CreateTripModal({
 
     const leadObj = leads.find((l) => l.id === selectedLead || l.leadName === selectedLead);
     const effectiveDriver =
-      driver ||
+      (driver && driver.trim()) ||
       selectedVehicleObj?.assignedDriverId ||
-      (drivers.length > 0 ? drivers[0].id : 'DRV-DEFAULT');
+      undefined;
     const effectiveDestination =
       destination.trim() || leadObj?.leadName || 'Mine Delivery Siding';
     const effectiveMaterial =
-      materialType || (materials.length > 0 ? materials[0] : 'Iron Ore');
+      materialType || (materials.length > 0 ? materials[0] : 'Coal');
 
     if (tripEntryMode === 'reconcile') {
-      if (!effectiveDriver) {
-        setError('Please select an active driver.');
-        return;
-      }
       if (!effectiveDestination) {
         setError('Destination location or delivery terminal is required.');
         return;

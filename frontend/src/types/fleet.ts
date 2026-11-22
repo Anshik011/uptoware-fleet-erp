@@ -151,7 +151,7 @@ export interface FleetLead {
 
 export interface CreateMiningTripInput {
   vehicle: string;
-  driver: string;
+  driver?: string;
   mineSite: string;
   destination: string;
   materialType: string;

@@ -1917,12 +1917,12 @@ export async function createMiningTrip(
 ): Promise<MiningTrip> {
   const payload: any = {
     vehicle: input.vehicle,
-    driver: input.driver,
     mine_site: input.mineSite,
     destination: input.destination,
     material_type: input.materialType,
     dispatch_date_time: input.dispatchDateTime,
   };
+  if (input.driver) payload.driver = input.driver;
   if (input.challanNumber) payload.challan_number = input.challanNumber;
   if (input.ratePerTon != null) payload.rate_per_ton = input.ratePerTon;
   if (input.openingOdometer != null) payload.opening_odometer = input.openingOdometer;

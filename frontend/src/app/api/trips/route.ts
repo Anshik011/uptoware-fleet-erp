@@ -178,12 +178,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!driver || typeof driver !== 'string' || !driver.trim()) {
-      return NextResponse.json(
-        { success: false, error: 'Driver selection is mandatory for trip creation.' },
-        { status: 400 }
-      );
-    }
+    const cleanDriver = (typeof driver === 'string' && driver.trim()) ? driver.trim() : undefined;
 
     if (!mineSite || typeof mineSite !== 'string' || !mineSite.trim()) {
       return NextResponse.json(
@@ -222,7 +217,7 @@ export async function POST(request: NextRequest) {
 
     const input: CreateMiningTripInput = {
       vehicle: vehicle.trim(),
-      driver: driver.trim(),
+      driver: cleanDriver,
       mineSite: mineSite.trim(),
       destination: destination.trim(),
       materialType: materialType.trim(),
