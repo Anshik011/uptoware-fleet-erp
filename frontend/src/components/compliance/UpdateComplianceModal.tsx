@@ -211,7 +211,7 @@ export function UpdateComplianceModal({
           {/* Certificate File Link */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Certificate Document URL / Frappe File
+              Certificate Document URL / Attachment
             </label>
             <input
               type="text"

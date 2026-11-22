@@ -156,7 +156,7 @@ export function DispatchEligibilityModal({
             <div className="py-8 flex flex-col items-center justify-center text-slate-500 space-y-2">
               <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
               <span className="text-xs font-medium">
-                Evaluating statutory documents and conflicting trips in Frappe...
+                Evaluating statutory documents and active trip allocations...
               </span>
             </div>
           ) : fetchError ? (

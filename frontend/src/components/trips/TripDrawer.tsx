@@ -675,7 +675,7 @@ export function TripDrawer({
                   </p>
                 )}
                 <p className="text-[11px] text-slate-400">
-                  Document engine: Frappe REST API &bull; DocType: Mining Trip
+                  Document Registry: Certified Ledger Record &bull; Category: Mining Haulage Trip
                 </p>
               </div>
             </>

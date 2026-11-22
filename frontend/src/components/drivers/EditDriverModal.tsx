@@ -158,7 +158,7 @@ export function EditDriverModal({ isOpen, driver, onClose, onSuccess }: EditDriv
       onClose();
     } catch (err: any) {
       console.error('Driver update error:', err);
-      setError(err.message || 'Error communicating with ERPNext server.');
+      setError(err.message || 'Error communicating with fleet server.');
     } finally {
       setIsSubmitting(false);
     }

@@ -82,7 +82,7 @@ export function LinkedField({
 
   return (
     <div className={`w-full ${className}`}>
-      {/* Header with Label and ERPNext-Style Quick Actions */}
+      {/* Header with Label and Quick Actions */}
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <label
           htmlFor={selectId}

@@ -137,7 +137,7 @@ export function StockMovementsTable({
                 <td colSpan={8} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                    <span>Loading stock movements from ERPNext...</span>
+                    <span>Loading stock movements...</span>
                   </div>
                 </td>
               </tr>

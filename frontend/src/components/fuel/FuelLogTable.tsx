@@ -285,7 +285,7 @@ export function FuelLogTable({
                     <p className="text-xs text-slate-400 max-w-sm">
                       {searchQuery || selectedVehicle !== 'ALL' || selectedSource !== 'ALL'
                         ? 'Try clearing the search query or adjusting active filters.'
-                        : 'No fuel dispensation logs have been recorded in ERPNext.'}
+                        : 'No fuel dispensation logs have been recorded.'}
                     </p>
                   </div>
                 </td>

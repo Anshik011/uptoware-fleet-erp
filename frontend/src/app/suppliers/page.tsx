@@ -62,7 +62,7 @@ function SuppliersContent() {
       setSuppliers(json.suppliers || []);
       if (json.metrics) setMetrics(json.metrics);
     } catch (err: any) {
-      setError(err.message || 'Error communicating with ERPNext');
+      setError(err.message || 'Error communicating with supplier directory');
     } finally {
       setIsLoading(false);
     }

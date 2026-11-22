@@ -21,7 +21,7 @@ export default function ReportsPage() {
                 Finance & Analytics Reports
               </h1>
               <p className="text-sm text-slate-500">
-                Native ERPNext Query & Script Reports covering fleet revenue, operating costs, and commercial profitability
+                Authoritative Financial & Operational Reports covering fleet revenue, operating costs, and commercial profitability
               </p>
             </div>
           </div>

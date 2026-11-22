@@ -61,7 +61,7 @@ export function AddSupplierModal({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to register supplier in ERPNext');
+        throw new Error(data.error || 'Failed to register supplier');
       }
 
       onSuccess();
@@ -85,7 +85,7 @@ export function AddSupplierModal({
             <div>
               <h3 className="text-lg font-bold text-slate-900">Add Supplier / Vendor</h3>
               <p className="text-xs text-slate-500">
-                Register a new vendor master in ERPNext
+                Register a new vendor master
               </p>
             </div>
           </div>

@@ -120,14 +120,14 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to register vehicle in ERPNext.');
+        throw new Error(json.error || 'Failed to register vehicle.');
       }
 
       onSuccess();
       onClose();
     } catch (err: any) {
       console.error('Add vehicle error:', err);
-      setFormError(err.message || 'Error communicating with ERPNext server.');
+      setFormError(err.message || 'Error communicating with fleet server.');
     } finally {
       setIsSubmitting(false);
     }
@@ -151,7 +151,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Register Transport Asset</h2>
                 <p className="text-xs text-slate-500 font-medium">
-                  Add a new commercial fleet truck or heavy equipment into Frappe ERPNext
+                  Add a new commercial fleet truck or heavy equipment
                 </p>
               </div>
             </div>

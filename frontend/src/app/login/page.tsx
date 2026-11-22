@@ -227,7 +227,7 @@ function LoginForm() {
               <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                 <div className="flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Frappe v16 Business Engine</span>
+                  <span>Uptoware Fleet Enterprise Engine</span>
                 </div>
                 <span>TLS 256-bit Encrypted</span>
               </div>

@@ -221,7 +221,7 @@ export function MineSiteTable({
             <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
               {searchQuery || selectedStatus !== 'ALL' || selectedMineral !== 'ALL'
                 ? 'No mine sites match the selected filters. Clear filters or adjust your search query.'
-                : 'No operational mine sites are currently registered in ERPNext.'}
+                : 'No operational mine sites are currently registered.'}
             </p>
             {canManage && (
               <Button
@@ -381,7 +381,7 @@ export function MineSiteTable({
           {mineSites.length === 1 ? 'mine site' : 'mine sites'}
         </div>
         <div className="text-[11px] text-slate-400">
-          Integrated with Frappe Mine Site DocType & Trip Logs
+          Integrated with Mine Site Master & Trip Dispatch Logs
         </div>
       </div>
     </div>

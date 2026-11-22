@@ -108,7 +108,7 @@ export function PurchaseOrderDetailDrawer({
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center space-y-3">
               <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs text-slate-500 font-medium">Fetching purchase order items from ERPNext...</p>
+              <p className="text-xs text-slate-500 font-medium">Fetching purchase order items...</p>
             </div>
           ) : error ? (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs">

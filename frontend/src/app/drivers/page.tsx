@@ -82,7 +82,7 @@ function DriversTableSection() {
       setDrivers(data);
     } catch (err: any) {
       console.error('Fetch drivers error:', err);
-      setError(err.message || 'Error communicating with ERPNext driver database');
+      setError(err.message || 'Error communicating with fleet operator database');
     } finally {
       setIsLoading(false);
     }

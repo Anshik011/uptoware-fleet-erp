@@ -68,7 +68,7 @@ export function DriverDrawer({
       setAssignedVehicleDetails(json.data.assignedVehicleDetails || null);
     } catch (err: any) {
       console.error('Driver drawer load error:', err);
-      setError(err.message || 'Error communicating with ERPNext server');
+      setError(err.message || 'Error communicating with fleet server');
     } finally {
       setIsLoading(false);
     }
@@ -332,7 +332,7 @@ export function DriverDrawer({
                 </div>
               </div>
 
-              {/* Assigned Vehicle Details - ERPNext-Style Linked Experience */}
+              {/* Assigned Vehicle Details */}
               <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <Truck className="w-4 h-4 text-blue-900" />

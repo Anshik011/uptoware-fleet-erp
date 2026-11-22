@@ -97,7 +97,7 @@ export default function FinanceDashboardPage() {
               </span>
             </div>
             <div className="text-xs text-slate-400">
-              Authority: Native ERPNext Accounting Ledger
+              Authority: Certified General Accounting Ledger
             </div>
           </div>
 

@@ -117,7 +117,7 @@ export function ReportViewer({ warehouses, suppliers, vehicles }: ReportViewerPr
                 )}
               </div>
               <p className="text-xs text-slate-500">
-                Native Frappe Desk Script Reports executed with live audit data
+                Authoritative Inventory & Procurement Reports executed with live audit data
               </p>
             </div>
           </div>

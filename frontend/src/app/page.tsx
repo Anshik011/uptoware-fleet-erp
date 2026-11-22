@@ -345,7 +345,7 @@ export default function FleetDashboardPage() {
           <div className="my-6">
             <ErrorState
               title="Operational Sync Error"
-              message={`Unable to retrieve live fleet metrics from Frappe backend: ${error}`}
+              message={`Unable to retrieve live fleet metrics: ${error}`}
               onRetry={fetchDashboardData}
             />
           </div>
@@ -387,7 +387,7 @@ export default function FleetDashboardPage() {
           </>
         )}
 
-        {/* Live Authoritative KPI Cards Grid (Strictly bound to data from ERPNext) */}
+        {/* Live Authoritative KPI Cards Grid */}
         {data && (
           <>
             <section aria-label="Key Performance Indicators">
@@ -756,7 +756,7 @@ export default function FleetDashboardPage() {
         {isLoading && data && (
           <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-3 mt-4">
             <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
-            <span>Refreshing live fleet metrics from ERPNext...</span>
+            <span>Refreshing live fleet metrics...</span>
           </div>
         )}
       </PageContainer>

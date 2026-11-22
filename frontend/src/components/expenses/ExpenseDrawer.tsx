@@ -278,7 +278,7 @@ export function ExpenseDrawer({
               <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-3">
                 <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <BookOpen className="w-4 h-4 text-slate-500" />
-                  ERPNext General Ledger Posting
+                  General Ledger Posting
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">

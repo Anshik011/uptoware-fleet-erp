@@ -290,7 +290,7 @@ export function BreakdownTable({
                     <p className="text-xs text-slate-400 max-w-sm">
                       {searchQuery || selectedVehicle !== 'ALL' || selectedSeverity !== 'ALL' || selectedType !== 'ALL'
                         ? 'Try clearing the search query or adjusting active filters.'
-                        : 'No vehicle breakdown records exist in ERPNext.'}
+                        : 'No vehicle breakdown records have been logged.'}
                     </p>
                   </div>
                 </td>

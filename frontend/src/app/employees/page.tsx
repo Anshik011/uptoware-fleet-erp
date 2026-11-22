@@ -482,7 +482,7 @@ function EmployeesContent() {
       <PageContainer>
         <PageHeader
           title="HRMS & Personnel Management"
-          subtitle="Integrated ERPNext employee master, daily mine site attendance roster, and automated wage & salary calculation."
+          subtitle="Integrated employee master directory, daily mine site attendance roster, and automated wage & salary calculation."
           actions={
             <div className="flex items-center gap-2">
               <Button
@@ -573,7 +573,7 @@ function EmployeesContent() {
                   <Users className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="text-2xl font-bold text-slate-900">{totalEmployees}</div>
-                <p className="text-[11px] text-slate-400 mt-1">ERPNext employee roster</p>
+                <p className="text-[11px] text-slate-400 mt-1">Active employee roster</p>
               </div>
 
               <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -670,11 +670,11 @@ function EmployeesContent() {
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="w-4 h-4 text-blue-700 shrink-0" />
                 <span>
-                  <strong>Employee Master Specification:</strong> 1:1 synchronization with ERPNext Drivers active. Master Excel bulk-import template format is currently <strong>Awaiting Client Input</strong>.
+                  <strong>Employee Master Directory:</strong> Synchronized with active vehicle operators and mine site staff rosters. Bulk import templates available in the Data Import Hub.
                 </span>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
-                Specification Alignment
+                Directory Ready
               </span>
             </div>
 
@@ -682,7 +682,7 @@ function EmployeesContent() {
             {isLoading ? (
               <div className="p-12 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center gap-3">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
-                <p className="text-xs text-slate-500">Retrieving ERPNext personnel records...</p>
+                <p className="text-xs text-slate-500">Retrieving personnel records...</p>
               </div>
             ) : error ? (
               <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
@@ -695,7 +695,7 @@ function EmployeesContent() {
                 <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
                   {searchQuery || statusFilter !== 'ALL'
                     ? 'Try adjusting your search criteria.'
-                    : 'Click "+ Add Employee" to enroll new team members into the ERPNext personnel registry.'}
+                    : 'Click "+ Add Employee" to enroll new team members into the fleet personnel registry.'}
                 </p>
               </div>
             ) : (
@@ -1455,7 +1455,7 @@ function EmployeesContent() {
                       </span>
                     </div>
                     <span className="italic">
-                      Month matrix generated live from Frappe Employee Attendance records.
+                      Month matrix generated live from certified daily employee attendance logs.
                     </span>
                   </div>
                 </div>

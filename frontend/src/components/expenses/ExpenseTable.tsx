@@ -238,7 +238,7 @@ export function ExpenseTable({
                     <p className="text-xs text-slate-400 max-w-sm">
                       {searchQuery || selectedCategory !== 'ALL' || selectedVehicle !== 'ALL'
                         ? 'Try clearing the search query or adjusting active filters.'
-                        : 'No operational expense disbursements have been recorded in ERPNext.'}
+                        : 'No operational expense disbursements have been recorded.'}
                     </p>
                   </div>
                 </td>

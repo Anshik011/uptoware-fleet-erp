@@ -286,7 +286,7 @@ export function DriverTable({
                     )}
                   </td>
 
-                  {/* Assigned Vehicle - ERPNext Linked Navigation */}
+                  {/* Assigned Vehicle Navigation */}
                   <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
                     {driver.assignedVehicle ? (
                       <button
@@ -374,7 +374,7 @@ export function DriverTable({
       {/* Table Footer */}
       <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
         <span>Showing {drivers.length} operator records</span>
-        <span className="font-mono text-[11px] text-slate-400">Authoritative Frappe Ledger</span>
+        <span className="font-mono text-[11px] text-slate-400">Authoritative Fleet Ledger</span>
       </div>
     </div>
   );

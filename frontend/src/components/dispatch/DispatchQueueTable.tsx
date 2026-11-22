@@ -204,7 +204,7 @@ export function DispatchQueueTable({
                 <td colSpan={7} className="py-12 text-center text-slate-500">
                   <div className="inline-flex items-center gap-2 text-xs">
                     <span className="w-2 h-2 rounded-full bg-blue-900 animate-pulse"></span>
-                    Loading live dispatch queue from ERPNext...
+                    Loading live dispatch queue...
                   </div>
                 </td>
               </tr>

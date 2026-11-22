@@ -34,7 +34,7 @@ export function TripProfitabilityTable({ trips, loading }: TripProfitabilityTabl
           <span className="font-semibold block">Commercial Billing Separation Rule:</span>
           <span>
             Mine Site <em>rate per ton</em> and <em>Estimated Revenue</em> are operational planning estimates only.
-            Legally enforceable accounting revenue is derived strictly from submitted ERPNext <strong>Sales Invoices</strong>.
+            Legally enforceable accounting revenue is derived strictly from verified <strong>Sales Invoices</strong>.
             Uninvoiced trips show ₹0 recognized revenue until commercial billing is approved by Finance.
           </span>
         </div>

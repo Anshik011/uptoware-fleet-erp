@@ -79,7 +79,7 @@ export function PaymentDetailDrawer({ paymentId, onClose }: PaymentDetailDrawerP
           {loading && (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400">
               <RefreshCw className="w-8 h-8 animate-spin text-emerald-600 mb-2" />
-              <p className="text-xs">Loading collection record from ERPNext...</p>
+              <p className="text-xs">Loading collection record...</p>
             </div>
           )}
 

@@ -268,7 +268,7 @@ function SalesContent() {
       <PageContainer>
         <PageHeader
           title="Spare Parts Sales"
-          subtitle="Record and track external parts sales and billable vehicle maintenance issues with native ERPNext Sales Invoices."
+          subtitle="Record and track external parts sales and billable vehicle maintenance issues with verified commercial sales invoices."
           actions={
             <div className="flex items-center gap-2">
               <Button

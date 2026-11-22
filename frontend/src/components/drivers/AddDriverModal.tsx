@@ -93,14 +93,14 @@ export function AddDriverModal({ isOpen, onClose, onSuccess }: AddDriverModalPro
         return;
       }
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to register driver in Frappe backend');
+        throw new Error(json.error || 'Failed to register operator');
       }
 
       onSuccess(json.data);
       onClose();
     } catch (err: any) {
       console.error('Driver registration error:', err);
-      setError(err.message || 'Error communicating with ERPNext server');
+      setError(err.message || 'Error communicating with fleet server');
     } finally {
       submitLock.current = false;
       setIsSubmitting(false);

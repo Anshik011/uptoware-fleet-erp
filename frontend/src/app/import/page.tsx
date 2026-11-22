@@ -180,7 +180,7 @@ export default function DataImportPage() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to initiate import in ERPNext.');
+        throw new Error(json.error || 'Failed to initiate data import.');
       }
 
       setActiveImportId(json.dataImportId);
@@ -245,7 +245,7 @@ export default function DataImportPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Data Import Hub</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Bulk upload spreadsheets to populate operational master data natively through ERPNext.
+            Bulk upload spreadsheets to populate operational master data into the fleet management system.
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -308,7 +308,7 @@ export default function DataImportPage() {
                 <h3 className="text-base font-bold text-slate-900">
                   Step 1: Download {selectedModule.title} Template
                 </h3>
-                <p className="text-xs text-slate-500">Target DocType: {selectedModule.doctype}</p>
+                <p className="text-xs text-slate-500">Target Module: {selectedModule.title}</p>
               </div>
             </div>
 
@@ -354,7 +354,7 @@ export default function DataImportPage() {
                 Step 2: Upload Completed Spreadsheet
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Upload your completed Excel (.xlsx) or CSV file. ERPNext will validate all rows automatically.
+                Upload your completed Excel (.xlsx) or CSV file. The system will validate all rows automatically.
               </p>
             </div>
 
@@ -423,12 +423,12 @@ export default function DataImportPage() {
                 {isUploading ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading to ERPNext...
+                    Uploading spreadsheet...
                   </>
                 ) : (
                   <>
                     <Upload className="w-4 h-4 mr-2" />
-                    Start ERPNext Import
+                    Start Data Import
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </>
                 )}
@@ -448,13 +448,13 @@ export default function DataImportPage() {
                 {getStatusBadge(importStatus.status)}
               </div>
               <p className="text-xs text-slate-500 mt-1 font-mono">
-                Job ID: {importStatus.dataImportId} | Target: {importStatus.referenceDoctype}
+                Job ID: {importStatus.dataImportId} | Target Module: {importStatus.referenceDoctype}
               </p>
             </div>
             {isPolling && (
               <span className="inline-flex items-center text-xs text-blue-600 font-medium">
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                Live updating from ERPNext...
+                Live updating from system server...
               </span>
             )}
           </div>

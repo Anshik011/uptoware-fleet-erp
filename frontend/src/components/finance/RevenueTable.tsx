@@ -242,7 +242,7 @@ export function RevenueTable({ invoices, loading, onRefresh }: RevenueTableProps
         <span>
           Showing <strong>{filteredInvoices.length}</strong> of <strong>{invoices.length}</strong> submitted invoices
         </span>
-        <span className="text-[11px] text-slate-400">Single Source of Truth: ERPNext Sales Invoice</span>
+        <span className="text-[11px] text-slate-400">Single Source of Truth: Verified Tax Invoices</span>
       </div>
 
       {/* Invoice Detail Slide-Over Drawer */}

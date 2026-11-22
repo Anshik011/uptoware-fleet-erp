@@ -87,7 +87,7 @@ function MineSitesTableSection() {
       setMineSites(data);
     } catch (err: any) {
       console.error('Fetch mine sites error:', err);
-      setError(err.message || 'Error communicating with ERPNext mine site database');
+      setError(err.message || 'Error communicating with mine site database');
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +127,7 @@ function MineSitesTableSection() {
         }
       />
 
-      {/* Mine Site Operational Metric Strip - 100% Dynamic from ERPNext */}
+      {/* Mine Site Operational Metric Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {/* Total Mine Sites */}
         <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
@@ -221,7 +221,7 @@ function MineSitesTableSection() {
         <div className="bg-white rounded-xl border border-slate-200 p-12 flex flex-col items-center justify-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
           <p className="text-xs text-slate-500">
-            Synchronizing mine site directory with ERPNext...
+            Synchronizing mine site directory...
           </p>
         </div>
       ) : (

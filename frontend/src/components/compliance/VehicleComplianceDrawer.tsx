@@ -209,7 +209,7 @@ export function VehicleComplianceDrawer({
                 <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-rose-900">
                   <span className="font-bold block text-sm">Dispatch Gate Locked</span>
-                  This vehicle is prohibited from being dispatched. ERPNext automated eligibility
+                  This vehicle is prohibited from being dispatched. Automated eligibility verification
                   safeguards reject any trip dispatch until valid Commercial Insurance and
                   Fitness Certificates are updated.
                 </div>

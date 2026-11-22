@@ -42,7 +42,7 @@ export default function ReportsPage() {
                 Inventory & Procurement Reports
               </h1>
               <p className="text-sm text-slate-500">
-                16 native ERPNext Script Reports with parameter binding and live audit visibility
+                16 authoritative Procurement & Inventory Reports with parameter binding and live audit visibility
               </p>
             </div>
           </div>

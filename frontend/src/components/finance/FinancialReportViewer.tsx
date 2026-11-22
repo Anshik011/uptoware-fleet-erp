@@ -28,8 +28,8 @@ export const FINANCE_REPORTS = [
   { name: 'Revenue vs Cost Analysis', desc: 'Comparative P&L across assets: Revenue vs total cost & margin ratios' },
   { name: 'Outstanding Revenue / Receivables', desc: 'Commercial aging analysis: Overdue invoices and client credit risk' },
   { name: 'Unallocated Cost Register', desc: 'Overhead and indirect costs not tied to specific vehicles or trips' },
-  { name: 'Accounts Receivable', desc: 'Standard ERPNext trade receivables ledger with aging buckets' },
-  { name: 'Gross Profit', desc: 'Standard ERPNext gross profit analysis on submitted commercial invoices' },
+  { name: 'Accounts Receivable', desc: 'Authoritative trade receivables ledger with aging buckets' },
+  { name: 'Gross Profit', desc: 'Authoritative gross profit analysis on submitted commercial invoices' },
   { name: 'Daily Fleet Income and Expense Summary', desc: 'Daily net operating contribution: Haulage revenue minus fuel, repair, and OpEx costs' },
   { name: 'Monthly Fleet Income and Expense Summary', desc: 'Monthly executive P&L: Completed trips, billed tonnage, revenue vs outflow margins' },
   { name: 'Vehicle Earning Summary Report', desc: 'Provisional vehicle unit economics (Revenue, fuel, repairs, net profit) — Draft format pending client template' },
@@ -339,7 +339,7 @@ export function FinancialReportViewer() {
                 <tr>
                   <td colSpan={columns.length || 1} className="px-4 py-12 text-center text-slate-400">
                     <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
-                    Executing native ERPNext query report...
+                    Executing financial report query...
                   </td>
                 </tr>
               )}

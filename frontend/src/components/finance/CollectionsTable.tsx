@@ -164,7 +164,7 @@ export function CollectionsTable({ payments, loading, onRefresh }: CollectionsTa
         <span>
           Showing <strong>{filteredPayments.length}</strong> of <strong>{payments.length}</strong> collections
         </span>
-        <span className="text-[11px] text-slate-400">Single Source of Truth: ERPNext Payment Entry</span>
+        <span className="text-[11px] text-slate-400">Single Source of Truth: Verified Payment Entries</span>
       </div>
 
       {/* Payment Detail Slide-Over Drawer */}

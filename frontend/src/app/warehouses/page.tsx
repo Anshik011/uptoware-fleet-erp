@@ -38,7 +38,7 @@ export default function WarehousesPage() {
         setItems(itemsJson.items || []);
       }
     } catch (err: any) {
-      setError(err.message || 'Error communicating with ERPNext');
+      setError(err.message || 'Error communicating with warehouse registry');
     } finally {
       setIsLoading(false);
     }

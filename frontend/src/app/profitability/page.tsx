@@ -242,7 +242,7 @@ export default function ProfitabilityPage() {
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
               <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-800">Customer Commercial Exposure</span>
-                <span className="text-xs text-slate-500">Source: ERPNext Sales Invoice & Payment Entry</span>
+                <span className="text-xs text-slate-500">Source: Audited Sales Invoices & Payment Receipts</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
@@ -318,7 +318,7 @@ export default function ProfitabilityPage() {
                     Σ base_grand_total of submitted Sales Invoices (docstatus = 1) - Credit Notes
                   </code>
                   <p className="text-slate-500 text-[11px] pt-1">
-                    Recognized strictly through legal tax invoices submitted in ERPNext. Operational trip estimates are never treated as accounting revenue.
+                    Recognized strictly through verified tax invoices submitted to the accounting ledger. Operational trip estimates are never treated as accounting revenue.
                   </p>
                 </div>
 

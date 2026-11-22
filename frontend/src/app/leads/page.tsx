@@ -277,7 +277,7 @@ function LeadsContent() {
               <Compass className="w-4 h-4 text-blue-600" />
             </div>
             <div className="text-2xl font-bold text-slate-900">{totalCorridors}</div>
-            <p className="text-[11px] text-slate-400 mt-1">Configured haulage routes in ERPNext</p>
+            <p className="text-[11px] text-slate-400 mt-1">Configured commercial haulage routes</p>
           </div>
 
           <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">

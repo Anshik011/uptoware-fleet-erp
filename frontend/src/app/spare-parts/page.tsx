@@ -99,7 +99,7 @@ function SparePartsContent() {
       setItems(json.items || []);
       if (json.metrics) setMetrics(json.metrics);
     } catch (err: any) {
-      setError(err.message || 'Error communicating with ERPNext');
+      setError(err.message || 'Error communicating with inventory server');
     } finally {
       setIsLoading(false);
     }

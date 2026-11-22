@@ -98,7 +98,7 @@ function PurchasesContent() {
       setOrders(json.orders || []);
       if (json.metrics) setMetrics(json.metrics);
     } catch (err: any) {
-      setError(err.message || 'Error communicating with ERPNext');
+      setError(err.message || 'Error communicating with procurement server');
     } finally {
       setIsLoading(false);
     }

@@ -78,7 +78,7 @@ export default function StockMovementsPage() {
 
       setMovements(json.movements || []);
     } catch (err: any) {
-      setError(err.message || 'Error communicating with ERPNext');
+      setError(err.message || 'Error communicating with stock ledger');
     } finally {
       setIsLoading(false);
     }

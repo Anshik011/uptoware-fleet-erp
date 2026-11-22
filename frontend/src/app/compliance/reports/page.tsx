@@ -62,7 +62,7 @@ export default function ComplianceReportsPage() {
                 Statutory Compliance & Insurance Reports
               </h1>
               <p className="text-sm text-slate-500">
-                7 native ERPNext Script Reports with parameter binding, live audit visibility, and CSV export
+                7 authoritative Statutory Compliance Reports with parameter binding, live audit visibility, and CSV export
               </p>
             </div>
           </div>

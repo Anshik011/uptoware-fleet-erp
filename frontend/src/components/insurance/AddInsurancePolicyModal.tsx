@@ -186,7 +186,7 @@ export function AddInsurancePolicyModal({
               </div>
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Register Insurance Policy</h2>
-                <p className="text-xs text-slate-500">Record a new vehicle commercial insurance policy in ERPNext</p>
+                <p className="text-xs text-slate-500">Record a new vehicle commercial insurance policy</p>
               </div>
             </div>
             <button
@@ -432,7 +432,7 @@ export function AddInsurancePolicyModal({
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Attach or provide the Frappe File URL for the digital certificate.
+                  Attach or provide the digital document URL for the certificate.
                 </p>
               </div>
 

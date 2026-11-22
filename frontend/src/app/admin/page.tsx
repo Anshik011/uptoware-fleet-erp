@@ -255,7 +255,7 @@ function AdminContent() {
                   <span>Authorized User Directory</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Synchronized live from Frappe <code className="text-slate-700">tabUser</code> and <code className="text-slate-700">tabHas Role</code>.
+                  Synchronized live from system access directory and user role definitions.
                 </p>
               </div>
 
@@ -367,7 +367,7 @@ function AdminContent() {
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search DocType..."
+                    placeholder="Search Module..."
                     value={permSearch}
                     onChange={(e) => setPermSearch(e.target.value)}
                     className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600"
@@ -380,7 +380,7 @@ function AdminContent() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/75 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    <th className="py-3 px-4">Target DocType</th>
+                    <th className="py-3 px-4">Target Module</th>
                     <th className="py-3 px-4">Role</th>
                     <th className="py-3 px-4 text-center">Read</th>
                     <th className="py-3 px-4 text-center">Write</th>
@@ -459,7 +459,7 @@ function AdminContent() {
                   <span>Fleet Operational Thresholds & Governance</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Authoritative parameters persisted into ERPNext <code className="text-slate-700">Fleet Settings</code> single DocType.
+                  Authoritative parameters persisted into system <code className="text-slate-700">Fleet Settings</code>.
                 </p>
               </div>
 
@@ -523,7 +523,7 @@ function AdminContent() {
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 disabled:opacity-60"
                 />
                 <span className="text-[11px] text-slate-400 mt-1 block">
-                  Default Frappe user role for system trigger notifications.
+                  Default system user role for alert and trigger notifications.
                 </span>
               </div>
 
@@ -744,7 +744,7 @@ function AdminContent() {
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Frappe ERPNext
+                    Uptoware Core Service
                   </span>
                   <span
                     className={`w-2.5 h-2.5 rounded-full ${
@@ -770,7 +770,7 @@ function AdminContent() {
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50"></span>
                 </div>
                 <div className="text-lg font-bold text-slate-900 mt-2">Connected</div>
-                <div className="text-xs text-slate-400 mt-1">Container erpnext-db-1</div>
+                <div className="text-xs text-slate-400 mt-1">Database Cluster Instance</div>
               </div>
 
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
@@ -805,7 +805,7 @@ function AdminContent() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     <tr>
-                      <td className="py-3 px-3 font-semibold text-slate-900">ERPNext Desk & RPC</td>
+                      <td className="py-3 px-3 font-semibold text-slate-900">Core RPC & App Engine</td>
                       <td className="py-3 px-3 font-mono text-slate-600">http://localhost:8080</td>
                       <td className="py-3 px-3 text-slate-500">REST / JSON-RPC</td>
                       <td className="py-3 px-3">

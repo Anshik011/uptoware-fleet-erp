@@ -81,7 +81,7 @@ export function InvoiceDetailDrawer({ invoiceId, onClose, onRecordPayment }: Inv
           {loading && (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400">
               <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-2" />
-              <p className="text-xs">Loading invoice records from ERPNext...</p>
+              <p className="text-xs">Loading invoice records...</p>
             </div>
           )}
 

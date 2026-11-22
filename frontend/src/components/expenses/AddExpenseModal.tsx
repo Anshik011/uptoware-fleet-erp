@@ -562,7 +562,7 @@ export function AddExpenseModal({
         </form>
       </div>
 
-      {/* Contextual ERPNext-Style Linked Modals & Drawers */}
+      {/* Contextual Linked Modals & Drawers */}
       <AddVehicleModal
         isOpen={showAddVehicle}
         onClose={() => setShowAddVehicle(false)}

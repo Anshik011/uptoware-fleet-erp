@@ -249,7 +249,7 @@ export function CreatePurchaseOrderModal({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to create purchase order in ERPNext');
+        throw new Error(data.error || 'Failed to create purchase order');
       }
 
       onSuccess();
@@ -274,7 +274,7 @@ export function CreatePurchaseOrderModal({
               <div>
                 <h3 className="text-lg font-bold text-slate-900">New Purchase Order</h3>
                 <p className="text-xs text-slate-500">
-                  Raise an official procurement order in ERPNext with linked master records
+                  Raise an official procurement order with linked master records
                 </p>
               </div>
             </div>

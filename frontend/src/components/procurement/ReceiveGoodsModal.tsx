@@ -50,7 +50,7 @@ export function ReceiveGoodsModal({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to generate Purchase Receipt in ERPNext.');
+        throw new Error(data.error || 'Failed to generate Purchase Receipt.');
       }
 
       onSuccess();
@@ -175,7 +175,7 @@ export function ReceiveGoodsModal({
             <div>
               <p className="font-semibold mb-0.5">Operational Stock Impact</p>
               <p className="text-amber-800 text-[11px] leading-relaxed">
-                Confirming will create and submit an official Purchase Receipt in ERPNext, increment physical stock balances in warehouse <span className="font-mono font-medium">{primaryWarehouse}</span>, and update this Purchase Order’s receipt percentage to 100%.
+                Confirming will create and submit an official Purchase Receipt, increment physical stock balances in warehouse <span className="font-mono font-medium">{primaryWarehouse}</span>, and update this Purchase Order’s receipt percentage to 100%.
               </p>
             </div>
           </div>

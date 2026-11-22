@@ -102,7 +102,7 @@ export function AddSparePartModal({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to create spare part in ERPNext');
+        throw new Error(data.error || 'Failed to register spare part');
       }
 
       onSuccess();
@@ -127,7 +127,7 @@ export function AddSparePartModal({
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Add Spare Part</h3>
                 <p className="text-xs text-slate-500">
-                  Register a new inventory spare part in ERPNext
+                  Register a new fleet inventory item
                 </p>
               </div>
             </div>

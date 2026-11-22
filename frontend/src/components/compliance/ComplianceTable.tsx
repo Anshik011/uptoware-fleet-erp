@@ -228,7 +228,7 @@ export function ComplianceTable({
               <tr>
                 <td colSpan={8} className="py-12 text-center text-slate-400">
                   <div className="inline-block w-6 h-6 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin mb-2" />
-                  <p className="text-xs">Loading statutory compliance registers from ERPNext...</p>
+                  <p className="text-xs">Loading statutory compliance registers...</p>
                 </td>
               </tr>
             ) : paginated.length === 0 ? (

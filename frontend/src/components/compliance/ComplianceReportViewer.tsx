@@ -160,7 +160,7 @@ export function ComplianceReportViewer({
           <div className="flex-1 max-w-xl">
             <div className="flex items-center gap-2 mb-1.5">
               <label className="block text-xs font-semibold text-slate-700">
-                Select Native ERPNext Compliance Report (7 Available)
+                Select Statutory Compliance Report (7 Available)
               </label>
               {activeMine && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -340,7 +340,7 @@ export function ComplianceReportViewer({
                     className="py-12 text-center text-slate-400"
                   >
                     <div className="inline-block w-6 h-6 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin mb-2" />
-                    <p className="text-xs">Executing Frappe RPC query report...</p>
+                    <p className="text-xs">Executing compliance report query...</p>
                   </td>
                 </tr>
               ) : !reportResult || reportResult.result.length === 0 ? (

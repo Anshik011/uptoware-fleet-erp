@@ -557,7 +557,7 @@ export default function AlertsPage() {
                           )}
                           {alert.sourceDoctype && (
                             <span className="text-slate-400 text-[11px]">
-                              Ref: {alert.sourceDoctype}
+                              Ref: {alert.sourceDoctype.replace(/_/g, ' ')}
                             </span>
                           )}
                           <span className="flex items-center gap-1 text-slate-400">
