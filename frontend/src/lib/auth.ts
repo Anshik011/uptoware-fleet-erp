@@ -365,7 +365,7 @@ export async function getAuthenticatedUser(
     };
   }
 
-  if (sid === 'local-demo-session' || process.env.LOCAL_DEMO_MODE === 'true') {
+  if (sid === 'local-demo-session') {
     return {
       user: {
         id: 'demo.admin@uptoware.com',
