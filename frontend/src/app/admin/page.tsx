@@ -12,7 +12,6 @@ import {
   SystemHealthStatus,
 } from '@/types/fleet';
 import {
-  Settings,
   Users,
   ShieldCheck,
   Activity,
@@ -21,12 +20,8 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
-  XCircle,
   Save,
   Lock,
-  Server,
-  Database,
-  Cpu,
   Globe,
   Sliders,
   Check,
