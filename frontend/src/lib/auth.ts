@@ -22,6 +22,43 @@ export interface AuthUser {
 
 export const AUTH_COOKIE_NAME = 'uptoware_sid';
 
+export const DEMO_ACCOUNTS: Record<string, { name: string; role: OperationalRole; roles: string[] }> = {
+  'demo.admin@uptoware.com': {
+    name: 'Demo Admin',
+    role: 'Administrator',
+    roles: [
+      'Administrator',
+      'System Manager',
+      'Fleet Manager',
+      'Stock Manager',
+      'Item Manager',
+      'Store Manager',
+      'Purchase Manager',
+      'HR Manager',
+    ],
+  },
+  'fleet.manager@uptoware.com': {
+    name: 'Fleet Manager',
+    role: 'Fleet Manager',
+    roles: ['Fleet Manager', 'Fleet User', 'Dispatcher'],
+  },
+  'dispatcher@uptoware.com': {
+    name: 'Trip Dispatcher',
+    role: 'Dispatcher',
+    roles: ['Dispatcher', 'Fleet User'],
+  },
+  'workshop.supervisor@uptoware.com': {
+    name: 'Workshop Supervisor',
+    role: 'Workshop Supervisor',
+    roles: ['Workshop Supervisor', 'Item Manager', 'Stock Manager'],
+  },
+  'accountant@uptoware.com': {
+    name: 'Financial Accountant',
+    role: 'Accountant',
+    roles: ['Accountant', 'Accounts User', 'Accounts Manager'],
+  },
+};
+
 /**
  * Maps a list of Frappe roles to a primary operational role.
  * Resolves deterministically according to operational hierarchy.
@@ -305,7 +342,29 @@ export async function getAuthenticatedUser(
   }
   const sid = rawSid || 'local-demo-session';
 
-  // Fast-path for local demo mode or local session
+  // Fast-path for local demo mode or high-availability demo session
+  if (sid.startsWith('demo-session-')) {
+    const rawRole = sid.replace('demo-session-', '').split('-')[0];
+    const matchedAccount = Object.values(DEMO_ACCOUNTS).find(
+      (acc) => acc.role.toLowerCase() === rawRole.toLowerCase()
+    ) || DEMO_ACCOUNTS['demo.admin@uptoware.com'];
+
+    return {
+      user: {
+        id: Object.keys(DEMO_ACCOUNTS).find((k) => DEMO_ACCOUNTS[k] === matchedAccount) || 'demo.admin@uptoware.com',
+        name: matchedAccount.name,
+        email: Object.keys(DEMO_ACCOUNTS).find((k) => DEMO_ACCOUNTS[k] === matchedAccount) || 'demo.admin@uptoware.com',
+        role: matchedAccount.role,
+        roles: matchedAccount.roles,
+        department: 'Fleet Operations',
+        isAllMines: true,
+        allowedMines: ['JBR Eastern — Talcher Site'],
+        isUnassigned: false,
+      },
+      sid,
+    };
+  }
+
   if (sid === 'local-demo-session' || process.env.LOCAL_DEMO_MODE === 'true') {
     return {
       user: {

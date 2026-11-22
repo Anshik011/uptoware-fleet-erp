@@ -102,16 +102,9 @@ export function middleware(request: NextRequest) {
     rawSid !== 'undefined'
   );
 
-  // 3. Handle /login page access
+  // 3. Handle /login page access - ALWAYS allow the login page to render cleanly
+  // Never redirect from /login to / to guarantee zero infinite redirect loops or browser aborts
   if (pathname === '/login') {
-    // Only redirect to / if a valid session cookie exists AND user was not explicitly redirected to login
-    // This prevents infinite redirect loops when a stale or expired cookie exists in the client browser
-    const hasRedirectParam = request.nextUrl.searchParams.has('redirect');
-    if (hasSessionCookie && !hasRedirectParam) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/';
-      return NextResponse.redirect(url);
-    }
     return NextResponse.next();
   }
 

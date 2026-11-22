@@ -65,13 +65,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await res.text().catch(() => {});
       }
 
-      // If unauthenticated or expired
+      // If unauthenticated or expired, self-heal by purging stale browser cookies
+      if (typeof document !== 'undefined') {
+        document.cookie = 'uptoware_sid=; Max-Age=0; path=/;';
+        document.cookie = 'sid=; Max-Age=0; path=/;';
+      }
       setUser(null);
       if (pathname !== '/login') {
         router.push('/login');
       }
     } catch (err) {
-      console.error('Session verification error:', err);
+      console.warn('Session verification notice:', err);
+      if (typeof document !== 'undefined') {
+        document.cookie = 'uptoware_sid=; Max-Age=0; path=/;';
+        document.cookie = 'sid=; Max-Age=0; path=/;';
+      }
       setUser(null);
       if (pathname !== '/login') {
         router.push('/login');
