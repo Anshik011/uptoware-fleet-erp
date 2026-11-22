@@ -257,7 +257,21 @@ export async function handleLocalDemoRequest(endpoint: string, options: any = {}
     return { data: store.expenses };
   }
 
-  // 13. Query Reports fallback
+  // 13. Designations
+  if (decoded.includes('/api/resource/Designation') || decoded.includes('doctype=Designation')) {
+    if (method === 'POST') {
+      const desigName = (body.designation_name || body.name || '').trim();
+      if (desigName && !store.designations.includes(desigName)) {
+        store.designations.push(desigName);
+        localStore.save(store);
+      }
+      return { data: { name: desigName, designation_name: desigName } };
+    }
+    const desigList = (store.designations || []).map((d: string) => ({ name: d, designation_name: d }));
+    return { data: desigList };
+  }
+
+  // 14. Query Reports fallback
   if (decoded.includes('query_report.run')) {
     return { message: { columns: [], result: [] } };
   }

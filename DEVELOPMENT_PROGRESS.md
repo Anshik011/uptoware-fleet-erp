@@ -16709,3 +16709,46 @@ During comprehensive inspection of user-facing UI copy, several instances of bac
 
 
 
+
+---
+
+## 🚀 Module 44: Dynamic Database-Driven Designations, UI Field Swaps & Client Bug Fixes
+
+### 1. Dynamic Database-Driven Designations (No Hardcoded Lists)
+- **Elimination of Hardcoding:**
+  - Removed static in-memory `CLIENT_DESIGNATIONS` array from `frontend/src/app/employees/page.tsx`.
+  - Added new REST API endpoint: `frontend/src/app/api/designations/route.ts` supporting:
+    - `GET /api/designations`: Retrieves all live designations from Frappe `tabDesignation` (or local sandbox store).
+    - `POST /api/designations`: Creates new custom designations directly in Frappe `tabDesignation` (or local sandbox store), ensuring they persist permanently in the database and are instantly available to all users.
+  - Added `getDesignations(sessionCookie)` and `createDesignation(sessionCookie, name)` in `frontend/src/lib/frappe.ts`.
+  - Added native Frappe auto-creation retry logic inside `createEmployee` so any unmapped designation is created in `tabDesignation` before employee insertion, eliminating Frappe `Could not find Designation: ...` validation errors forever.
+  - Added `designations` array handling in `localStore.ts` and `localDemoHandler.ts` for offline sandbox testing.
+
+### 2. UI Field Swap in Add Employee Profile Modal
+- **Field Reordering:**
+  - In `frontend/src/app/employees/page.tsx`, swapped the positions of **Designation** and **Social Category** as instructed:
+    - **Social Category** (General / OBC / SC / ST) moved to the **Personal & Statutory Identity** card (adjacent to Mobile Number).
+    - **Designation** moved to the **Mine Operations & Daily Wage** card (adjacent to Department).
+  - Users can now select from dynamic database designations or click `+ New` / `+ Add Custom Designation...` to add and persist custom designations on the fly.
+
+### 3. Spare Parts & Stock Permission Fix
+- **Issue:** `User demo.admin@uptoware.com does not have doctype access via role permission for document Item`.
+- **Root Cause & Fix:**
+  - Production user `demo.admin@uptoware.com` lacked `Stock User`, `Stock Manager`, `Item Manager`, and `System Manager` roles on Frappe.
+  - Assigned complete stock and item management roles to `demo.admin@uptoware.com` on the production backend and cleared the Frappe user permission cache.
+
+### 4. Purchase Order Vehicle Number Selection
+- **Refinement:**
+  - In `CreatePurchaseOrderModal.tsx`, verified and updated the `Vehicle Number (Optional)` selector to cleanly display vehicle registration numbers with fallback to ID, allowing procurement orders to be tied directly to specific fleet vehicles.
+
+### 5. Attendance Matrix Filtering & Date-Wise Summary
+- **Transport Vehicles Filter:**
+  - Hardened the vehicle matrix attendance filter in `frontend/src/app/employees/page.tsx` to strictly include only transport vehicles (`t !== 'non transport' && !t.includes('non')`).
+- **Other Staff Matrix Filter:**
+  - Filtered out `Driver` and `P/L Opt` personnel from the "Other Staff (Shift Matrix)" tab so non-driver staff can be marked independently.
+- **Attendance Summary Footer:**
+  - Verified and locked the date-wise attendance summary total row in the table footer (`<tfoot>`), calculating day-by-day present totals across all registered workforce personnel.
+
+### 6. Production Cleanliness & Local Isolation Verification
+- **Production Status:** `https://fleet.uptoware.com` database verified clean with 0 operational records.
+- **Local Sandbox:** Complete 1-record-per-module sandbox verified running locally on port 3001 with zero network calls to production.

@@ -21,9 +21,29 @@ export interface LocalStoreData {
   purchaseOrders: any[];
   breakdowns: any[];
   expenses: any[];
+  designations: string[];
 }
 
 const DEFAULT_STORE: LocalStoreData = {
+  designations: [
+    'Driver',
+    'P/L Opt',
+    'Garage Supervisor',
+    'Mines Supervisor',
+    'Challan Supervisor',
+    'Receiver Supervisor',
+    'Billing Supervisor',
+    'Mechanical',
+    'Welding Mechanical',
+    'Asst. Mechanical',
+    'Helper',
+    'Clerk',
+    'Data Entry Operator',
+    'Office Boy',
+    'Security',
+    'Accountant',
+    'Fleet Manager',
+  ],
   vehicles: [
     {
       id: 'OD-35-LOCAL-001',
@@ -259,7 +279,12 @@ function ensureDataFile(): LocalStoreData {
       return DEFAULT_STORE;
     }
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!parsed.designations || !Array.isArray(parsed.designations) || parsed.designations.length === 0) {
+      parsed.designations = DEFAULT_STORE.designations;
+      saveDataFile(parsed);
+    }
+    return parsed;
   } catch {
     return DEFAULT_STORE;
   }

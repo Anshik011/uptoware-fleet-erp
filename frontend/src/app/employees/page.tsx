@@ -87,26 +87,79 @@ function EmployeesContent() {
   const [cellNumber, setCellNumber] = useState('');
   const [companyEmail, setCompanyEmail] = useState('');
   const [department, setDepartment] = useState('Operations');
-  const CLIENT_DESIGNATIONS = useMemo(() => [
-    'Driver',
-    'P/L Opt',
-    'Garage Supervisor',
-    'Mines Supervisor',
-    'Challan Supervisor',
-    'Receiver Supervisor',
-    'Billing Supervisor',
-    'Mechanical',
-    'Welding Mechanical',
-    'Asst. Mechanical',
-    'Helper',
-    'Clerk',
-    'Data Entry Operator',
-    'Office Boy',
-    'Security',
-  ], []);
+  const [designations, setDesignations] = useState<string[]>([]);
   const [designation, setDesignation] = useState('Driver');
   const [isCustomDesignation, setIsCustomDesignation] = useState(false);
   const [customDesignation, setCustomDesignation] = useState('');
+
+  const fetchDesignations = useCallback(async () => {
+    try {
+      const res = await fetch('/api/designations');
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data) && json.data.length > 0) {
+        setDesignations(json.data);
+        if (!designation) setDesignation(json.data[0]);
+      } else {
+        setDesignations([
+          'Driver',
+          'P/L Opt',
+          'Garage Supervisor',
+          'Mines Supervisor',
+          'Challan Supervisor',
+          'Receiver Supervisor',
+          'Billing Supervisor',
+          'Mechanical',
+          'Welding Mechanical',
+          'Asst. Mechanical',
+          'Helper',
+          'Clerk',
+          'Data Entry Operator',
+          'Office Boy',
+          'Security',
+        ]);
+      }
+    } catch {
+      setDesignations([
+        'Driver',
+        'P/L Opt',
+        'Garage Supervisor',
+        'Mines Supervisor',
+        'Challan Supervisor',
+        'Receiver Supervisor',
+        'Billing Supervisor',
+        'Mechanical',
+        'Welding Mechanical',
+        'Asst. Mechanical',
+        'Helper',
+        'Clerk',
+        'Data Entry Operator',
+        'Office Boy',
+        'Security',
+      ]);
+    }
+  }, [designation]);
+
+  useEffect(() => {
+    fetchDesignations();
+  }, [fetchDesignations]);
+
+  const handleAddNewDesignation = async (newDesig: string) => {
+    const trimmed = newDesig.trim();
+    if (!trimmed) return;
+    try {
+      await fetch('/api/designations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      setDesignations((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+      setDesignation(trimmed);
+      setIsCustomDesignation(false);
+      setCustomDesignation('');
+    } catch (err) {
+      console.error('Failed to save designation:', err);
+    }
+  };
   const [selectedMine, setSelectedMine] = useState('JBR Eastern — Talcher Site');
   const [assignedVehicle, setAssignedVehicle] = useState('');
   const [dailySalary, setDailySalary] = useState('850');
@@ -390,6 +443,13 @@ function EmployeesContent() {
     try {
       setIsSubmitting(true);
       const finalDesig = isCustomDesignation ? customDesignation.trim() : designation.trim();
+      if (finalDesig) {
+        fetch('/api/designations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: finalDesig }),
+        }).catch(() => {});
+      }
       const res = await fetch('/api/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -954,9 +1014,10 @@ function EmployeesContent() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {(() => {
-                        const transportVehicles = vehicles.filter(
-                          (v) => (v.customTransportType || 'Transport') !== 'Non Transport'
-                        );
+                        const transportVehicles = vehicles.filter((v) => {
+                          const t = (v.customTransportType || v.custom_transport_type || v.transportType || 'Transport').trim().toLowerCase();
+                          return t !== 'non transport' && !t.includes('non');
+                        });
                         if (transportVehicles.length === 0) {
                           return (
                             <tr>
@@ -1665,65 +1726,19 @@ function EmployeesContent() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                          Designation <span className="text-rose-500">*</span>
-                        </label>
-                        {!isCustomDesignation ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsCustomDesignation(true);
-                              setCustomDesignation('');
-                            }}
-                            className="text-[10px] text-blue-700 hover:text-blue-900 font-semibold"
-                          >
-                            + New
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsCustomDesignation(false);
-                              setDesignation('Driver');
-                            }}
-                            className="text-[10px] text-slate-500 hover:text-slate-700"
-                          >
-                            Choose List
-                          </button>
-                        )}
-                      </div>
-                      {!isCustomDesignation ? (
-                        <select
-                          value={designation}
-                          onChange={(e) => {
-                            if (e.target.value === '__CUSTOM__') {
-                              setIsCustomDesignation(true);
-                              setCustomDesignation('');
-                            } else {
-                              setDesignation(e.target.value);
-                            }
-                          }}
-                          className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
-                        >
-                          {CLIENT_DESIGNATIONS.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                          <option value="__CUSTOM__">+ Add Custom Designation...</option>
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          value={customDesignation}
-                          onChange={(e) => setCustomDesignation(e.target.value)}
-                          placeholder="e.g. Weighbridge Incharge"
-                          className="w-full text-xs px-3 py-2 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-blue-50/40 font-medium"
-                          autoFocus
-                          required
-                        />
-                      )}
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Social Category
+                      </label>
+                      <select
+                        value={socialCategory}
+                        onChange={(e) => setSocialCategory(e.target.value as any)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                      >
+                        <option value="GENERAL">GENERAL</option>
+                        <option value="OBC">OBC</option>
+                        <option value="SC">SC</option>
+                        <option value="ST">ST</option>
+                      </select>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
@@ -1969,19 +1984,78 @@ function EmployeesContent() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                        Social Category
-                      </label>
-                      <select
-                        value={socialCategory}
-                        onChange={(e) => setSocialCategory(e.target.value as any)}
-                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
-                      >
-                        <option value="GENERAL">GENERAL</option>
-                        <option value="OBC">OBC</option>
-                        <option value="SC">SC</option>
-                        <option value="ST">ST</option>
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                          Designation <span className="text-rose-500">*</span>
+                        </label>
+                        {!isCustomDesignation ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomDesignation(true);
+                              setCustomDesignation('');
+                            }}
+                            className="text-[10px] text-blue-700 hover:text-blue-900 font-semibold"
+                          >
+                            + New
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomDesignation(false);
+                            }}
+                            className="text-[10px] text-slate-500 hover:text-slate-700"
+                          >
+                            Choose List
+                          </button>
+                        )}
+                      </div>
+                      {!isCustomDesignation ? (
+                        <select
+                          value={designation}
+                          onChange={(e) => {
+                            if (e.target.value === '__CUSTOM__') {
+                              setIsCustomDesignation(true);
+                              setCustomDesignation('');
+                            } else {
+                              setDesignation(e.target.value);
+                            }
+                          }}
+                          className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                        >
+                          {designations.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                          <option value="__CUSTOM__">+ Add Custom Designation...</option>
+                        </select>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={customDesignation}
+                            onChange={(e) => setCustomDesignation(e.target.value)}
+                            placeholder="e.g. Weighbridge Incharge"
+                            className="flex-1 text-xs px-3 py-2 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-blue-50/40 font-medium"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddNewDesignation(customDesignation);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAddNewDesignation(customDesignation)}
+                            className="px-2.5 py-2 bg-blue-900 text-white rounded-lg text-xs font-semibold hover:bg-blue-800"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 

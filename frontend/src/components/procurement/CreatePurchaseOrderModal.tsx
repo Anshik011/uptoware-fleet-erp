@@ -330,7 +330,7 @@ export function CreatePurchaseOrderModal({
                 label="Vehicle Number (Optional)"
                 value={selectedVehicle}
                 onChange={setSelectedVehicle}
-                options={localVehicles.map((v) => ({ value: v.id, label: v.licensePlate }))}
+                options={localVehicles.map((v: any) => ({ value: v.id || v.name, label: v.licensePlate || v.name || v.id }))}
                 entityName="Vehicle"
                 placeholder="Select vehicle number..."
                 onCreateNew={() => setShowAddVehicleModal(true)}
