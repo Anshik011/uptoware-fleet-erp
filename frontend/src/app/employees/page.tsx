@@ -96,46 +96,14 @@ function EmployeesContent() {
     try {
       const res = await fetch('/api/designations');
       const json = await res.json();
-      if (res.ok && json.success && Array.isArray(json.data) && json.data.length > 0) {
+      if (res.ok && json.success && Array.isArray(json.data)) {
         setDesignations(json.data);
-        if (!designation) setDesignation(json.data[0]);
+        if (!designation && json.data.length > 0) setDesignation(json.data[0]);
       } else {
-        setDesignations([
-          'Driver',
-          'P/L Opt',
-          'Garage Supervisor',
-          'Mines Supervisor',
-          'Challan Supervisor',
-          'Receiver Supervisor',
-          'Billing Supervisor',
-          'Mechanical',
-          'Welding Mechanical',
-          'Asst. Mechanical',
-          'Helper',
-          'Clerk',
-          'Data Entry Operator',
-          'Office Boy',
-          'Security',
-        ]);
+        setDesignations([]);
       }
     } catch {
-      setDesignations([
-        'Driver',
-        'P/L Opt',
-        'Garage Supervisor',
-        'Mines Supervisor',
-        'Challan Supervisor',
-        'Receiver Supervisor',
-        'Billing Supervisor',
-        'Mechanical',
-        'Welding Mechanical',
-        'Asst. Mechanical',
-        'Helper',
-        'Clerk',
-        'Data Entry Operator',
-        'Office Boy',
-        'Security',
-      ]);
+      setDesignations([]);
     }
   }, [designation]);
 
@@ -1726,19 +1694,81 @@ function EmployeesContent() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                        Social Category
-                      </label>
-                      <select
-                        value={socialCategory}
-                        onChange={(e) => setSocialCategory(e.target.value as any)}
-                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
-                      >
-                        <option value="GENERAL">GENERAL</option>
-                        <option value="OBC">OBC</option>
-                        <option value="SC">SC</option>
-                        <option value="ST">ST</option>
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                          Designation <span className="text-rose-500">*</span>
+                        </label>
+                        {!isCustomDesignation ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomDesignation(true);
+                              setCustomDesignation('');
+                            }}
+                            className="text-[10px] text-blue-700 hover:text-blue-900 font-semibold"
+                          >
+                            + New
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomDesignation(false);
+                            }}
+                            className="text-[10px] text-slate-500 hover:text-slate-700"
+                          >
+                            Choose List
+                          </button>
+                        )}
+                      </div>
+                      {!isCustomDesignation ? (
+                        <select
+                          value={designation}
+                          onChange={(e) => {
+                            if (e.target.value === '__CUSTOM__') {
+                              setIsCustomDesignation(true);
+                              setCustomDesignation('');
+                            } else {
+                              setDesignation(e.target.value);
+                            }
+                          }}
+                          className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                        >
+                          {designations.length === 0 && (
+                            <option value="">-- No designations in master (Click + New) --</option>
+                          )}
+                          {designations.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                          <option value="__CUSTOM__">+ Add Custom Designation...</option>
+                        </select>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={customDesignation}
+                            onChange={(e) => setCustomDesignation(e.target.value)}
+                            placeholder="e.g. Weighbridge Incharge"
+                            className="flex-1 text-xs px-3 py-2 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-blue-50/40 font-medium"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddNewDesignation(customDesignation);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAddNewDesignation(customDesignation)}
+                            className="px-2.5 py-2 bg-blue-900 text-white rounded-lg text-xs font-semibold hover:bg-blue-800"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
@@ -1984,78 +2014,19 @@ function EmployeesContent() {
                       />
                     </div>
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                          Designation <span className="text-rose-500">*</span>
-                        </label>
-                        {!isCustomDesignation ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsCustomDesignation(true);
-                              setCustomDesignation('');
-                            }}
-                            className="text-[10px] text-blue-700 hover:text-blue-900 font-semibold"
-                          >
-                            + New
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsCustomDesignation(false);
-                            }}
-                            className="text-[10px] text-slate-500 hover:text-slate-700"
-                          >
-                            Choose List
-                          </button>
-                        )}
-                      </div>
-                      {!isCustomDesignation ? (
-                        <select
-                          value={designation}
-                          onChange={(e) => {
-                            if (e.target.value === '__CUSTOM__') {
-                              setIsCustomDesignation(true);
-                              setCustomDesignation('');
-                            } else {
-                              setDesignation(e.target.value);
-                            }
-                          }}
-                          className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
-                        >
-                          {designations.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                          <option value="__CUSTOM__">+ Add Custom Designation...</option>
-                        </select>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            value={customDesignation}
-                            onChange={(e) => setCustomDesignation(e.target.value)}
-                            placeholder="e.g. Weighbridge Incharge"
-                            className="flex-1 text-xs px-3 py-2 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-blue-50/40 font-medium"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleAddNewDesignation(customDesignation);
-                              }
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleAddNewDesignation(customDesignation)}
-                            className="px-2.5 py-2 bg-blue-900 text-white rounded-lg text-xs font-semibold hover:bg-blue-800"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      )}
+                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Social Category
+                      </label>
+                      <select
+                        value={socialCategory}
+                        onChange={(e) => setSocialCategory(e.target.value as any)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                      >
+                        <option value="GENERAL">GENERAL</option>
+                        <option value="OBC">OBC</option>
+                        <option value="SC">SC</option>
+                        <option value="ST">ST</option>
+                      </select>
                     </div>
                   </div>
 

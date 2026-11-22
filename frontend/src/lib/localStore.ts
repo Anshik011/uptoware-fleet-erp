@@ -29,22 +29,9 @@ export interface LocalStoreData {
 
 const DEFAULT_STORE: LocalStoreData = {
   designations: [
-    'Driver',
-    'P/L Opt',
-    'Garage Supervisor',
-    'Mines Supervisor',
-    'Challan Supervisor',
-    'Receiver Supervisor',
-    'Billing Supervisor',
-    'Mechanical',
-    'Welding Mechanical',
-    'Asst. Mechanical',
-    'Helper',
     'Clerk',
-    'Data Entry Operator',
-    'Office Boy',
-    'Security',
-    'Accountant',
+    'Driver',
+    'Mines Supervisor',
     'Fleet Manager',
   ],
   vehicles: [

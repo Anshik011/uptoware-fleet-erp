@@ -9882,24 +9882,8 @@ export async function getDesignations(sessionCookie: string): Promise<string[]> 
     const names = list.map((item: any) => item.name || item.designation_name).filter(Boolean);
     return Array.from(new Set(names)) as string[];
   } catch (err) {
-    console.warn('Failed to fetch designations from Frappe, returning defaults:', err);
-    return [
-      'Driver',
-      'P/L Opt',
-      'Garage Supervisor',
-      'Mines Supervisor',
-      'Challan Supervisor',
-      'Receiver Supervisor',
-      'Billing Supervisor',
-      'Mechanical',
-      'Welding Mechanical',
-      'Asst. Mechanical',
-      'Helper',
-      'Clerk',
-      'Data Entry Operator',
-      'Office Boy',
-      'Security',
-    ];
+    console.warn('Failed to fetch designations from Frappe:', err);
+    return [];
   }
 }
 
