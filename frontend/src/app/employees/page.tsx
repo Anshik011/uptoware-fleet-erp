@@ -87,7 +87,26 @@ function EmployeesContent() {
   const [cellNumber, setCellNumber] = useState('');
   const [companyEmail, setCompanyEmail] = useState('');
   const [department, setDepartment] = useState('Operations');
+  const CLIENT_DESIGNATIONS = useMemo(() => [
+    'Driver',
+    'P/L Opt',
+    'Garage Supervisor',
+    'Mines Supervisor',
+    'Challan Supervisor',
+    'Receiver Supervisor',
+    'Billing Supervisor',
+    'Mechanical',
+    'Welding Mechanical',
+    'Asst. Mechanical',
+    'Helper',
+    'Clerk',
+    'Data Entry Operator',
+    'Office Boy',
+    'Security',
+  ], []);
   const [designation, setDesignation] = useState('Driver');
+  const [isCustomDesignation, setIsCustomDesignation] = useState(false);
+  const [customDesignation, setCustomDesignation] = useState('');
   const [selectedMine, setSelectedMine] = useState('JBR Eastern — Talcher Site');
   const [assignedVehicle, setAssignedVehicle] = useState('');
   const [dailySalary, setDailySalary] = useState('850');
@@ -370,6 +389,7 @@ function EmployeesContent() {
 
     try {
       setIsSubmitting(true);
+      const finalDesig = isCustomDesignation ? customDesignation.trim() : designation.trim();
       const res = await fetch('/api/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -379,7 +399,7 @@ function EmployeesContent() {
           cellNumber: cellNumber.trim() || undefined,
           companyEmail: companyEmail.trim() || undefined,
           department: department.trim() || undefined,
-          designation: designation.trim() || undefined,
+          designation: finalDesig || undefined,
           status: 'Active',
           mineSite: selectedMine || undefined,
           assignedVehicle: assignedVehicle.trim() || undefined,
@@ -416,6 +436,9 @@ function EmployeesContent() {
       setIsModalOpen(false);
       setFirstName('');
       setLastName('');
+      setDesignation('Driver');
+      setIsCustomDesignation(false);
+      setCustomDesignation('');
       setCellNumber('');
       setCompanyEmail('');
       setAssignedVehicle('');
@@ -930,14 +953,20 @@ function EmployeesContent() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {vehicles.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="py-8 text-center text-slate-400">
-                            No active vehicles found in master.
-                          </td>
-                        </tr>
-                      ) : (
-                        vehicles.map((veh) => {
+                      {(() => {
+                        const transportVehicles = vehicles.filter(
+                          (v) => (v.customTransportType || 'Transport') !== 'Non Transport'
+                        );
+                        if (transportVehicles.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="py-8 text-center text-slate-400">
+                                No transport vehicles found in master.
+                              </td>
+                            </tr>
+                          );
+                        }
+                        return transportVehicles.map((veh) => {
                           const vPlate = veh.licensePlate || veh.name;
                           const assignedDriverId = veh.assignedDriverId || veh.assignedDriver;
                           const assignedDriverObj = employees.find(
@@ -1055,8 +1084,8 @@ function EmployeesContent() {
                               })}
                             </tr>
                           );
-                        })
-                      )}
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -1093,14 +1122,25 @@ function EmployeesContent() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredEmployees.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="py-8 text-center text-slate-400">
-                            No personnel match current filters.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredEmployees.map((emp) => (
+                      {(() => {
+                        const isDriverOrPlOpt = (desig?: string | null) => {
+                          if (!desig) return false;
+                          const d = desig.toLowerCase().trim();
+                          return d === 'driver' || d === 'p/l opt' || d === 'pl opt' || d.includes('driver') || d.includes('p/l opt');
+                        };
+                        const otherStaffList = filteredEmployees.filter((emp) => !isDriverOrPlOpt(emp.designation));
+
+                        if (otherStaffList.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="py-8 text-center text-slate-400">
+                                No non-driver staff personnel match current filters.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return otherStaffList.map((emp) => (
                           <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3 px-4">
                               <div className="font-semibold text-slate-900">{emp.employeeName}</div>
@@ -1161,8 +1201,8 @@ function EmployeesContent() {
                               );
                             })}
                           </tr>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -1433,6 +1473,38 @@ function EmployeesContent() {
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900 text-xs">
+                          <td colSpan={3} className="py-2.5 px-3 sticky left-0 bg-slate-100 z-10 uppercase tracking-wider text-[11px] text-slate-800 font-bold">
+                            Total Present (Date-Wise)
+                          </td>
+                          {dayNumbers.map((d) => {
+                            const count = filteredSummary.filter((s) => s.dailyStatus?.[d] === 'P').length;
+                            const half = filteredSummary.filter((s) => s.dailyStatus?.[d] === 'HD').length;
+                            const total = count + (half > 0 ? half * 0.5 : 0);
+                            return (
+                              <td key={d} className="py-2 px-1 text-center font-mono text-[11px]">
+                                {total > 0 ? (
+                                  <span className="inline-block px-1 rounded bg-blue-100 text-blue-900 font-bold">
+                                    {total}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 font-normal">0</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold">
+                            {filteredSummary.reduce((acc, s) => acc + (s.presentDays || 0), 0)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-rose-700 font-bold">
+                            {filteredSummary.reduce((acc, s) => acc + (s.absentDays || 0), 0)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-blue-950 font-bold">
+                            ₹{filteredSummary.reduce((acc, s) => acc + (s.totalCalculatedSalary || 0), 0).toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                   <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
@@ -1573,19 +1645,65 @@ function EmployeesContent() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                        Social Category
-                      </label>
-                      <select
-                        value={socialCategory}
-                        onChange={(e) => setSocialCategory(e.target.value as any)}
-                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
-                      >
-                        <option value="GENERAL">GENERAL</option>
-                        <option value="OBC">OBC</option>
-                        <option value="SC">SC</option>
-                        <option value="ST">ST</option>
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                          Designation <span className="text-rose-500">*</span>
+                        </label>
+                        {!isCustomDesignation ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomDesignation(true);
+                              setCustomDesignation('');
+                            }}
+                            className="text-[10px] text-blue-700 hover:text-blue-900 font-semibold"
+                          >
+                            + New
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomDesignation(false);
+                              setDesignation('Driver');
+                            }}
+                            className="text-[10px] text-slate-500 hover:text-slate-700"
+                          >
+                            Choose List
+                          </button>
+                        )}
+                      </div>
+                      {!isCustomDesignation ? (
+                        <select
+                          value={designation}
+                          onChange={(e) => {
+                            if (e.target.value === '__CUSTOM__') {
+                              setIsCustomDesignation(true);
+                              setCustomDesignation('');
+                            } else {
+                              setDesignation(e.target.value);
+                            }
+                          }}
+                          className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                        >
+                          {CLIENT_DESIGNATIONS.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                          <option value="__CUSTOM__">+ Add Custom Designation...</option>
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={customDesignation}
+                          onChange={(e) => setCustomDesignation(e.target.value)}
+                          placeholder="e.g. Weighbridge Incharge"
+                          className="w-full text-xs px-3 py-2 border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-blue-50/40 font-medium"
+                          autoFocus
+                          required
+                        />
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
@@ -1832,14 +1950,18 @@ function EmployeesContent() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                        Designation
+                        Social Category
                       </label>
-                      <input
-                        type="text"
-                        value={designation}
-                        onChange={(e) => setDesignation(e.target.value)}
-                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900"
-                      />
+                      <select
+                        value={socialCategory}
+                        onChange={(e) => setSocialCategory(e.target.value as any)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                      >
+                        <option value="GENERAL">GENERAL</option>
+                        <option value="OBC">OBC</option>
+                        <option value="SC">SC</option>
+                        <option value="ST">ST</option>
+                      </select>
                     </div>
                   </div>
 

@@ -64,6 +64,7 @@
 | **38. Autonomous Multi-Agent Pipeline Certification** | 🟢 Certified Production-Ready | ✅ Tested (13/13 Assertions 100% Pass) | Multi-agent execution across 5 specialized skills: `agency-application-security-engineer` (AppSec/RBAC), `agency-performance-benchmarker` (Latency p50=429ms, p95=801ms, 10-way concurrency), `agency-reality-checker` (Live DB persistence journeys), `agency-ui-finish-gate-reviewer` (Zero inline CSS, 3-tier colors), `agency-minimal-change-engineer` (Schema & code integrity). Zero remaining defects. |
 | **39. Native ERPNext Data Import Integration** | 🟢 Completed & Live | ✅ Tested (End-to-End Live Ingestion Pass) | Full integration with Frappe's native `Data Import` engine (`frappe.core.doctype.data_import`). Enabled `allow_import = 1` across all 8 DocTypes, resolved `Transport Type` field label disambiguation, created dedicated Data Import Hub (`/import`), built official template generator (`/api/import/template`), live upload handler (`/api/import/upload`), status poller (`/api/import/status`), and generated master multi-tab Excel workbook (`Uptoware_Fleet_ERP_Bulk_Import_Template.xlsx`). |
 | **40. Frontend White-Label Branding & Leak Remediation** | 🟢 Completed & Live | ✅ Audited & Tested (96 Replacements, 0 Leaks) | Complete audit and remediation of raw framework terms (`ERPNext`, `Frappe`, `DocType`, internal technical references) across 58 frontend files. Replaced with clean Uptoware Fleet ERP terminology; live verified on production with zero leaks. |
+| **41. Client Operational Refinements & Bug Remediation** | 🟢 Completed & Live | ✅ Tested (6/6 Client Changes Verified) | Addressed 6 specific client operational requests: 1) Item permissions & role provisioning for demo.admin, 2) Universal Vehicle Number selector in Purchase Order modal, 3) 15 Indian Mining Designations seeded + custom designation capability + form placement swap with Social Category, 4) Transport-only vehicle filter in Driver Matrix roster, 5) Drivers & P/L Operators excluded from Other Staff Matrix, 6) Sticky date-wise total summary row in Monthly Attendance & Salary matrix. |
 
 *Status Legend:* ⚪ Pending | 🟡 In Progress | 🟢 Completed | 🔴 Blocked | ⚫ Not Implemented | 📝 Code Reviewed
 
@@ -16538,6 +16539,75 @@ During comprehensive inspection of user-facing UI copy, several instances of bac
 - **Benchmarking & Health Checks:**
   - Dashboard Health Endpoint: `/api/admin/health`
   - Auth Session Validation: `/api/auth/session`
+
+---
+
+## BATCH 20: CLIENT OPERATIONAL REFINEMENTS & LIVE PRODUCTION VERIFICATION
+
+**Execution Date:** 2026-11-22  
+**Status:** Completed & Live on Production  
+**Production URL:** [https://fleet.uptoware.com](https://fleet.uptoware.com)  
+
+### 1. Item Creation Permission Remediation (`Item` DocType)
+- **Problem Statement:** During spare part registration in the UI modal, users encountered the error:
+  `User demo.admin@uptoware.com does not have doctype access via role permission for document Item`.
+- **Root Cause:**
+  - Frappe's `tabCustom DocPerm` for `Item` had `create = 0` and `write = 0` for `Fleet Manager` and `Workshop Supervisor`.
+  - The demonstration user `demo.admin@uptoware.com` was missing inventory roles (`Item Manager`, `Stock Manager`, `Store Manager`).
+- **Remediation Executed:**
+  - Updated Frappe `tabCustom DocPerm` records for `Fleet Manager` and `Workshop Supervisor` granting explicit `create=1, write=1, read=1, report=1` on `Item`.
+  - Added `Item Manager`, `Stock Manager`, and `Store Manager` roles to `demo.admin@uptoware.com` in `tabHas Role`.
+  - Executed `frappe.clear_cache()`.
+  - Verified live runtime insertion of test spare part `TEST-SP-VERIFY-001` with standard valuation rate ₹100, succeeding without permission denial.
+
+### 2. Purchase Order Modal: Universal Vehicle Selection
+- **Problem Statement:** In `New Purchase Order`, the `Vehicle Number` dropdown was hidden when procurement purpose was set to `Spare Parts Replenishment` (only visible for `Vehicle Breakdown` and `Vehicle Maintenance`).
+- **Remediation Executed:**
+  - Updated `frontend/src/components/procurement/CreatePurchaseOrderModal.tsx` to unconditionally display the `Vehicle Number (Optional)` selector across all procurement purposes.
+  - Linked the selected vehicle to Frappe's native `custom_vehicle` field on the `Purchase Order` document.
+
+### 3. Mining Staff Designations & Form Layout Optimization
+- **Problem Statement:**
+  1. Registering staff with designations like `CLERK` failed with: `Could not find Designation: CLERK`.
+  2. Client required 15 specific operational designations: `Driver`, `P/L Opt`, `Garage Supervisor`, `Mines Supervisor`, `Challan Supervisor`, `Receiver Supervisor`, `Billing Supervisor`, `Mechanical`, `Welding Mechanical`, `Asst. Mechanical`, `Helper`, `Clerk`, `Data Entry Operator`, `Office Boy`, `Security`.
+  3. Client needed an option to add custom designations directly from the UI.
+  4. Client requested swapping the positions of `Designation` and `Social Category` in the employee registration modal (moving `Designation` to Section 1 beside Mobile Number, and `Social Category` to Section 5).
+- **Remediation Executed:**
+  - Inserted all 15 client designations into ERPNext `tabDesignation` with matching titles and codes.
+  - Updated `frontend/src/app/employees/page.tsx` with standard `CLIENT_DESIGNATIONS` array and a `+ Add Custom Designation...` toggle enabling custom designation entry.
+  - Swapped positions: placed `Designation` in Section 1 (`Personal & Statutory Identity`) adjacent to `Mobile Number`, and placed `Social Category` in Section 5 (`Mine Operations & Daily Wage Structure`).
+  - Updated `frontend/src/lib/frappe.ts` (`createEmployee`) to automatically verify and create any custom designation in Frappe `tabDesignation` before employee submission, preventing foreign-key validation errors.
+
+### 4. Vehicle Attendance Matrix: Transport Vehicles Only
+- **Problem Statement:** In Daily Attendance Roster (`Driver & Operator (Vehicle Matrix)`), non-transport equipment (e.g. `Tata Motors Prima 3530.K KA-34-QA-1200 Non Transport`) was cluttering the driver allocation grid.
+- **Remediation Executed:**
+  - Filtered the vehicle attendance matrix in `frontend/src/app/employees/page.tsx` so only transport vehicles are displayed:
+    ```typescript
+    v.customTransportType !== 'Non Transport'
+    ```
+  - Non-transport machinery remains cataloged in the fleet directory without cluttering daily driver shift rosters.
+
+### 5. Staff Attendance Matrix: Exclude Drivers & P/L Operators
+- **Problem Statement:** In Daily Attendance Roster (`Other Staff (Shift Matrix)`), drivers and operators (`Driver`, `P/L Opt`) were showing up alongside office and supervisory staff.
+- **Remediation Executed:**
+  - Added filter in `frontend/src/app/employees/page.tsx` on `Other Staff (Shift Matrix)`:
+    ```typescript
+    const isDriverOrPlOpt = (desig?: string | null) => {
+      const d = (desig || '').trim().toLowerCase();
+      return d === 'driver' || d === 'p/l opt' || d === 'pl opt' || d === 'operator' || d === 'p/l operator';
+    };
+    // Filter out drivers and operators from Other Staff view
+    const otherStaff = activeEmployees.filter(emp => !isDriverOrPlOpt(emp.designation));
+    ```
+  - Drivers and P/L Operators are managed exclusively through the vehicle-assigned matrix, eliminating duplicate attendance rows.
+
+### 6. Monthly Attendance Matrix: Date-Wise Total Row
+- **Problem Statement:** In the 1-31 Monthly Attendance & Salary Summary table, there was no aggregate total row showing the total number of present staff on each calendar day.
+- **Remediation Executed:**
+  - Added sticky summary footer (`<tfoot>`) to the 1-31 matrix table in `frontend/src/app/employees/page.tsx`.
+  - For each day from 1 to daysInMonth, calculates the total count of staff marked `P` (Present) or `HD` (Half Day: 0.5 count).
+  - Calculates and renders the grand total present shifts across all staff for the entire month in the final summary columns.
+
 
 
 

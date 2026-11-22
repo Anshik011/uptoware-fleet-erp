@@ -9335,7 +9335,28 @@ export async function createEmployee(
     });
     created = res.message;
   } catch (err: any) {
-    if (err?.message?.includes('Department') || err?.message?.includes('department')) {
+    if (err?.message?.includes('Designation') || err?.message?.includes('designation')) {
+      try {
+        if (payload.designation) {
+          await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
+            method: 'POST',
+            body: JSON.stringify({
+              doc: {
+                doctype: 'Designation',
+                designation_name: payload.designation,
+              },
+            }),
+          });
+        }
+      } catch {
+        // ignore if already created
+      }
+      const retryRes = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
+        method: 'POST',
+        body: JSON.stringify({ doc: payload }),
+      });
+      created = retryRes.message;
+    } else if (err?.message?.includes('Department') || err?.message?.includes('department')) {
       delete (payload as any).department;
       const retryRes = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
         method: 'POST',

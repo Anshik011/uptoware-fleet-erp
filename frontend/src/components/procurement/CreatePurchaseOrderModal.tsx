@@ -325,22 +325,18 @@ export function CreatePurchaseOrderModal({
                 </select>
               </div>
 
-              {/* Vehicle LinkedField (shown if breakdown or maintenance or when selected) */}
-              {(procurementType === 'Vehicle Breakdown' ||
-                procurementType === 'Vehicle Maintenance' ||
-                selectedVehicle) && (
-                <LinkedField
-                  label="Target Fleet Vehicle"
-                  value={selectedVehicle}
-                  onChange={setSelectedVehicle}
-                  options={localVehicles.map((v) => ({ value: v.id, label: v.licensePlate }))}
-                  entityName="Vehicle"
-                  placeholder="Select vehicle requiring parts..."
-                  onCreateNew={() => setShowAddVehicleModal(true)}
-                  onViewRecord={selectedVehicle ? () => setViewVehicleId(selectedVehicle) : undefined}
-                  hint="Commercial transport asset parts are requisitioned for"
-                />
-              )}
+              {/* Target Fleet Vehicle / Vehicle Number */}
+              <LinkedField
+                label="Vehicle Number (Optional)"
+                value={selectedVehicle}
+                onChange={setSelectedVehicle}
+                options={localVehicles.map((v) => ({ value: v.id, label: v.licensePlate }))}
+                entityName="Vehicle"
+                placeholder="Select vehicle number..."
+                onCreateNew={() => setShowAddVehicleModal(true)}
+                onViewRecord={selectedVehicle ? () => setViewVehicleId(selectedVehicle) : undefined}
+                hint="Fleet vehicle parts or services are designated for"
+              />
 
               {/* Vehicle Breakdown Link (if selected) */}
               {procurementType === 'Vehicle Breakdown' && (
