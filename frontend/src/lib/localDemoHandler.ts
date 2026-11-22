@@ -260,6 +260,9 @@ export async function handleLocalDemoRequest(endpoint: string, options: any = {}
       return makeResponse(found);
     }
     if (method === 'POST') {
+      if (!body.driver && !body.assignedDriverId) {
+        throw new Error('Driver is mandatory: A commercial haulage vehicle cannot operate or be dispatched on a trip without an assigned driver. Please select an active driver from the roster.');
+      }
       const tripId = `TRIP-LOCAL-${Date.now().toString().slice(-4)}`;
       const count = Number(body.custom_trip_count || body.tripCount || 1);
       const avg = Number(body.custom_average_tonnage || body.averageTonnage || 35);

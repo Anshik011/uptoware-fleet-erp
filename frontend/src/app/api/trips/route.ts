@@ -179,6 +179,15 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanDriver = (typeof driver === 'string' && driver.trim()) ? driver.trim() : undefined;
+    if (!cleanDriver) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Driver is mandatory: A commercial haulage vehicle cannot be dispatched on a trip without an assigned driver. Please select an active driver from the roster or register a new one.',
+        },
+        { status: 400 }
+      );
+    }
 
     if (!mineSite || typeof mineSite !== 'string' || !mineSite.trim()) {
       return NextResponse.json(

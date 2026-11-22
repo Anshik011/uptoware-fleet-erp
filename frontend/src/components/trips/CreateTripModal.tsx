@@ -207,8 +207,14 @@ export function CreateTripModal({
         const assigned = drivers.find((d) => d.id === selectedVeh.assignedDriverId);
         if (assigned) {
           setDriver(assigned.id);
+        } else {
+          setDriver(selectedVeh.assignedDriverId);
         }
+      } else {
+        setDriver('');
       }
+    } else {
+      setDriver('');
     }
   };
 
@@ -378,6 +384,11 @@ export function CreateTripModal({
       (driver && driver.trim()) ||
       selectedVehicleObj?.assignedDriverId ||
       undefined;
+
+    if (!effectiveDriver) {
+      setError('Driver is mandatory: A commercial haulage vehicle cannot operate or be dispatched on a trip without an assigned driver. Please select an active driver from the roster or register a new one.');
+      return;
+    }
     const effectiveDestination =
       destination.trim() || leadObj?.leadName || 'Mine Delivery Siding';
     const effectiveMaterial =
@@ -585,7 +596,7 @@ export function CreateTripModal({
                 </div>
               </div>
 
-              {/* Row: Vehicle & Lead / Route */}
+              {/* Row 2: Vehicle & Driver */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <LinkedField
                   label="Vehicle No"
@@ -609,6 +620,33 @@ export function CreateTripModal({
                   }
                 />
 
+                <LinkedField
+                  label="Driver / Operator"
+                  required
+                  value={driver}
+                  onChange={(dId) => setDriver(dId)}
+                  options={drivers.map((d) => ({
+                    id: d.id,
+                    label: d.fullName,
+                    subtext: d.licenseNumber ? `Lic: ${d.licenseNumber}` : 'Active Fleet Driver',
+                  }))}
+                  placeholder="-- Select Driver --"
+                  entityName="Driver"
+                  icon={User}
+                  onCreateNew={() => setShowAddDriver(true)}
+                  onViewRecord={(id) => setViewDriverId(id)}
+                  helperText={
+                    driver
+                      ? undefined
+                      : selectedVehicleObj && !selectedVehicleObj.assignedDriverId
+                      ? 'No default driver allocated to this vehicle. Please choose a driver.'
+                      : undefined
+                  }
+                />
+              </div>
+
+              {/* Row 3: Lead / Route & Origin Mine */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Lead / Route <span className="text-rose-500">*</span>
@@ -632,27 +670,6 @@ export function CreateTripModal({
                     </span>
                   )}
                 </div>
-              </div>
-
-              {/* Row: Trip Count & Origin Mine */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Trip Count <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={tripCount}
-                    onChange={(e) => setTripCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    required
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
-                  />
-                  <span className="text-[11px] text-slate-400 mt-1 block">
-                    Number of round trips completed in this shift
-                  </span>
-                </div>
 
                 <LinkedField
                   label="Mine Site / Pit"
@@ -672,6 +689,27 @@ export function CreateTripModal({
                   onViewRecord={(id) => setViewMineSiteId(id)}
                   hint={isMineLocked ? 'Locked to assigned mine' : undefined}
                 />
+              </div>
+
+              {/* Row 4: Trip Count */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Trip Count <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={tripCount}
+                    onChange={(e) => setTripCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    required
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
+                  />
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Number of round trips completed in this shift
+                  </span>
+                </div>
               </div>
 
               {/* Quick Summary Strip */}

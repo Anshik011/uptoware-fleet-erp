@@ -103,11 +103,105 @@ import { handleLocalDemoRequest } from '@/lib/localDemoHandler';
 const FRAPPE_URL = process.env.FRAPPE_URL || 'http://localhost:8080';
 
 /**
+ * Translates raw technical Frappe or database exceptions into actionable,
+ * logical, business-oriented error messages for end users.
+ */
+export function humanizeBusinessError(rawMsg: string, fallbackStatus = 500): string {
+  if (!rawMsg) return 'An unexpected error occurred while processing this operation. Please verify your inputs and try again.';
+
+  const clean = rawMsg
+    .replace(/^frappe\.exceptions\.\w+:\s*/i, '')
+    .replace(/^Exception:\s*/i, '')
+    .replace(/^Error:\s*/i, '')
+    .trim();
+
+  const lower = clean.toLowerCase();
+
+  // 1. Missing Driver / Mandatory Driver in Mining Trip
+  if (
+    lower.includes('could not find driver') ||
+    lower.includes('drv-default') ||
+    (lower.includes('driver') && (lower.includes('mandatory') || lower.includes('required') || lower.includes('not found')))
+  ) {
+    return 'Driver is mandatory: A commercial vehicle cannot operate or be dispatched on a haulage trip without an assigned driver. Please select an active driver from the roster or register a new one.';
+  }
+
+  // 2. Vehicle not found or invalid
+  if (lower.includes('could not find vehicle')) {
+    const match = clean.match(/Could not find Vehicle:\s*([^\s,]+)/i);
+    const vName = match ? match[1] : 'specified';
+    return `Vehicle not found: Vehicle '${vName}' does not exist in the fleet registry. Please choose an active registered commercial vehicle.`;
+  }
+
+  // 3. Designation not found or casing
+  if (lower.includes('could not find designation')) {
+    const match = clean.match(/Could not find Designation:\s*([^\s,]+)/i);
+    const dName = match ? match[1] : '';
+    return `Designation not recognized: '${dName}' does not exist in the master designation list. Please select an existing designation or enter a valid role.`;
+  }
+
+  // 4. Mine Site not found
+  if (lower.includes('could not find mine site') || lower.includes('could not find mine_site')) {
+    return 'Mine site error: The selected mine site or pit is not recognized or has been decommissioned. Please select an active operational mine site.';
+  }
+
+  // 5. Connected Data / LinkExistsError (Deletion prevention)
+  if (
+    lower.includes('linkexistserror') ||
+    (lower.includes('cannot delete') && (lower.includes('linked with') || lower.includes('linked to')))
+  ) {
+    return 'Cannot delete record: This record is connected to active fleet operations (trips, maintenance logs, fuel issues, or financial transactions). To preserve audit integrity and prevent database corruption, connected records cannot be deleted.';
+  }
+
+  // 6. Role Permissions / Access Control
+  if (
+    lower.includes('does not have doctype access via role permission') ||
+    lower.includes('permissionerror') ||
+    lower.includes('insufficient permissions')
+  ) {
+    const match = clean.match(/document\s+([A-Za-z0-9\s]+)/i);
+    const dt = match ? match[1].trim() : 'this resource';
+    return `Access Denied: Your account role does not have permission to modify or access ${dt} records. Please contact your Fleet Administrator for authorization.`;
+  }
+
+  // 7. Duplicate Entry / Unique Constraint
+  if (lower.includes('duplicate name') || lower.includes('already exists') || lower.includes('integrityerror')) {
+    return 'Duplicate record: An entry with this identifier, registration number, or part number already exists in the system. Please verify the details or use a unique identifier.';
+  }
+
+  // 8. Missing Required / Mandatory Fields
+  if (lower.includes('mandatory fields required in') || lower.includes('mandatory field')) {
+    const match = clean.match(/mandatory fields required in [^:]+:\s*([^\n\r.]+)/i);
+    const fields = match ? match[1].trim() : 'all required fields';
+    return `Missing required information: Please provide a valid value for: ${fields}.`;
+  }
+
+  // 9. Active Insurance Policy Cancellation Requirement
+  if (lower.includes('active insurance policies cannot be deleted')) {
+    return 'Active policy constraint: Active insurance policies cannot be deleted directly. The policy must be marked as Cancelled before it can be removed.';
+  }
+
+  // 10. Submitted Documents (Cancellation/Amend Requirement)
+  if (lower.includes('submitted documents cannot be deleted') || lower.includes('docstatus')) {
+    return 'Submitted transaction: This document has already been submitted and posted to the ledger. To cancel or amend, please use the Return or Amend workflow.';
+  }
+
+  // 11. Odometer Sequence Errors
+  if (lower.includes('odometer') && (lower.includes('cannot be less') || lower.includes('lower than') || lower.includes('less than'))) {
+    return 'Odometer sequence error: The entered odometer reading is lower than the vehicle\'s last recorded odometer reading. Please enter a valid current odometer reading.';
+  }
+
+  return clean || `Frappe server error (${fallbackStatus})`;
+}
+
+/**
  * Parses and sanitizes raw Frappe error responses into clean, human-readable messages.
  * Strips raw serialized JSON from _server_messages and Python stack prefixes.
  */
 export function extractCleanFrappeError(json: any, fallbackStatus = 500): string {
   if (!json) return `Frappe server error (${fallbackStatus})`;
+
+  let raw = '';
 
   // 1. Try parsing _server_messages (Frappe stores serialized JSON array of messages)
   if (json._server_messages) {
@@ -118,7 +212,7 @@ export function extractCleanFrappeError(json: any, fallbackStatus = 500): string
       if (Array.isArray(parsed) && parsed.length > 0) {
         const first = typeof parsed[0] === 'string' ? JSON.parse(parsed[0]) : parsed[0];
         if (first && first.message) {
-          return first.message.replace(/<[^>]*>/g, '').trim();
+          raw = first.message.replace(/<[^>]*>/g, '').trim();
         }
       }
     } catch {
@@ -127,27 +221,28 @@ export function extractCleanFrappeError(json: any, fallbackStatus = 500): string
   }
 
   // 2. Try json.exception (e.g. "frappe.exceptions.PermissionError: Must have report permission...")
-  if (json.exception && typeof json.exception === 'string') {
+  if (!raw && json.exception && typeof json.exception === 'string') {
     const parts = json.exception.split(':');
-    if (parts.length > 1) {
-      return parts.slice(1).join(':').trim();
-    }
-    return json.exception.trim();
+    raw = parts.length > 1 ? parts.slice(1).join(':').trim() : json.exception.trim();
   }
 
   // 3. Try json.message
-  if (json.message) {
-    if (typeof json.message === 'string') return json.message.trim();
-    if (typeof json.message === 'object' && json.message.message) return String(json.message.message).trim();
+  if (!raw && json.message) {
+    if (typeof json.message === 'string') raw = json.message.trim();
+    else if (typeof json.message === 'object' && json.message.message) raw = String(json.message.message).trim();
   }
 
   // 4. Try json.error
-  if (json.error) {
-    if (typeof json.error === 'string') return json.error.trim();
-    if (typeof json.error === 'object' && json.error.message) return String(json.error.message).trim();
+  if (!raw && json.error) {
+    if (typeof json.error === 'string') raw = json.error.trim();
+    else if (typeof json.error === 'object' && json.error.message) raw = String(json.error.message).trim();
   }
 
-  return `Frappe API error (${fallbackStatus})`;
+  if (!raw) {
+    raw = `Frappe API error (${fallbackStatus})`;
+  }
+
+  return humanizeBusinessError(raw, fallbackStatus);
 }
 
 /**
