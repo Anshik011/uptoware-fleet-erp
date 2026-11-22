@@ -33,9 +33,29 @@ function VehiclesTableSection() {
 
   // Modal & Drawer State
   const [isAddModalOpen, setIsAddModalOpen] = useState(searchParams.get('action') === 'new');
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [allocatingVehicleId, setAllocatingVehicleId] = useState<string | null>(null);
+
+  const handleDeleteVehicle = async (v: Vehicle) => {
+    if (!window.confirm(`Are you sure you want to delete vehicle ${v.licensePlate}? This will permanently remove the vehicle from the registry.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/vehicles/${encodeURIComponent(v.id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.error || 'Cannot delete vehicle. If this vehicle is connected to trips, fuel logs, or maintenance records, it cannot be deleted.');
+        return;
+      }
+      fetchVehicles();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete vehicle.');
+    }
+  };
 
   const fetchVehicles = useCallback(async () => {
     try {
@@ -181,7 +201,15 @@ function VehiclesTableSection() {
       <VehicleTable
         vehicles={vehicles}
         onSelectVehicle={(id) => setSelectedVehicleId(id)}
-        onOpenAddVehicle={() => setIsAddModalOpen(true)}
+        onEditVehicle={(v) => {
+          setEditingVehicle(v);
+          setIsAddModalOpen(true);
+        }}
+        onDeleteVehicle={handleDeleteVehicle}
+        onOpenAddVehicle={() => {
+          setEditingVehicle(null);
+          setIsAddModalOpen(true);
+        }}
         onAllocateDriver={(id) => setAllocatingVehicleId(id)}
         onSelectDriver={(driverId) => setSelectedDriverId(driverId)}
         searchQuery={searchQuery}
@@ -202,11 +230,18 @@ function VehiclesTableSection() {
         </div>
       )}
 
-      {/* Add Vehicle Modal */}
+      {/* Add / Edit Vehicle Modal */}
       <AddVehicleModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={() => fetchVehicles()}
+        vehicleToEdit={editingVehicle}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingVehicle(null);
+        }}
+        onSuccess={() => {
+          setEditingVehicle(null);
+          fetchVehicles();
+        }}
       />
 
       {/* Vehicle Specification Drawer */}

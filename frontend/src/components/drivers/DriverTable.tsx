@@ -14,6 +14,7 @@ import {
   Phone,
   Truck,
   Edit2,
+  Trash2,
   ChevronRight,
   UserX,
   ExternalLink,
@@ -26,6 +27,7 @@ interface DriverTableProps {
   drivers: Driver[];
   onSelectDriver: (id: string) => void;
   onEditDriver: (driver: Driver) => void;
+  onDeleteDriver?: (driver: Driver) => void;
   onOpenAddDriver: () => void;
   canManage: boolean;
   searchQuery: string;
@@ -46,6 +48,7 @@ export function DriverTable({
   drivers,
   onSelectDriver,
   onEditDriver,
+  onDeleteDriver,
   onOpenAddDriver,
   canManage,
   searchQuery,
@@ -343,15 +346,28 @@ export function DriverTable({
                   <td className="py-3.5 px-4 sm:px-6 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
                       {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => onEditDriver(driver)}
-                          className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors"
-                          title="Edit Driver Profile"
-                          data-testid={`btn-edit-driver-${driver.id}`}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onEditDriver(driver)}
+                            className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors"
+                            title="Edit Driver Profile"
+                            data-testid={`btn-edit-driver-${driver.id}`}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          {onDeleteDriver && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteDriver(driver)}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                              title="Delete Driver"
+                              data-testid={`btn-delete-driver-${driver.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </>
                       )}
                       <button
                         type="button"

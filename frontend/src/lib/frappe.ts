@@ -9924,3 +9924,67 @@ export async function createDesignation(sessionCookie: string, name: string): Pr
   return clean;
 }
 
+/**
+ * Universal document deletion helper with connection/link checking
+ */
+export async function deleteFrappeDoc(
+  doctype: string,
+  name: string,
+  sessionCookie: string
+): Promise<boolean> {
+  const cleanName = encodeURIComponent(name.trim());
+  const cleanDoctype = encodeURIComponent(doctype.trim());
+  try {
+    await callFrappeApi(`/api/resource/${cleanDoctype}/${cleanName}`, sessionCookie, {
+      method: 'DELETE',
+    });
+    return true;
+  } catch (err: any) {
+    if (err?.message?.includes('Cannot delete or cancel because') || err?.message?.includes('LinkExistsError')) {
+      throw new Error(`Cannot delete ${doctype} '${name}': It is linked to other active records in the system.`);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Universal document update helper
+ */
+export async function updateFrappeDoc(
+  doctype: string,
+  name: string,
+  data: Record<string, any>,
+  sessionCookie: string
+): Promise<any> {
+  const cleanName = encodeURIComponent(name.trim());
+  const cleanDoctype = encodeURIComponent(doctype.trim());
+  const res = await callFrappeApi(`/api/resource/${cleanDoctype}/${cleanName}`, sessionCookie, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.data || res.message || res;
+}
+
+export async function deleteVehicle(sessionCookie: string, id: string): Promise<boolean> {
+  return deleteFrappeDoc('Vehicle', id, sessionCookie);
+}
+
+export async function deleteDriver(sessionCookie: string, id: string): Promise<boolean> {
+  return deleteFrappeDoc('Driver', id, sessionCookie);
+}
+
+export async function getEmployeeDetails(sessionCookie: string, id: string): Promise<any> {
+  const res = await callFrappeApi(`/api/resource/Employee/${encodeURIComponent(id)}`, sessionCookie);
+  return res.data || res.message || res;
+}
+
+export async function deleteEmployee(sessionCookie: string, id: string): Promise<boolean> {
+  return deleteFrappeDoc('Employee', id, sessionCookie);
+}
+
+export async function updateEmployee(sessionCookie: string, id: string, data: any): Promise<any> {
+  return updateFrappeDoc('Employee', id, data, sessionCookie);
+}
+
+

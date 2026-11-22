@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PurchaseOrder } from '@/types/fleet';
-import { Search, ShoppingCart, Eye, CheckCircle2, Clock, PackageCheck, AlertCircle } from 'lucide-react';
+import { Search, ShoppingCart, Eye, CheckCircle2, Clock, PackageCheck, AlertCircle, Trash2 } from 'lucide-react';
 import { formatVehicleDisplay } from '@/lib/displayFormatters';
 
 interface PurchaseOrdersTableProps {
@@ -11,6 +11,7 @@ interface PurchaseOrdersTableProps {
   onSelectOrder: (order: PurchaseOrder) => void;
   onSubmitOrder: (order: PurchaseOrder) => void;
   onReceiveGoods: (order: PurchaseOrder) => void;
+  onDeleteOrder?: (order: PurchaseOrder) => void;
   canManage: boolean;
   searchQuery: string;
   onSearchChange: (q: string) => void;
@@ -28,6 +29,7 @@ export function PurchaseOrdersTable({
   onSelectOrder,
   onSubmitOrder,
   onReceiveGoods,
+  onDeleteOrder,
   canManage,
   searchQuery,
   onSearchChange,
@@ -256,6 +258,28 @@ export function PurchaseOrdersTable({
                           <PackageCheck className="w-3.5 h-3.5 mr-1" />
                           Receive
                         </button>
+                      )}
+
+                      {canManage && onDeleteOrder && (
+                        o.docstatus === 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteOrder(o)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                            title="Delete Draft Purchase Order"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            className="p-1.5 text-slate-300 cursor-not-allowed rounded-md"
+                            title="Submitted orders cannot be deleted (cancel/return required)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )
                       )}
                     </div>
                   </td>

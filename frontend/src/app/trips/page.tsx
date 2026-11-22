@@ -142,6 +142,25 @@ function TripsTableSection() {
     setDrawerRefreshTrigger((prev) => prev + 1);
   };
 
+  const handleDeleteTrip = async (trip: MiningTrip) => {
+    if (!window.confirm(`Are you sure you want to delete trip ${trip.id}? This will permanently remove the trip log.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/trips/${encodeURIComponent(trip.id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.error || 'Cannot delete trip. If this trip has been invoiced or linked to billing ledgers, deletion is prevented.');
+        return;
+      }
+      fetchTrips();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete trip.');
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -262,6 +281,8 @@ function TripsTableSection() {
         <TripTable
           trips={trips}
           onSelectTrip={(id) => setSelectedTripId(id)}
+          onEditTrip={(trip) => setSelectedTripId(trip.id)}
+          onDeleteTrip={handleDeleteTrip}
           onOpenCreateTrip={() => setIsCreateModalOpen(true)}
           onOpenActionModal={handleOpenActionModal}
           canManage={canManage}

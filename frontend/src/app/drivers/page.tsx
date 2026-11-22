@@ -92,6 +92,25 @@ function DriversTableSection() {
     fetchDrivers();
   }, [fetchDrivers]);
 
+  const handleDeleteDriver = async (driver: Driver) => {
+    if (!window.confirm(`Are you sure you want to delete driver ${driver.fullName}? This will permanently remove the operator record.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/drivers/${encodeURIComponent(driver.id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.error || 'Cannot delete driver. If this operator is linked to active trips or attendance records, deletion is prevented.');
+        return;
+      }
+      fetchDrivers();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete driver.');
+    }
+  };
+
   // Overall counts dynamically computed from actual backend records (Zero hardcoding!)
   const totalCount = drivers.length;
   const activeCount = drivers.filter((d) => d.status === 'Active').length;
@@ -198,6 +217,7 @@ function DriversTableSection() {
           drivers={drivers}
           onSelectDriver={(id) => setSelectedDriverId(id)}
           onEditDriver={(driver) => setEditingDriver(driver)}
+          onDeleteDriver={handleDeleteDriver}
           onOpenAddDriver={() => setIsAddModalOpen(true)}
           canManage={canManage}
           searchQuery={searchQuery}

@@ -34,6 +34,8 @@ import {
   FileSpreadsheet,
   Check,
   AlertTriangle,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 type ActiveTab = 'directory' | 'roster' | 'summary';
@@ -82,6 +84,7 @@ function EmployeesContent() {
   // Add Employee Modal
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [cellNumber, setCellNumber] = useState('');
@@ -418,8 +421,10 @@ function EmployeesContent() {
           body: JSON.stringify({ name: finalDesig }),
         }).catch(() => {});
       }
-      const res = await fetch('/api/employees', {
-        method: 'POST',
+      const url = editingEmployeeId ? `/api/employees/${encodeURIComponent(editingEmployeeId)}` : '/api/employees';
+      const method = editingEmployeeId ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           firstName: firstName.trim(),
@@ -458,10 +463,11 @@ function EmployeesContent() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to create employee profile.');
+        throw new Error(json.error || `Failed to ${editingEmployeeId ? 'update' : 'create'} employee profile.`);
       }
 
       setIsModalOpen(false);
+      setEditingEmployeeId(null);
       setFirstName('');
       setLastName('');
       setDesignation('Driver');
@@ -491,9 +497,65 @@ function EmployeesContent() {
       setFormO('YES');
       await loadEmployees();
     } catch (err: any) {
-      setModalError(err.message || 'Error creating employee.');
+      setModalError(err.message || 'Error saving employee.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditEmployee = (emp: EmployeeProfile) => {
+    setEditingEmployeeId(emp.id);
+    const parts = (emp.employeeName || '').split(' ');
+    setFirstName(parts[0] || '');
+    setLastName(parts.slice(1).join(' ') || '');
+    setCellNumber(emp.cellNumber || '');
+    setCompanyEmail(emp.companyEmail || '');
+    setDepartment(emp.department || 'Operations');
+    setDesignation(emp.designation || 'Driver');
+    setSelectedMine(emp.customMineSite || emp.mineSite || 'JBR Eastern — Talcher Site');
+    setAssignedVehicle(emp.assignedVehicle || '');
+    setDailySalary(String(emp.dailySalary || 850));
+    setIfscCode(emp.ifscCode || '');
+    setBankAccountNo(emp.bankAcNo || '');
+    setBankName(emp.bankName || 'SBI');
+    setDateOfJoining(emp.dateOfJoining || todayStr);
+    setRelievingDate(emp.relievingDate || '');
+    setFatherOrSpouseName(emp.fatherOrSpouseName || 'Parent');
+    setAadhaarNo(emp.aadhaarNo || '');
+    setPanNo(emp.panNo || '');
+    setPresentAddress(emp.presentAddress || '');
+    setPermanentAddress(emp.permanentAddress || '');
+    setDateOfBirth(emp.dateOfBirth || '');
+    setGender((emp.gender as any) || 'Male');
+    setSkillCategory((emp.skillCategory as any) || 'SKILL');
+    setPfType((emp.pfType as any) || 'CMPF');
+    setUanOrCmpfNo(emp.uanOrCmpfNo || '');
+    setSocialCategory((emp.socialCategory as any) || 'GENERAL');
+    setDlNo(emp.dlNo || '');
+    setDlValidity(emp.dlValidity || '');
+    setVtNo(emp.vtNo || '');
+    setVtPeriod(emp.vtPeriod || '');
+    setFormO((emp.formO as any) || 'YES');
+    setModalError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteEmployee = async (emp: EmployeeProfile) => {
+    if (!window.confirm(`Are you sure you want to delete employee ${emp.employeeName} (${emp.id})? This will permanently remove their record.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/employees/${encodeURIComponent(emp.id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.error || 'Cannot delete employee. If this employee has active operational links (attendance, trips, or payroll records), deletion is prohibited.');
+        return;
+      }
+      loadEmployees();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete employee.');
     }
   };
 
@@ -760,7 +822,8 @@ function EmployeesContent() {
                         <th className="py-3 px-4">Contact Info</th>
                         <th className="py-3 px-4">Bank & KYC</th>
                         <th className="py-3 px-4 text-right">Daily Salary</th>
-                        <th className="py-3 px-4 text-right">Status</th>
+                        <th className="py-3 px-4 text-center">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -839,13 +902,34 @@ function EmployeesContent() {
                             <div className="text-[10px] text-slate-400">/ day</div>
                           </td>
 
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-3 px-4 text-center">
                             <Badge
                               variant={emp.status === 'Active' ? 'positive' : 'neutral'}
                               size="sm"
                             >
                               {emp.status}
                             </Badge>
+                          </td>
+
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleEditEmployee(emp)}
+                                className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors"
+                                title="Edit Employee Profile"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteEmployee(emp)}
+                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                                title="Delete Employee"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1593,14 +1677,19 @@ function EmployeesContent() {
             <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Add Employee Profile</h2>
+                  <h2 className="text-base font-bold text-slate-900">
+                    {editingEmployeeId ? `Edit Employee Profile (${editingEmployeeId})` : 'Add Employee Profile'}
+                  </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Statutory Indian Mining workforce registration (DGMS Form O, CMPF/PF, Skill & VT)
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setEditingEmployeeId(null);
+                  }}
                   className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -2120,12 +2209,12 @@ function EmployeesContent() {
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Enrolling...</span>
+                        <span>{editingEmployeeId ? 'Updating...' : 'Enrolling...'}</span>
                       </>
                     ) : (
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Save Employee Profile</span>
+                        <span>{editingEmployeeId ? 'Save Changes' : 'Save Employee Profile'}</span>
                       </>
                     )}
                   </button>

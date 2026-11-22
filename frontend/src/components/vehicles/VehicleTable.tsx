@@ -13,12 +13,16 @@ import {
   PlusCircle,
   ShieldCheck,
   FileQuestion,
-  ChevronRight
+  ChevronRight,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 interface VehicleTableProps {
   vehicles: Vehicle[];
   onSelectVehicle: (id: string) => void;
+  onEditVehicle?: (v: Vehicle) => void;
+  onDeleteVehicle?: (v: Vehicle) => void;
   onOpenAddVehicle: () => void;
   onAllocateDriver?: (vehicleId: string) => void;
   onSelectDriver?: (driverId: string) => void;
@@ -35,6 +39,8 @@ interface VehicleTableProps {
 export function VehicleTable({
   vehicles,
   onSelectVehicle,
+  onEditVehicle,
+  onDeleteVehicle,
   onOpenAddVehicle,
   onAllocateDriver,
   onSelectDriver,
@@ -338,18 +344,39 @@ export function VehicleTable({
 
                     {/* Actions (Far Right) */}
                     <td className="px-6 py-4 text-right">
-                      <button
-                        type="button"
-                        data-testid="btn-view-details"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectVehicle(v.id);
-                        }}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold shadow-xs transition-colors"
-                      >
-                        <span>Details</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {onEditVehicle && (
+                          <button
+                            type="button"
+                            onClick={() => onEditVehicle(v)}
+                            className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors"
+                            title="Edit Vehicle Details"
+                            data-testid={`btn-edit-vehicle-${v.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        {onDeleteVehicle && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteVehicle(v)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                            title="Delete Vehicle"
+                            data-testid={`btn-delete-vehicle-${v.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          data-testid="btn-view-details"
+                          onClick={() => onSelectVehicle(v.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold shadow-xs transition-colors"
+                        >
+                          <span>Details</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

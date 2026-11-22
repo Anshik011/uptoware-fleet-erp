@@ -143,6 +143,25 @@ function PurchasesContent() {
     setReceivingOrder(order);
   };
 
+  const handleDeleteOrder = async (order: PurchaseOrder) => {
+    if (!window.confirm(`Are you sure you want to delete Draft Purchase Order ${order.name}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/procurement/orders/${encodeURIComponent(order.name)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.error || 'Cannot delete purchase order. Submitted or processed purchase orders cannot be deleted.');
+        return;
+      }
+      loadOrders();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete purchase order.');
+    }
+  };
+
   return (
     <AppShell>
       <PageContainer>
@@ -219,6 +238,7 @@ function PurchasesContent() {
           onSelectOrder={(o) => setSelectedOrderId(o.name)}
           onSubmitOrder={handleSubmitOrder}
           onReceiveGoods={handleReceiveGoods}
+          onDeleteOrder={handleDeleteOrder}
           canManage={canManage}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}

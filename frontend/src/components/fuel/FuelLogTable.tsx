@@ -14,6 +14,7 @@ import {
   PlusCircle,
   Clock,
   Check,
+  Trash2,
 } from 'lucide-react';
 
 interface FuelLogTableProps {
@@ -32,6 +33,7 @@ interface FuelLogTableProps {
   onOpenAddFuel: () => void;
   onOpenApprovalModal: (log: FuelLog, action: 'Approve' | 'Reject' | 'Re-open') => void;
   onBulkApprove?: (ids: string[]) => void;
+  onDeleteLog?: (log: FuelLog) => void;
   canManage: boolean;
 }
 
@@ -51,6 +53,7 @@ export function FuelLogTable({
   onOpenAddFuel,
   onOpenApprovalModal,
   onBulkApprove,
+  onDeleteLog,
   canManage,
 }: FuelLogTableProps) {
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
@@ -420,6 +423,28 @@ export function FuelLogTable({
                               <XCircle className="w-4 h-4" />
                             </button>
                           </>
+                        )}
+                        {canManage && onDeleteLog && (
+                          isDraft ? (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteLog(log)}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                              title="Delete Draft Fuel Log"
+                              data-testid={`btn-delete-fuel-${log.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className="p-1.5 text-slate-300 cursor-not-allowed rounded-md"
+                              title="Approved fuel logs cannot be deleted"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )
                         )}
                         <Button
                           variant="ghost"

@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -31,6 +33,8 @@ import {
 interface TripTableProps {
   trips: MiningTrip[];
   onSelectTrip: (id: string) => void;
+  onEditTrip?: (trip: MiningTrip) => void;
+  onDeleteTrip?: (trip: MiningTrip) => void;
   onOpenCreateTrip: () => void;
   onOpenActionModal?: (trip: MiningTrip, action: string) => void;
   canManage: boolean;
@@ -48,6 +52,8 @@ interface TripTableProps {
 export function TripTable({
   trips,
   onSelectTrip,
+  onEditTrip,
+  onDeleteTrip,
   onOpenCreateTrip,
   onOpenActionModal,
   canManage,
@@ -460,6 +466,34 @@ export function TripTable({
                           >
                             Dispatch
                           </Button>
+                        )}
+                        {canManage && onEditTrip && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditTrip(trip);
+                            }}
+                            className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-slate-100 rounded-md transition-colors"
+                            title="Edit / Reconcile Trip"
+                            data-testid={`btn-edit-trip-${trip.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        {canManage && onDeleteTrip && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteTrip(trip);
+                            }}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                            title="Delete Trip"
+                            data-testid={`btn-delete-trip-${trip.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         )}
                         <button
                           type="button"

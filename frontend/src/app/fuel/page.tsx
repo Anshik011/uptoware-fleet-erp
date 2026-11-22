@@ -138,6 +138,25 @@ export default function FuelPage() {
     }
   }, [fetchFuelData]);
 
+  const handleDeleteLog = async (log: FuelLog) => {
+    if (!window.confirm(`Are you sure you want to delete fuel dispensation log ${log.id}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/fuel/${encodeURIComponent(log.id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.error || 'Cannot delete fuel log. Approved fuel entries cannot be deleted.');
+        return;
+      }
+      fetchFuelData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete fuel log.');
+    }
+  };
+
   return (
     <AppShell
       headerTitle="Fuel Management & Dispensation"
@@ -212,6 +231,7 @@ export default function FuelPage() {
         onOpenAddFuel={() => setIsAddModalOpen(true)}
         onOpenApprovalModal={(log, action) => setApprovalModalState({ log, action })}
         onBulkApprove={handleBulkApprove}
+        onDeleteLog={handleDeleteLog}
         canManage={canManage}
       />
 

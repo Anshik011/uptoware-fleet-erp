@@ -72,6 +72,25 @@ function SuppliersContent() {
     loadSuppliers();
   }, [loadSuppliers]);
 
+  const handleDeleteSupplier = async (s: Supplier) => {
+    if (!window.confirm(`Are you sure you want to delete supplier "${s.supplierName}" (${s.id})?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/procurement/suppliers/${encodeURIComponent(s.id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.error || 'Cannot delete supplier. If this vendor has active purchase orders or unpaid invoices, deletion is prevented.');
+        return;
+      }
+      loadSuppliers();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete supplier.');
+    }
+  };
+
   return (
     <AppShell>
       <PageContainer>
@@ -186,6 +205,8 @@ function SuppliersContent() {
           suppliers={suppliers}
           isLoading={isLoading}
           onSelectSupplier={(s) => setSelectedSupplierId(s.id)}
+          onEditSupplier={(s) => setSelectedSupplierId(s.id)}
+          onDeleteSupplier={handleDeleteSupplier}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           selectedGroup={selectedGroup}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { CreateVehicleInput, Driver, VehicleStatus, FleetVehicleType } from '@/types/fleet';
+import { CreateVehicleInput, Driver, VehicleStatus, FleetVehicleType, Vehicle } from '@/types/fleet';
 import { useMine } from '@/context/MineContext';
 import { X, Truck, Loader2 } from 'lucide-react';
 import { LinkedField } from '@/components/ui/LinkedField';
@@ -12,9 +12,10 @@ interface AddVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  vehicleToEdit?: Vehicle | null;
 }
 
-export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalProps) {
+export function AddVehicleModal({ isOpen, onClose, onSuccess, vehicleToEdit }: AddVehicleModalProps) {
   const { currentMine, allowedMines, isAllMines, isSingleMine, mineOptions, activeMineLabel } = useMine();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicleTypes, setVehicleTypes] = useState<FleetVehicleType[]>([]);
@@ -83,8 +84,34 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
       setFormError(null);
       loadDrivers();
       loadVehicleTypes();
+      if (vehicleToEdit) {
+        setFormData({
+          licensePlate: vehicleToEdit.licensePlate || '',
+          make: vehicleToEdit.make || 'BharatBenz',
+          model: vehicleToEdit.model || '3528CM',
+          status: vehicleToEdit.status || 'Active',
+          vehicleType: vehicleToEdit.vehicleType || 'Hyva',
+          customTransportType: vehicleToEdit.customTransportType || 'Transport',
+          ownerName: vehicleToEdit.ownerName || '',
+          chassisNumber: vehicleToEdit.chassisNumber || '',
+          engineNumber: vehicleToEdit.engineNumber || '',
+          registrationDate: vehicleToEdit.registrationDate || '',
+          assignedDriverId: vehicleToEdit.assignedDriverId || '',
+          customMineSite: vehicleToEdit.customMineSite || vehicleToEdit.mineSite || (currentMine !== 'ALL' ? currentMine : (mineOptions[0]?.value || '')),
+          payloadCapacityTons: vehicleToEdit.payloadCapacityTons || 35,
+          lastOdometer: vehicleToEdit.lastOdometer || 0,
+          fuelType: vehicleToEdit.fuelType || 'Diesel',
+          insuranceExpiryDate: vehicleToEdit.statutory?.insurance?.expiryDate || '',
+          fitnessExpiryDate: vehicleToEdit.statutory?.fitness?.expiryDate || '',
+          pucExpiryDate: vehicleToEdit.statutory?.puc?.expiryDate || '',
+          roadTaxExpiryDate: vehicleToEdit.statutory?.roadTax?.expiryDate || '',
+          permitExpiryDate: vehicleToEdit.statutory?.permit?.expiryDate || '',
+        });
+      } else {
+        setFormData(initialFormState);
+      }
     }
-  }, [isOpen, loadDrivers, loadVehicleTypes]);
+  }, [isOpen, vehicleToEdit, loadDrivers, loadVehicleTypes]);
 
   if (!isOpen) return null;
 
@@ -112,21 +139,23 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
 
     try {
       setIsSubmitting(true);
-      const res = await fetch('/api/vehicles', {
-        method: 'POST',
+      const url = vehicleToEdit ? `/api/vehicles/${encodeURIComponent(vehicleToEdit.id)}` : '/api/vehicles';
+      const method = vehicleToEdit ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to register vehicle.');
+        throw new Error(json.error || `Failed to ${vehicleToEdit ? 'update' : 'register'} vehicle.`);
       }
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('Add vehicle error:', err);
+      console.error('Add/Update vehicle error:', err);
       setFormError(err.message || 'Error communicating with fleet server.');
     } finally {
       setIsSubmitting(false);
@@ -149,9 +178,11 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
                 <Truck className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Register Transport Asset</h2>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {vehicleToEdit ? `Edit Vehicle: ${vehicleToEdit.licensePlate}` : 'Register Transport Asset'}
+                </h2>
                 <p className="text-xs text-slate-500 font-medium">
-                  Add a new commercial fleet truck or heavy equipment
+                  {vehicleToEdit ? 'Update vehicle specifications, assignments and statutory dates' : 'Add a new commercial fleet truck or heavy equipment'}
                 </p>
               </div>
             </div>
@@ -533,10 +564,10 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Registering Vehicle...</span>
+                  <span>{vehicleToEdit ? 'Updating Vehicle...' : 'Registering Vehicle...'}</span>
                 </>
               ) : (
-                <span>Register Vehicle</span>
+                <span>{vehicleToEdit ? 'Save Changes' : 'Register Vehicle'}</span>
               )}
             </button>
           </div>

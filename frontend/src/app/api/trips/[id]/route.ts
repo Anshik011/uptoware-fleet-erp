@@ -133,11 +133,48 @@ export async function PATCH(
   }
 }
 
-export async function DELETE() {
-  return NextResponse.json(
-    { success: false, error: 'Forbidden: Operational trip record deletion is prohibited.' },
-    { status: 403, headers: { Allow: 'GET, PATCH' } }
-  );
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Valid operational session required.' },
+        { status: 401 }
+      );
+    }
+
+    if (!checkPermission(auth.user, 'trips', 'manage')) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Insufficient permissions to delete trip records.' },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await params;
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'Invalid trip identifier parameter.' },
+        { status: 400 }
+      );
+    }
+
+    const { deleteFrappeDoc } = await import('@/lib/frappe');
+    await deleteFrappeDoc('Mining Trip', id, auth.sid);
+
+    return NextResponse.json({
+      success: true,
+      message: `Mining trip '${id}' deleted successfully.`,
+    });
+  } catch (error: any) {
+    console.error('API /trips/[id] DELETE error:', error?.message || 'Error');
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Failed to delete trip record.' },
+      { status: error.status || 500 }
+    );
+  }
 }
 
 export async function POST() {

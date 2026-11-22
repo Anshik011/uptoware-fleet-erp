@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SparePartItem } from '@/types/fleet';
-import { Search, Filter, Eye, AlertCircle, Package } from 'lucide-react';
+import { Search, Filter, Eye, AlertCircle, Package, Pencil, Trash2 } from 'lucide-react';
 
 interface SparePartsTableProps {
   items: SparePartItem[];
@@ -8,6 +8,8 @@ interface SparePartsTableProps {
   warehouses: Array<{ id: string; name: string }>;
   itemGroups: string[];
   onSelectItem: (item: SparePartItem) => void;
+  onEditItem?: (item: SparePartItem) => void;
+  onDeleteItem?: (item: SparePartItem) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   selectedGroup: string;
@@ -24,6 +26,8 @@ export function SparePartsTable({
   warehouses,
   itemGroups,
   onSelectItem,
+  onEditItem,
+  onDeleteItem,
   searchQuery,
   onSearchChange,
   selectedGroup,
@@ -218,13 +222,35 @@ export function SparePartsTable({
                     ₹{item.totalStockValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="py-3.5 px-4 text-right">
-                    <button
-                      onClick={() => onSelectItem(item)}
-                      className="inline-flex items-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5 mr-1" />
-                      View
-                    </button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {onEditItem && (
+                        <button
+                          type="button"
+                          onClick={() => onEditItem(item)}
+                          className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-slate-100 rounded-md transition-colors"
+                          title="Edit Spare Part"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onDeleteItem && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteItem(item)}
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                          title="Delete Spare Part"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onSelectItem(item)}
+                        className="inline-flex items-center px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1" />
+                        View
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

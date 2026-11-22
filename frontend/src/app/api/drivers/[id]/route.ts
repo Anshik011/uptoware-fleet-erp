@@ -331,11 +331,43 @@ export async function PUT(
   return PATCH(request, context);
 }
 
-export async function DELETE() {
-  return NextResponse.json(
-    { success: false, error: 'Forbidden: Operational driver record deletion is prohibited.' },
-    { status: 403, headers: { Allow: 'GET, PATCH, PUT' } }
-  );
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Valid operational session required.' },
+        { status: 401 }
+      );
+    }
+
+    if (!checkPermission(auth.user, 'drivers', 'manage')) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Insufficient permissions to delete driver.' },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await params;
+    const decodedId = decodeURIComponent(id).trim();
+
+    const { deleteDriver } = await import('@/lib/frappe');
+    await deleteDriver(`sid=${auth.sid}`, decodedId);
+
+    return NextResponse.json({
+      success: true,
+      message: `Driver ${decodedId} deleted successfully.`,
+    });
+  } catch (error: any) {
+    console.error('API /drivers/[id] DELETE error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to delete driver record.' },
+      { status: error.status || 500 }
+    );
+  }
 }
 
 export async function POST() {

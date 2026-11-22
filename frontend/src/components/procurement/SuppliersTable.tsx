@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Supplier } from '@/types/fleet';
-import { Search, Users, Star, Eye, IndianRupee } from 'lucide-react';
+import { Search, Users, Star, Eye, IndianRupee, Pencil, Trash2 } from 'lucide-react';
 
 interface SuppliersTableProps {
   suppliers: Supplier[];
   isLoading: boolean;
   onSelectSupplier: (s: Supplier) => void;
+  onEditSupplier?: (s: Supplier) => void;
+  onDeleteSupplier?: (s: Supplier) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   selectedGroup: string;
@@ -19,6 +21,8 @@ export function SuppliersTable({
   suppliers,
   isLoading,
   onSelectSupplier,
+  onEditSupplier,
+  onDeleteSupplier,
   searchQuery,
   onSearchChange,
   selectedGroup,
@@ -164,13 +168,35 @@ export function SuppliersTable({
                     ₹{s.outstandingPayables.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="py-3.5 px-4 text-right">
-                    <button
-                      onClick={() => onSelectSupplier(s)}
-                      className="inline-flex items-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5 mr-1" />
-                      View
-                    </button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {onEditSupplier && (
+                        <button
+                          type="button"
+                          onClick={() => onEditSupplier(s)}
+                          className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-slate-100 rounded-md transition-colors"
+                          title="Edit Supplier"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onDeleteSupplier && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteSupplier(s)}
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                          title="Delete Supplier"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onSelectSupplier(s)}
+                        className="inline-flex items-center px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1" />
+                        View
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

@@ -71,6 +71,19 @@ export async function handleLocalDemoRequest(endpoint: string, options: any = {}
       const found = store.vehicles.find((v) => v.name === id || v.id === id || v.license_plate === id || v.licensePlate === id) || store.vehicles[0];
       return makeResponse(found);
     }
+    if (id && method === 'DELETE') {
+      store.vehicles = store.vehicles.filter((v) => v.name !== id && v.id !== id && v.license_plate !== id);
+      localStore.save(store);
+      return makeResponse({ success: true, message: 'Vehicle deleted.' });
+    }
+    if (id && (method === 'PUT' || method === 'PATCH')) {
+      const idx = store.vehicles.findIndex((v) => v.name === id || v.id === id || v.license_plate === id);
+      if (idx >= 0) {
+        store.vehicles[idx] = { ...store.vehicles[idx], ...body };
+        localStore.save(store);
+        return makeResponse(store.vehicles[idx]);
+      }
+    }
     if (method === 'POST') {
       const plate = body.license_plate || body.licensePlate || `OD-35-LOCAL-${Date.now().toString().slice(-4)}`;
       const newV = {
@@ -126,6 +139,19 @@ export async function handleLocalDemoRequest(endpoint: string, options: any = {}
       const found = store.employees.find((e) => e.name === id || e.id === id) || store.employees[0];
       return makeResponse(found);
     }
+    if (id && method === 'DELETE') {
+      store.employees = store.employees.filter((e) => e.name !== id && e.id !== id);
+      localStore.save(store);
+      return makeResponse({ success: true, message: 'Employee deleted.' });
+    }
+    if (id && (method === 'PUT' || method === 'PATCH')) {
+      const idx = store.employees.findIndex((e) => e.name === id || e.id === id);
+      if (idx >= 0) {
+        store.employees[idx] = { ...store.employees[idx], ...body };
+        localStore.save(store);
+        return makeResponse(store.employees[idx]);
+      }
+    }
     if (method === 'POST') {
       const empId = `HR-EMP-LOCAL-${Date.now().toString().slice(-4)}`;
       const fullName = `${body.first_name || ''} ${body.last_name || ''}`.trim() || body.employee_name || 'New Employee';
@@ -169,6 +195,19 @@ export async function handleLocalDemoRequest(endpoint: string, options: any = {}
     if (id && method === 'GET') {
       const found = store.drivers.find((d) => d.name === id || d.id === id) || store.drivers[0];
       return makeResponse(found);
+    }
+    if (id && method === 'DELETE') {
+      store.drivers = store.drivers.filter((d) => d.name !== id && d.id !== id);
+      localStore.save(store);
+      return makeResponse({ success: true, message: 'Driver deleted.' });
+    }
+    if (id && (method === 'PUT' || method === 'PATCH')) {
+      const idx = store.drivers.findIndex((d) => d.name === id || d.id === id);
+      if (idx >= 0) {
+        store.drivers[idx] = { ...store.drivers[idx], ...body };
+        localStore.save(store);
+        return makeResponse(store.drivers[idx]);
+      }
     }
     if (method === 'POST') {
       const drvId = `DRV-LOCAL-${Date.now().toString().slice(-4)}`;

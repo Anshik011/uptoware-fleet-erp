@@ -85,3 +85,36 @@ export async function POST(
   }
 }
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Session required.' }, { status: 401 });
+    }
+    if (!checkPermission(auth.user, 'purchaseOrders', 'manage')) {
+      return NextResponse.json({ success: false, error: 'Forbidden: Insufficient permissions.' }, { status: 403 });
+    }
+    const { id } = await params;
+    const decodedId = decodeURIComponent(id).trim();
+
+    const { deleteFrappeDoc, callFrappeApi } = await import('@/lib/frappe');
+    const checkRes = await callFrappeApi(`/api/resource/Purchase Order/${encodeURIComponent(decodedId)}`, `sid=${auth.sid}`);
+    const po = checkRes.data || checkRes;
+    if (po && po.docstatus === 1) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete a Submitted purchase order. Please cancel it first.' },
+        { status: 400 }
+      );
+    }
+
+    await deleteFrappeDoc('Purchase Order', decodedId, `sid=${auth.sid}`);
+    return NextResponse.json({ success: true, message: `Purchase Order ${decodedId} deleted successfully.` });
+  } catch (err: any) {
+    console.error('API /procurement/orders/[id] DELETE error:', err);
+    return NextResponse.json({ success: false, error: err.message || 'Failed to delete purchase order.' }, { status: 500 });
+  }
+}
+

@@ -97,27 +97,113 @@ export async function POST() {
   );
 }
 
-export async function PUT() {
-  return NextResponse.json(
-    { success: false, error: 'Method Not Allowed' },
-    { status: 405, headers: { Allow: 'GET' } }
-  );
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Valid operational session required.' },
+        { status: 401 }
+      );
+    }
+
+    if (!checkPermission(auth.user, 'vehicles', 'manage')) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Insufficient permissions to edit vehicle.' },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await params;
+    const decodedId = decodeURIComponent(id).trim();
+    const body = await request.json();
+
+    const payload: any = {};
+    if (body.make !== undefined) payload.make = body.make;
+    if (body.model !== undefined) payload.model = body.model;
+    if (body.vehicleType !== undefined) payload.custom_vehicle_type = body.vehicleType;
+    if (body.customTransportType !== undefined) payload.custom_transport_type = body.customTransportType;
+    if (body.ownerName !== undefined) payload.custom_owner_name = body.ownerName;
+    if (body.chassisNumber !== undefined) payload.chassis_no = body.chassisNumber;
+    if (body.engineNumber !== undefined) payload.custom_engine_number = body.engineNumber;
+    if (body.payloadCapacityTons !== undefined) payload.payload_capacity_tons = Number(body.payloadCapacityTons);
+    if (body.lastOdometer !== undefined) payload.last_odometer = Number(body.lastOdometer);
+    if (body.fuelType !== undefined) payload.fuel_type = body.fuelType;
+    if (body.customMineSite !== undefined || body.mineSite !== undefined) {
+      payload.custom_mine_site = body.customMineSite || body.mineSite;
+    }
+    if (body.status !== undefined) {
+      payload.vehicle_status = body.status;
+      payload.status = body.status;
+    }
+    if (body.insuranceExpiryDate !== undefined) payload.end_date = body.insuranceExpiryDate;
+    if (body.fitnessExpiryDate !== undefined) payload.fitness_expiry_date = body.fitnessExpiryDate;
+    if (body.pucExpiryDate !== undefined) payload.puc_expiry_date = body.pucExpiryDate;
+    if (body.roadTaxExpiryDate !== undefined) payload.road_tax_expiry_date = body.roadTaxExpiryDate;
+    if (body.permitExpiryDate !== undefined) payload.permit_expiry_date = body.permitExpiryDate;
+
+    const { updateFrappeDoc } = await import('@/lib/frappe');
+    const updated = await updateFrappeDoc('Vehicle', decodedId, payload, `sid=${auth.sid}`);
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      message: `Vehicle ${decodedId} updated successfully.`,
+    });
+  } catch (error: any) {
+    console.error('API /vehicles/[id] PUT error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to update vehicle record.' },
+      { status: error.status || 500 }
+    );
+  }
 }
 
-export async function PATCH() {
-  return NextResponse.json(
-    {
-      success: false,
-      error:
-        'Direct driver modification is restricted. Use the official Shift Allocation workflow (/api/shifts) to ensure shift validation, overlap prevention, and audit compliance.',
-    },
-    { status: 405, headers: { Allow: 'GET' } }
-  );
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return PUT(request, context);
 }
 
-export async function DELETE() {
-  return NextResponse.json(
-    { success: false, error: 'Method Not Allowed' },
-    { status: 405, headers: { Allow: 'GET' } }
-  );
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Valid operational session required.' },
+        { status: 401 }
+      );
+    }
+
+    if (!checkPermission(auth.user, 'vehicles', 'manage')) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Insufficient permissions to delete vehicle.' },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await params;
+    const decodedId = decodeURIComponent(id).trim();
+
+    const { deleteVehicle } = await import('@/lib/frappe');
+    await deleteVehicle(`sid=${auth.sid}`, decodedId);
+
+    return NextResponse.json({
+      success: true,
+      message: `Vehicle ${decodedId} deleted successfully.`,
+    });
+  } catch (error: any) {
+    console.error('API /vehicles/[id] DELETE error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to delete vehicle.' },
+      { status: error.status || 500 }
+    );
+  }
 }

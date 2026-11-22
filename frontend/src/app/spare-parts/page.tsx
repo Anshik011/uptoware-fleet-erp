@@ -109,6 +109,25 @@ function SparePartsContent() {
     loadParts();
   }, [loadParts]);
 
+  const handleDeleteItem = async (item: SparePartItem) => {
+    if (!window.confirm(`Are you sure you want to delete spare part "${item.itemName}" (${item.id})?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/inventory/items/${encodeURIComponent(item.id)}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.error || 'Cannot delete spare part. If this item has existing stock ledger entries or purchase orders, deletion is prevented.');
+        return;
+      }
+      loadParts();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete spare part.');
+    }
+  };
+
   return (
     <AppShell>
       <PageContainer>
@@ -186,6 +205,8 @@ function SparePartsContent() {
           warehouses={warehouses}
           itemGroups={itemGroups}
           onSelectItem={(item) => setSelectedItemId(item.id)}
+          onEditItem={(item) => setSelectedItemId(item.id)}
+          onDeleteItem={handleDeleteItem}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           selectedGroup={selectedGroup}
