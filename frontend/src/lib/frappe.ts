@@ -9401,6 +9401,23 @@ export async function createEmployee(
     form_o_done: (empData as any).formO || 'YES',
   };
 
+  // Pre-resolve designation against Frappe database (handles casing differences like 'CLERK' -> 'Clerk' & auto-creates if missing)
+  if (payload.designation) {
+    try {
+      const existingDesigs = await getDesignations(sessionCookie);
+      const matched = existingDesigs.find(
+        (d) => d.toLowerCase().trim() === payload.designation!.toLowerCase().trim()
+      );
+      if (matched) {
+        payload.designation = matched;
+      } else {
+        await createDesignation(sessionCookie, payload.designation.trim());
+      }
+    } catch (desigErr) {
+      console.warn('Pre-resolving designation skipped or failed:', desigErr);
+    }
+  }
+
   let created: any;
   try {
     const res = await callFrappeApi('/api/method/frappe.client.insert', sessionCookie, {
