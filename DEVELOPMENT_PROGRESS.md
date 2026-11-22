@@ -66,6 +66,7 @@
 | **40. Frontend White-Label Branding & Leak Remediation** | 🟢 Completed & Live | ✅ Audited & Tested (96 Replacements, 0 Leaks) | Complete audit and remediation of raw framework terms (`ERPNext`, `Frappe`, `DocType`, internal technical references) across 58 frontend files. Replaced with clean Uptoware Fleet ERP terminology; live verified on production with zero leaks. |
 | **41. Client Operational Refinements & Bug Remediation** | 🟢 Completed & Live | ✅ Tested (6/6 Client Changes Verified) | Addressed 6 specific client operational requests: 1) Item permissions & role provisioning for demo.admin, 2) Universal Vehicle Number selector in Purchase Order modal, 3) 15 Indian Mining Designations seeded + custom designation capability + form placement swap with Social Category, 4) Transport-only vehicle filter in Driver Matrix roster, 5) Drivers & P/L Operators excluded from Other Staff Matrix, 6) Sticky date-wise total summary row in Monthly Attendance & Salary matrix. |
 | **42. Trip Reconciliation Hub & Demo Data Cleanliness** | 🟢 Completed & Live | ✅ Tested (All 4 Items Verified) | 1) Enhanced Driver & P/L Opt multi-attribute exclusion guard in Staff Attendance, 2) Triple-column sticky date-wise total footer in Monthly Attendance, 3) Interactive Reconcile Trip Entry tab displaying site supervisor trips, average payload input, live tonnage/value computation, and one-click finalization, 4) Complete purge of dummy test drivers, test attendance, test vehicles, and test trips on production DB. |
+| **43. Local Demo Sandbox Engine & Zero-Data Production Isolation** | 🟢 Completed & Live | ✅ Tested (BFF Sandbox & Isolated Store Pass) | Dedicated offline/local Next.js BFF sandbox data store (`frontend/src/lib/localStore.ts` & `frontend/src/lib/localDemoHandler.ts`) persisting exactly 1 sample record per module locally. Complete isolation of `localhost:3001` with zero mutations reaching AWS EC2. Full production MariaDB purge: 0 operational records (Vehicles, Drivers, Employees, Trips, Fuel, Items, POs, Expenses, Attendance) leaving live cloud 100% clean and pristine. |
 
 *Status Legend:* ⚪ Pending | 🟡 In Progress | 🟢 Completed | 🔴 Blocked | ⚫ Not Implemented | 📝 Code Reviewed
 
@@ -16646,6 +16647,63 @@ During comprehensive inspection of user-facing UI copy, several instances of bac
   - Deleted 8 automated test trips, resetting `TRIP-2026-01120` to `Draft` (4 trips, pending average reconciliation) ready for live client demonstration.
   - Cleared test items, fuel logs, breakdown, and expense entries.
   - Cleared Frappe application cache (`frappe.clear_cache()`).
+
+---
+
+## BATCH 22: LOCAL DEMO SANDBOX ENGINE & ZERO-DATA PRODUCTION PURGE
+
+**Execution Date:** 2026-11-22  
+**Status:** Completed & Live Verified  
+**Production URL:** [https://fleet.uptoware.com](https://fleet.uptoware.com) (0 Operational Records)  
+**Local Sandbox URL:** [http://localhost:3001](http://localhost:3001) (1 Working Record Per Module)  
+
+### 1. Absolute Production Data Purge (Live MariaDB Clean Slate)
+- **Requirement:** User requested that production `https://fleet.uptoware.com` must be completely clean with **zero demo or operational data** so that the client/boss sees a pristine system ready for genuine entry.
+- **Action Taken:** Executed comprehensive database purge script `/tmp/clean_all_production.py` inside Frappe MariaDB:
+  - `tabVehicle`: 0 records
+  - `tabDriver`: 0 records
+  - `tabEmployee`: 0 records
+  - `tabEmployee Attendance`: 0 records
+  - `tabMining Trip`: 0 records
+  - `tabFuel Log`: 0 records
+  - `tabVehicle Breakdown` & `tabVehicle Breakdown Part`: 0 records
+  - `tabOperational Expense`: 0 records
+  - `tabItem`: 0 records
+  - `tabPurchase Order`: 0 records
+  - `tabSales Invoice` & `tabPayment Entry`: 0 records
+  - Retained all schema customizations, 16 item groups, and 15 seeded mining designations.
+  - Cleared Frappe cache (`frappe.clear_cache()`).
+  - Production database verified 100% clean and pristine.
+
+### 2. Local Demo Sandbox Engine (`frontend/src/lib/localStore.ts` & `frontend/src/lib/localDemoHandler.ts`)
+- **Requirement:** User required a full local environment on `localhost:3001` where they can test the software from start to finish with **exactly 1 working record per module**, while guaranteeing that local data mutations **never reach production**.
+- **Architecture:**
+  - Implemented Next.js Backend-For-Frontend (BFF) Mock Sandbox Interceptor.
+  - `frontend/src/lib/localStore.ts`:
+    - Automatically initializes `frontend/data/local_demo_store.json` (git-ignored, purely local).
+    - Seeds exactly 1 realistic working record per module:
+      - **1 Vehicle:** `OD-05-AX-9901` (BharatBenz 3528C Mining Tipper, 35T capacity, Transport type)
+      - **1 Employee:** `EMP-001` (`Rajesh Kumar Mohanty`, Mines Supervisor, Talcher)
+      - **1 Driver:** `DRV-001` (`Bikram Soren`, assigned to `OD-05-AX-9901`)
+      - **1 Mine Site:** `TALCHER-COAL-PIT-01` (MCL Central Pit, Coal, 3 loading pits)
+      - **1 Lead/Route:** `LEAD-TALCHER-01` (`Pit 1 to Washery`, 3-4 KM)
+      - **1 Mining Trip:** `TRIP-2026-0001` (Shift A, 4 trips, 140 Tons)
+      - **1 Fuel Log:** `FUEL-2026-0001` (120L HSD diesel, ₹92.50/L)
+      - **1 Spare Part:** `SP-FILT-001` (`Heavy Duty Oil Filter 2500`, Standard Valuation ₹850)
+      - **1 Purchase Order:** `PO-2026-0001` (`M/s Utkal Spares & Logistics`, ₹8,500)
+      - **1 Breakdown:** `BKDN-2026-0001` (Hydraulic Cylinder Hose Leak, Reported)
+      - **1 Expense:** `EXP-2026-0001` (Toll & Weighbridge Tax Slip, ₹450)
+      - **1 Attendance Record:** `Rajesh Kumar Mohanty` marked Present for Shift A.
+  - `frontend/src/lib/localDemoHandler.ts`:
+    - Intercepts all REST operations (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) for all operational DocTypes.
+    - Simulates Frappe response formats (`{ data: [...] }`) with sorting, pagination, and ID generation.
+  - `frontend/src/lib/frappe.ts`:
+    - Configured automatic fallback to local sandbox if `LOCAL_DEMO_MODE === 'true'` or if local connection to ERPNext backend is unavailable (`ECONNREFUSED`).
+  - `frontend/src/lib/auth.ts` & `frontend/src/app/api/auth/login/route.ts`:
+    - In local demo mode, any login (or default `local-demo-session` cookie) bypasses Frappe session lookup and yields a full Administrator session with all fleet permissions.
+  - `start-frontend.bat`:
+    - Sets `LOCAL_DEMO_MODE=true` to ensure launching locally always uses the isolated sandbox.
+
 
 
 

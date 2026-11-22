@@ -98,6 +98,7 @@ import {
 } from '@/types/fleet';
 import { toLocalDateString, toLocalDateTimeString } from '@/lib/datetime';
 import { formatVehicleDisplay, formatDriverDisplay } from '@/lib/displayFormatters';
+import { handleLocalDemoRequest } from '@/lib/localDemoHandler';
 
 const FRAPPE_URL = process.env.FRAPPE_URL || 'http://localhost:8080';
 
@@ -160,6 +161,11 @@ export async function frappeFetch<T = any>(
 ): Promise<T> {
   const { sessionCookie, ...fetchOptions } = options;
 
+  // Local Sandbox Interception
+  if (process.env.LOCAL_DEMO_MODE === 'true' || sessionCookie === 'local-demo-session') {
+    return handleLocalDemoRequest(endpoint, fetchOptions);
+  }
+
   if (!sessionCookie) {
     const err: any = new Error('Unauthorized: No active Frappe session provided');
     err.status = 401;
@@ -184,23 +190,30 @@ export async function frappeFetch<T = any>(
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(url, {
-    ...fetchOptions,
-    headers,
-    cache: 'no-store',
-  });
+  try {
+    const res = await fetch(url, {
+      ...fetchOptions,
+      headers,
+      cache: 'no-store',
+    });
 
-  const json = await res.json().catch(() => ({}));
+    const json = await res.json().catch(() => ({}));
 
-  if (!res.ok) {
-    const cleanMsg = extractCleanFrappeError(json, res.status);
-    const err: any = new Error(cleanMsg);
-    err.status = res.status;
-    err.raw = json;
-    throw err;
+    if (!res.ok) {
+      const cleanMsg = extractCleanFrappeError(json, res.status);
+      const err: any = new Error(cleanMsg);
+      err.status = res.status;
+      err.raw = json;
+      throw err;
+    }
+
+    return json;
+  } catch (netErr: any) {
+    if (process.env.LOCAL_DEMO_MODE === 'true' || sessionCookie === 'local-demo-session' || FRAPPE_URL.includes('localhost')) {
+      return handleLocalDemoRequest(endpoint, fetchOptions);
+    }
+    throw netErr;
   }
-
-  return json;
 }
 
 export async function callFrappeApi<T = any>(

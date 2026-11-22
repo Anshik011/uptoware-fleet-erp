@@ -68,6 +68,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fast-path for Local Demo Sandbox Mode
+    if (process.env.LOCAL_DEMO_MODE === 'true') {
+      const userPayload = {
+        id: email || 'demo.admin@uptoware.com',
+        name: 'Demo Administrator',
+        email: email || 'demo.admin@uptoware.com',
+        roles: ['Administrator', 'Fleet Manager', 'Dispatcher', 'Workshop Supervisor', 'Accountant', 'System Manager'],
+        role: 'Administrator',
+        department: 'Fleet Operations',
+        isAllMines: true,
+        allowedMines: ['JBR Eastern — Talcher Site'],
+        isUnassigned: false,
+      };
+
+      const response = NextResponse.json(
+        {
+          success: true,
+          user: userPayload,
+          message: 'Local Demo Sandbox Authentication Successful',
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            Pragma: 'no-cache',
+          },
+        }
+      );
+
+      response.cookies.set('uptoware_sid', 'local-demo-session', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 86400,
+      });
+
+      return response;
+    }
+
     // 2. Authenticate credentials against Frappe's official login endpoint
     const loginRes = await fetch(`${FRAPPE_URL}/api/method/login`, {
       method: 'POST',

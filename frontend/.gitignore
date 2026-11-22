@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# local demo sandbox data
+data/
+
+
 # vercel
 .vercel
 
