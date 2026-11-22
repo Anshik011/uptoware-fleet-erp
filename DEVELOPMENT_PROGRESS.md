@@ -16752,3 +16752,42 @@ During comprehensive inspection of user-facing UI copy, several instances of bac
 ### 6. Production Cleanliness & Local Isolation Verification
 - **Production Status:** `https://fleet.uptoware.com` database verified clean with 0 operational records.
 - **Local Sandbox:** Complete 1-record-per-module sandbox verified running locally on port 3001 with zero network calls to production.
+
+
+---
+
+## 🚀 Module 45: Client Feedback Remediation, DocPerm Resolution & End-to-End Production Verification
+
+### 1. Root Cause Analysis of Client Feedback Screenshots
+- **Spare Parts Add Error (`User demo.admin@uptoware.com does not have doctype access via role permission for document Item`):**
+  - **Root Cause:** User `demo.admin@uptoware.com` lacked role assignments for `Stock Manager`, `Item Manager`, and `Stock User` on the Frappe production instance.
+  - **Resolution:** Assigned full Stock and Item roles to `demo.admin@uptoware.com`, committed changes, and cleared Frappe's user permission cache. Live test verified `POST /api/inventory/items` returns HTTP 201 Created.
+- **Designation Mismatch (`Could not find Designation: CLERK`):**
+  - **Root Cause:** Frappe `tabDesignation` stores designations in Title Case (`Clerk`), whereas user input was in uppercase (`CLERK`). Frappe Link validation fails when casing does not match the database primary key. Furthermore, `Designation` DocType lacked read/create permissions for standard fleet roles.
+  - **Resolution:**
+    - Granted `read: 1`, `write: 1`, and `create: 1` permissions on `tabDesignation` to `Fleet Manager`, `System Manager`, `HR Manager`, and `HR User`.
+    - Enhanced `createEmployee` in `frontend/src/lib/frappe.ts` to query `getDesignations(sessionCookie)` and perform case-insensitive canonical matching (e.g., mapping `CLERK` -> `Clerk`).
+    - Added automatic database insertion for any brand-new designation so that custom roles typed by users are saved directly into `tabDesignation` prior to employee record insertion.
+- **Purchase Order Missing Vehicle Number:**
+  - **Resolution:** Re-aligned the form grid in `CreatePurchaseOrderModal.tsx` into a clean 2x2x2 symmetrical layout:
+    - Row 1: `Supplier / Vendor` (col 1) | `Procurement Purpose` (col 2)
+    - Row 2: `Vehicle Number (Optional)` (col 1) | `Receiving Warehouse` (col 2)
+    - Row 3: `Order Date` (col 1) | `Expected Delivery Date` (col 2)
+    - Row 4 (when Breakdown selected): `Active Breakdown Incident` (spanning both columns)
+- **Attendance Daily Roster Filtering:**
+  - **Vehicle Matrix Tab:** Filtered strictly for transport vehicles (`customTransportType !== 'Non Transport' && !t.includes('non')`).
+  - **Other Staff Matrix Tab:** Excluded drivers and P/L operators (`isDriverOrPlOpt`), ensuring staff with designations such as Accountant, Clerk, Supervisor, and Helper can be marked independently.
+  - **Attendance Summary Table Footer:** Added date-wise `<tfoot>` row calculating present totals for every day (1 to 31) across the selected month.
+- **Site Supervisor Driverless Trip Logging & Reconcile Verification:**
+  - Verified `Mining Trip` DocField `driver` has `reqd = 0` on Frappe backend.
+  - Removed dummy `'DRV-DEFAULT'` fallback. Dispatched trips appear in Tab 2 ("Reconcile Trip Entry") for supervisors to review, adjust average tonnage, and finalize.
+
+### 2. Deployment & Production Verification
+- **Codebase:** Committed and pushed `3f0221e` to `main`.
+- **Production Server (EC2):** Fast-forwarded to `3f0221e`, compiled Next.js with 101/101 static/dynamic pages, and restarted the server on port 3001.
+- **Automated Live Integration Test:**
+  - `POST /api/auth/login`: HTTP 200 OK
+  - `GET /api/designations`: HTTP 200 OK (33 master designations returned)
+  - `POST /api/inventory/items` (`F A PATI`): HTTP 201 Created (`SP-F-A-PATI-6834`)
+  - `POST /api/employees` (`CLERK`): HTTP 201 Created
+  - Test records cleaned up immediately; production database verified 100% clean.
