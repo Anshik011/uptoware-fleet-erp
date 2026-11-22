@@ -16791,3 +16791,51 @@ During comprehensive inspection of user-facing UI copy, several instances of bac
   - `POST /api/inventory/items` (`F A PATI`): HTTP 201 Created (`SP-F-A-PATI-6834`)
   - `POST /api/employees` (`CLERK`): HTTP 201 Created
   - Test records cleaned up immediately; production database verified 100% clean.
+
+---
+
+## Module 46: Universal Table Actions (Compulsory Edit & Delete) & Clean Production State Certification
+
+### 1. Context & User Directives
+- **Directives Addressed:**
+  1. *Compulsory Edit and Delete Across Every Table:* Make Edit and Delete buttons mandatory for all tables across the application (Vehicles, Drivers, Employees, Mining Trips, Spare Parts, Suppliers, Purchase Orders, Fuel Logs).
+  2. *Safety Guards & Connected Data Handling:* Ensure delete/edit is disabled or blocked with clear, user-friendly feedback when records are linked to connected data (e.g., vehicles with logged trips, drivers with trips, submitted purchase orders, finalized billing ledgers).
+  3. *Root Cause Explanation for `Could not find Driver: DRV-DEFAULT`:* Explain the exact technical mechanism causing this error and certify that it is eliminated.
+  4. *Clean Production State Certification:* Certify that the production database (`https://fleet.uptoware.com`) is 100% clean (0 demo records).
+
+### 2. Root Cause Analysis: `Could not find Driver: DRV-DEFAULT`
+- **Issue:** When submitting a trip from Tab 1 ("Site Supervisor Trip Entry"), a validation error popup stated `Could not find Driver: DRV-DEFAULT`.
+- **Root Cause:**
+  - Tab 1 was designed for fast pit-head dispatch without mandatory driver entry.
+  - In `CreateTripModal.tsx`, line 380 previously had: `const effectiveDriver = driver || selectedVehicleObj?.assignedDriverId || 'DRV-DEFAULT';`.
+  - In Frappe DocType `Mining Trip`, `driver` is a relational Link field pointing to `tabDriver`. When Frappe attempted to validate `'DRV-DEFAULT'` against `tabDriver`, it threw `frappe.LinkValidationError: Could not find Driver: DRV-DEFAULT`.
+- **Resolution:**
+  - Removed dummy `'DRV-DEFAULT'` fallback completely.
+  - Updated Frappe schema so `Mining Trip.driver` is optional (`reqd = 0`).
+  - Site supervisor dispatches can now be saved without a driver. Dispatched trips appear immediately in Tab 2 ("Reconcile Trip Entry") for the supervisor to verify, adjust average tonnage, and finalize.
+
+### 3. Implementation Summary: Universal Edit & Delete Actions
+| Module / Table | Edit Action | Delete Action | Safety Guard / Connected Data Policy |
+| :--- | :--- | :--- | :--- |
+| **Vehicle Fleet Directory** | Opens `AddVehicleModal` in Edit mode; calls `PUT /api/vehicles/[id]` | Calls `DELETE /api/vehicles/[id]` | Blocked if vehicle has linked trips, fuel logs, or maintenance records |
+| **Driver Directory** | Opens edit drawer/modal; calls `PUT /api/drivers/[id]` | Calls `DELETE /api/drivers/[id]` | Blocked if driver is assigned to active trips or attendance records |
+| **Personnel Directory** | Opens employee modal in Edit mode; calls `PUT /api/employees/[id]` | Calls `DELETE /api/employees/[id]` | Blocked if employee is linked to attendance logs or payroll ledgers |
+| **Mining Trips Ledger** | Opens trip edit / reconciliation drawer; calls `PATCH /api/trips/[id]` | Calls `DELETE /api/trips/[id]` | Permitted for Draft/Dispatched trips; blocked if invoiced or ledger-posted |
+| **Spare Parts / Inventory** | Opens item detail/edit; calls `PUT /api/inventory/items/[id]` | Calls `DELETE /api/inventory/items/[id]` | Blocked if item has stock ledger entries or purchase order links |
+| **Suppliers & Vendors** | Opens supplier detail/edit; calls `PUT /api/procurement/suppliers/[id]` | Calls `DELETE /api/procurement/suppliers/[id]` | Blocked if vendor has active purchase orders or unpaid invoices |
+| **Purchase Orders** | View / edit draft orders | Calls `DELETE /api/procurement/orders/[id]` | Active for Draft orders (`docstatus === 0`); disabled for Submitted orders |
+| **Fuel Logs** | Opens approval modal / drawer | Calls `DELETE /api/fuel/[id]` | Active for Draft logs; disabled for Approved / finalized logs |
+
+### 4. Production Database Certification
+- Verified on AWS EC2 (`erpnext-docker-backend-1` / `frontend` site) via Frappe ORM:
+  - `Vehicle`: 0
+  - `Driver`: 0
+  - `Employee`: 0
+  - `Mining Trip`: 0
+  - `Fuel Log`: 0
+  - `Item`: 0
+  - `Purchase Order`: 0
+  - `Supplier`: 0
+  - `Vehicle Insurance Policy`: 0
+- Next.js application built and live on port 3001 behind Nginx (`https://fleet.uptoware.com`).
+
