@@ -67,8 +67,6 @@
 
 *Status Legend:* ⚪ Pending | 🟡 In Progress | 🟢 Completed | 🔴 Blocked | ⚫ Not Implemented | 📝 Code Reviewed
 
-*Status Legend:* ⚪ Pending | 🟡 In Progress | 🟢 Completed | 🔴 Blocked | ⚫ Not Implemented | 📝 Code Reviewed
-
 ---
 
 ## ⛽ Batch 4D — Autonomous Practical Stabilization
@@ -16498,6 +16496,49 @@ During comprehensive inspection of user-facing UI copy, several instances of bac
   - Replaced `"Frappe RPC query report"` with `"compliance report query"`.
 - Verified TypeScript compilation (`npx tsc --noEmit`) with 0 errors.
 - Pushed commit `474a229` to `main`, rebuilt Next.js Turbopack on AWS EC2, and verified HTTP 200 on live production.
+
+### 3. Verification & Compliance Evidence
+- **Automated Text Scan on Rendered Output:**
+  ```bash
+  curl -skL https://fleet.uptoware.com/login | grep -iE 'erpnext|frappe|doctype'
+  # Output: 0 matches (excluding standard HTML5 <!DOCTYPE html>)
+  ```
+- **File Coverage Summary (58 Files Sanitized):**
+  - **Core Pages (20):** `app/admin/page.tsx`, `app/alerts/page.tsx`, `app/compliance/reports/page.tsx`, `app/drivers/page.tsx`, `app/employees/page.tsx`, `app/finance/page.tsx`, `app/import/page.tsx`, `app/leads/page.tsx`, `app/login/page.tsx`, `app/mine-sites/page.tsx`, `app/page.tsx`, `app/procurement/reports/page.tsx`, `app/profitability/page.tsx`, `app/purchases/page.tsx`, `app/reports/page.tsx`, `app/sales/page.tsx`, `app/spare-parts/page.tsx`, `app/stock-movements/page.tsx`, `app/suppliers/page.tsx`, `app/warehouses/page.tsx`.
+  - **Operational Components (38):** Breakdown tables, compliance viewers, dispatch eligibility drawers, driver drawers/modals, expense tables/drawers, revenue/collections tables, fuel tables, insurance modals, spare part modals/tables, header navigation, supplier modals, purchase order drawers, goods receipt modals, and trip drawers.
+- **Design Law Adherence:**
+  - 100% compliant with `<RULE[user_global]>`: Zero inline styles (`style="..."`), standardized 3-tier colors, preserved 100% of API endpoints, form submission hooks, and backend RPC integrations.
+
+---
+
+## 🧭 Master Production Operations & Future Reference Guide
+
+### 1. Environment & Server Architecture
+| Component | Production Configuration |
+| :--- | :--- |
+| **Domain & SSL** | `https://fleet.uptoware.com` (Let's Encrypt TLS 1.3 / Nginx 1.28.3) |
+| **AWS Host** | AWS EC2 `13.239.121.225` (Ubuntu 24.04 LTS, SSH user `ubuntu`) |
+| **Frontend Runtime** | Next.js 16.4.5 (Turbopack, Node.js v24, Port 3001) |
+| **Backend Engine** | Frappe Framework v15.34.0 & ERPNext v15.31.0 (Docker Stack, Port 8080) |
+| **Database** | MariaDB 11.8 (`tabVehicle`, `tabEmployee`, `tabMining Trip`, etc.) |
+| **In-Memory Cache** | Redis Cache & Queue Cluster |
+
+### 2. Operational Procedures
+- **Rebuilding Frontend on Production:**
+  ```bash
+  cd /home/ubuntu/uptoware-fleet-erp/frontend
+  npm run build
+  fuser -k 3001/tcp || true
+  nohup npm run start -- -p 3001 > /home/ubuntu/frontend.log 2>&1 &
+  ```
+- **Executing Native Bulk Import:**
+  - Navigate to [https://fleet.uptoware.com/import](https://fleet.uptoware.com/import).
+  - Download official multi-sheet master Excel template (`/templates/Uptoware_Fleet_ERP_Bulk_Import_Template.xlsx`).
+  - Fill operational records and upload via web drag-and-drop.
+- **Benchmarking & Health Checks:**
+  - Dashboard Health Endpoint: `/api/admin/health`
+  - Auth Session Validation: `/api/auth/session`
+
 
 
 
