@@ -1931,6 +1931,67 @@ export async function createMiningTrip(
   return mapMiningTrip(res.data);
 }
 
+export async function updateMiningTrip(
+  sessionCookie: string,
+  id: string,
+  updates: {
+    tripCount?: number;
+    averageTonnage?: number;
+    lead?: string;
+    leadKm?: number | string;
+    leadRate?: number;
+    ratePerTon?: number;
+    shift?: string;
+    vehicle?: string;
+    finalize?: boolean;
+    tripStatus?: string;
+    workflowState?: string;
+  }
+): Promise<MiningTrip> {
+  const payload: any = {};
+  if (updates.tripCount != null) payload.custom_trip_count = Number(updates.tripCount);
+  if (updates.averageTonnage != null) payload.custom_average_tonnage = Number(updates.averageTonnage);
+  if (updates.lead != null) payload.custom_lead = updates.lead;
+  if (updates.leadKm != null) payload.custom_lead_km = updates.leadKm;
+  if (updates.leadRate != null) payload.custom_lead_rate = Number(updates.leadRate);
+  if (updates.ratePerTon != null) payload.rate_per_ton = Number(updates.ratePerTon);
+  if (updates.shift != null) payload.custom_shift = updates.shift;
+  if (updates.vehicle != null) payload.vehicle = updates.vehicle;
+
+  const count = Number(updates.tripCount ?? 1);
+  const avg = Number(updates.averageTonnage ?? 0);
+  const rate = Number(updates.leadRate ?? updates.ratePerTon ?? 0);
+
+  if (updates.averageTonnage != null || updates.tripCount != null) {
+    const qty = count * avg;
+    payload.custom_calculated_quantity = qty;
+    payload.net_weight_tons = qty;
+    if (rate > 0) {
+      payload.custom_calculated_amount = qty * rate;
+      payload.gross_revenue = qty * rate;
+    }
+  }
+
+  if (updates.finalize) {
+    payload.trip_status = 'Approved';
+    payload.workflow_state = 'Approved';
+  } else if (updates.tripStatus) {
+    payload.trip_status = updates.tripStatus;
+  }
+
+  const res = await frappeFetch<{ data: any }>(
+    `/api/resource/Mining%20Trip/${encodeURIComponent(id)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      sessionCookie,
+    }
+  );
+
+  return mapMiningTrip(res.data);
+}
+
 export async function applyTripTransition(
   sessionCookie: string,
   id: string,

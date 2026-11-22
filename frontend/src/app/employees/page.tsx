@@ -1123,12 +1123,26 @@ function EmployeesContent() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {(() => {
-                        const isDriverOrPlOpt = (desig?: string | null) => {
-                          if (!desig) return false;
-                          const d = desig.toLowerCase().trim();
-                          return d === 'driver' || d === 'p/l opt' || d === 'pl opt' || d.includes('driver') || d.includes('p/l opt');
+                        const isDriverOrPlOpt = (desig?: string | null, name?: string | null) => {
+                          const d = (desig || '').toLowerCase().trim();
+                          const n = (name || '').toLowerCase().trim();
+                          return (
+                            d === 'driver' ||
+                            d === 'p/l opt' ||
+                            d === 'pl opt' ||
+                            d === 'operator' ||
+                            d === 'p/l operator' ||
+                            d === 'pl operator' ||
+                            d.includes('driver') ||
+                            d.includes('p/l opt') ||
+                            d.includes('pl opt') ||
+                            d.includes('operator') ||
+                            d.includes('p/l') ||
+                            n.includes('driver') ||
+                            n.includes('operator')
+                          );
                         };
-                        const otherStaffList = filteredEmployees.filter((emp) => !isDriverOrPlOpt(emp.designation));
+                        const otherStaffList = filteredEmployees.filter((emp) => !isDriverOrPlOpt(emp.designation, emp.employeeName));
 
                         if (otherStaffList.length === 0) {
                           return (
@@ -1475,8 +1489,14 @@ function EmployeesContent() {
                       </tbody>
                       <tfoot>
                         <tr className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900 text-xs">
-                          <td colSpan={3} className="py-2.5 px-3 sticky left-0 bg-slate-100 z-10 uppercase tracking-wider text-[11px] text-slate-800 font-bold">
-                            Total Present (Date-Wise)
+                          <td className="py-2.5 px-3 sticky left-0 bg-slate-100 z-10 uppercase tracking-wider text-[11px] text-slate-800 font-bold">
+                            Total
+                          </td>
+                          <td className="py-2.5 px-3 sticky left-28 bg-slate-100 z-10 text-[11px] text-slate-800 font-bold">
+                            Present Staff (Date-Wise)
+                          </td>
+                          <td className="py-2.5 px-3 bg-slate-100 text-[10px] text-slate-500 font-bold uppercase">
+                            All
                           </td>
                           {dayNumbers.map((d) => {
                             const count = filteredSummary.filter((s) => s.dailyStatus?.[d] === 'P').length;

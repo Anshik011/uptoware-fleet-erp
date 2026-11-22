@@ -65,6 +65,7 @@
 | **39. Native ERPNext Data Import Integration** | 🟢 Completed & Live | ✅ Tested (End-to-End Live Ingestion Pass) | Full integration with Frappe's native `Data Import` engine (`frappe.core.doctype.data_import`). Enabled `allow_import = 1` across all 8 DocTypes, resolved `Transport Type` field label disambiguation, created dedicated Data Import Hub (`/import`), built official template generator (`/api/import/template`), live upload handler (`/api/import/upload`), status poller (`/api/import/status`), and generated master multi-tab Excel workbook (`Uptoware_Fleet_ERP_Bulk_Import_Template.xlsx`). |
 | **40. Frontend White-Label Branding & Leak Remediation** | 🟢 Completed & Live | ✅ Audited & Tested (96 Replacements, 0 Leaks) | Complete audit and remediation of raw framework terms (`ERPNext`, `Frappe`, `DocType`, internal technical references) across 58 frontend files. Replaced with clean Uptoware Fleet ERP terminology; live verified on production with zero leaks. |
 | **41. Client Operational Refinements & Bug Remediation** | 🟢 Completed & Live | ✅ Tested (6/6 Client Changes Verified) | Addressed 6 specific client operational requests: 1) Item permissions & role provisioning for demo.admin, 2) Universal Vehicle Number selector in Purchase Order modal, 3) 15 Indian Mining Designations seeded + custom designation capability + form placement swap with Social Category, 4) Transport-only vehicle filter in Driver Matrix roster, 5) Drivers & P/L Operators excluded from Other Staff Matrix, 6) Sticky date-wise total summary row in Monthly Attendance & Salary matrix. |
+| **42. Trip Reconciliation Hub & Demo Data Cleanliness** | 🟢 Completed & Live | ✅ Tested (All 4 Items Verified) | 1) Enhanced Driver & P/L Opt multi-attribute exclusion guard in Staff Attendance, 2) Triple-column sticky date-wise total footer in Monthly Attendance, 3) Interactive Reconcile Trip Entry tab displaying site supervisor trips, average payload input, live tonnage/value computation, and one-click finalization, 4) Complete purge of dummy test drivers, test attendance, test vehicles, and test trips on production DB. |
 
 *Status Legend:* ⚪ Pending | 🟡 In Progress | 🟢 Completed | 🔴 Blocked | ⚫ Not Implemented | 📝 Code Reviewed
 
@@ -16607,6 +16608,44 @@ During comprehensive inspection of user-facing UI copy, several instances of bac
   - Added sticky summary footer (`<tfoot>`) to the 1-31 matrix table in `frontend/src/app/employees/page.tsx`.
   - For each day from 1 to daysInMonth, calculates the total count of staff marked `P` (Present) or `HD` (Half Day: 0.5 count).
   - Calculates and renders the grand total present shifts across all staff for the entire month in the final summary columns.
+
+---
+
+## BATCH 21: SITE SUPERVISOR TRIP RECONCILIATION HUB & PRODUCTION PURGE
+
+**Execution Date:** 2026-11-22  
+**Status:** Completed & Live on Production  
+**Production URL:** [https://fleet.uptoware.com](https://fleet.uptoware.com)  
+
+### 1. Robust Exclusion of Drivers & Operators in Other Staff Matrix
+- Reinforced `isDriverOrPlOpt(emp.designation, emp.employeeName)` in `frontend/src/app/employees/page.tsx` to cross-check both designation and name attributes against `driver`, `p/l opt`, `operator`, and variations.
+- Completely prevents any drivers or machine operators from surfacing in the non-driver shift matrix table.
+
+### 2. Triple-Column Sticky Date-Wise Total Footer in Monthly Attendance
+- Replaced monolithic `colSpan={3}` footer cell with 3 dedicated sticky columns (`sticky left-0` for "TOTAL", `sticky left-28` for "Present Staff (Date-Wise)", and `w-28` for "All").
+- Guarantees seamless horizontal and vertical scrolling synchronization without layout shifting or overlap across all 1–31 date cells.
+
+### 3. Interactive Site Supervisor Trip Reconciliation Hub (`CreateTripModal.tsx`)
+- In Tab 2 (`2. Reconcile Trip Entry`):
+  - Fetches and displays all trips logged by the Site Supervisor in an interactive reconciliation ledger.
+  - Lists Trip ID, Shift, Vehicle, Route/Lead, Trip Count, Current Average, and Status.
+  - Clicking **"Reconcile & Enter Avg →"** on any supervisor trip opens the active reconciliation workbench:
+    - Pre-populates trip details (Shift, Vehicle, Route).
+    - Mandatory **Average Payload / Tonnage (Tons)** entry with quick-fill button (`Use Vehicle Rated Capacity`).
+    - Real-time calculation: `Reconciled Quantity = Trip Count × Average Tonnage` and `Reconciled Value = Quantity × Rate`.
+    - **"✓ Finalize & Reconcile Trip"** triggers `PATCH /api/trips/[id]` with `finalize: true`, transitioning state to `Approved` and saving calculated tonnage/value.
+    - Also supports "+ Direct Entry" for entering new reconciled trips from scratch.
+- Backend API (`frontend/src/app/api/trips/[id]/route.ts` & `frontend/src/lib/frappe.ts`):
+  - Implemented `PATCH` endpoint and `updateMiningTrip` helper updating `custom_average_tonnage`, `custom_trip_count`, `custom_calculated_quantity`, `custom_calculated_amount`, and workflow state.
+
+### 4. Complete Production Demo/Test Data Purge
+- Executed database cleanup script on live MariaDB:
+  - Deleted 55 dummy test `Employee Attendance` records (resetting attendance matrices to clean state).
+  - Deleted 8 test employees (`Demo Driver 01–04`, `Ramesh QA-...`), retaining genuine employees `BISWAJIT DEHURY` and `PAYAL GARANAYAK`.
+  - Deleted 9 test vehicles (`DEMO-OD-01–04`, `KA-34-...`), retaining genuine transport tipper `OD35A0001`.
+  - Deleted 8 automated test trips, resetting `TRIP-2026-01120` to `Draft` (4 trips, pending average reconciliation) ready for live client demonstration.
+  - Cleared test items, fuel logs, breakdown, and expense entries.
+  - Cleared Frappe application cache (`frappe.clear_cache()`).
 
 
 

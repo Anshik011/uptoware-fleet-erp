@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMiningTripById } from '@/lib/frappe';
+import { getMiningTripById, updateMiningTrip } from '@/lib/frappe';
 import { getAuthenticatedUser, checkPermission, isAuthorizedForTestRecords } from '@/lib/auth';
 import { resolveUserMineScope, validateDocumentMineOwnership, MineAuthorizationError } from '@/lib/mineAuth';
 
@@ -88,17 +88,62 @@ export async function GET(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Valid operational session required.' },
+        { status: 401 }
+      );
+    }
+
+    if (!checkPermission(auth.user, 'trips', 'manage')) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Insufficient permissions to reconcile or update trips.' },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await params;
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'Invalid trip identifier parameter.' },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const updated = await updateMiningTrip(auth.sid, id, body);
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      message: body.finalize ? 'Trip reconciled and finalized successfully.' : 'Trip updated successfully.',
+    });
+  } catch (error: any) {
+    console.error('API /trips/[id] PATCH error:', error?.message || 'Error');
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Failed to update or reconcile trip.' },
+      { status: error.status || 500 }
+    );
+  }
+}
+
 export async function DELETE() {
   return NextResponse.json(
     { success: false, error: 'Forbidden: Operational trip record deletion is prohibited.' },
-    { status: 403, headers: { Allow: 'GET' } }
+    { status: 403, headers: { Allow: 'GET, PATCH' } }
   );
 }
 
 export async function POST() {
   return NextResponse.json(
     { success: false, error: 'Method Not Allowed' },
-    { status: 405, headers: { Allow: 'GET' } }
+    { status: 405, headers: { Allow: 'GET, PATCH' } }
   );
 }
 

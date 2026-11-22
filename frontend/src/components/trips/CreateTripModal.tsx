@@ -17,6 +17,12 @@ import {
   Loader2,
   FileText,
   Lock,
+  CheckCircle2,
+  ArrowRight,
+  ArrowLeft,
+  RefreshCw,
+  Plus,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { LinkedField } from '@/components/ui/LinkedField';
@@ -75,6 +81,13 @@ export function CreateTripModal({
   const [leadRate, setLeadRate] = useState<number | ''>('');
   const [tripCount, setTripCount] = useState<number>(1);
   const [averageTonnage, setAverageTonnage] = useState<number | ''>('');
+
+  // Reconcile supervisor state & trips list
+  const [supervisorTrips, setSupervisorTrips] = useState<any[]>([]);
+  const [loadingSupervisorTrips, setLoadingSupervisorTrips] = useState(false);
+  const [selectedTripToReconcile, setSelectedTripToReconcile] = useState<any | null>(null);
+  const [isManualReconcileEntry, setIsManualReconcileEntry] = useState(false);
+  const [reconcileActionSuccess, setReconcileActionSuccess] = useState<string | null>(null);
 
   // Lock status for single-mine / restricted users
   const isMineLocked = isSingleMine || (!isAllMines && allowedMines.length === 1);
@@ -252,6 +265,92 @@ export function CreateTripModal({
     if (isAllMines) return mineSites;
     return mineSites.filter((s) => allowedMines.includes(s.id) || allowedMines.includes(s.siteName));
   }, [mineSites, isAllMines, allowedMines]);
+
+  // Fetch trips entered by supervisor for reconciliation
+  const fetchSupervisorTrips = useCallback(async () => {
+    try {
+      setLoadingSupervisorTrips(true);
+      const res = await fetch('/api/trips?status=ALL');
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setSupervisorTrips(json.data || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch supervisor trips for reconciliation:', e);
+    } finally {
+      setLoadingSupervisorTrips(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && tripEntryMode === 'reconcile') {
+      fetchSupervisorTrips();
+    }
+  }, [isOpen, tripEntryMode, fetchSupervisorTrips]);
+
+  const handleSelectTripForReconciliation = (t: any) => {
+    setSelectedTripToReconcile(t);
+    setIsManualReconcileEntry(false);
+    setVehicle(t.vehicle || '');
+    setDriver(t.driver || '');
+    setMineSite(t.mineSite || '');
+    setDestination(t.destination || '');
+    setShift(t.shift || 'Shift A');
+    setDispatchDateTime(t.dispatchDateTime ? t.dispatchDateTime.slice(0, 16) : toLocalDateTimeInput());
+    setSelectedLead(t.lead || '');
+    setLeadKm(t.leadKm || '');
+    setLeadRate(t.leadRate || '');
+    setRatePerTon(t.ratePerTon || t.leadRate || '');
+    setTripCount(t.tripCount || 1);
+    setAverageTonnage(t.averageTonnage || t.payloadCapacityTons || (t.netWeightTons ? (t.netWeightTons / (t.tripCount || 1)) : 35));
+    setChallanNumber(t.challanNumber || '');
+    setError(null);
+    setReconcileActionSuccess(null);
+  };
+
+  const handleReconcileSubmit = async (finalize: boolean) => {
+    if (!selectedTripToReconcile) return;
+    if (averageTonnage === '' || Number(averageTonnage) <= 0) {
+      setError('Please enter a valid average payload / tonnage (e.g. 35.00 Tons) to reconcile this trip.');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/trips/${encodeURIComponent(selectedTripToReconcile.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tripCount: Number(tripCount || 1),
+          averageTonnage: Number(averageTonnage),
+          lead: selectedLead || undefined,
+          leadKm: leadKm !== '' ? leadKm : undefined,
+          leadRate: leadRate !== '' ? Number(leadRate) : undefined,
+          ratePerTon: effectiveRate > 0 ? effectiveRate : undefined,
+          shift: shift || undefined,
+          finalize,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reconcile trip');
+
+      setReconcileActionSuccess(
+        finalize
+          ? `Trip ${selectedTripToReconcile.id} successfully finalized & reconciled!`
+          : `Trip ${selectedTripToReconcile.id} draft changes saved.`
+      );
+      fetchSupervisorTrips();
+      onSuccess(data.data);
+      setTimeout(() => {
+        setSelectedTripToReconcile(null);
+        setReconcileActionSuccess(null);
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update/reconcile trip.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -592,203 +691,407 @@ export function CreateTripModal({
           ) : (
             /* ======================================================== */
             /* MODE 2: RECONCILE TRIP ENTRY                            */
-            /* Fields: Date, Vehicle, Lead, Trip Count, Avg,           */
-            /* Quantity, Amount                                        */
+            /* Reconcile Supervisor: Verify Supervisor Trips, Enter     */
+            /* Average, and Finalize Haulage Quantity & Value           */
             /* ======================================================== */
             <>
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center justify-between">
-                <span>Reconciliation mode: Auto-populates supervisor trip counts with tonnage and rates.</span>
-                <button
-                  type="button"
-                  onClick={() => setTripEntryMode('supervisor')}
-                  className="font-bold underline text-emerald-900 hover:text-emerald-700"
-                >
-                  ← Back to Supervisor Entry
-                </button>
-              </div>
-
-              {/* Auto-shown Supervisor Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Date & Shift
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={dispatchDateTime}
-                    onChange={(e) => setDispatchDateTime(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900"
-                  />
-                </div>
-
-                <LinkedField
-                  label="Vehicle No"
-                  required
-                  value={vehicle}
-                  onChange={handleVehicleChange}
-                  options={vehicles.map((v) => ({
-                    id: v.id,
-                    label: v.licensePlate,
-                    subtext: `${v.payloadCapacityTons}T`,
-                  }))}
-                  placeholder="-- Vehicle --"
-                  entityName="Vehicle"
-                  icon={Truck}
-                  onCreateNew={() => setShowAddVehicle(true)}
-                  onViewRecord={(id) => setViewVehicleId(id)}
-                />
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Lead / Route
-                  </label>
-                  <select
-                    value={selectedLead}
-                    onChange={(e) => handleLeadChange(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
-                  >
-                    <option value="">-- Choose Lead --</option>
-                    {leads.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.leadName} ({l.leadKm} km)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Reconcile Metrics: Trip Count, Avg, Quantity, Rate, Amount */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Trip Count <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={tripCount}
-                    onChange={(e) => setTripCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    required
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Avg Payload (Tons)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={averageTonnage}
-                    onChange={(e) => setAverageTonnage(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder={selectedVehicleObj ? `${selectedVehicleObj.payloadCapacityTons}` : '35.00'}
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Quantity (Tons)
-                  </label>
-                  <div className="w-full px-3 py-2 text-sm bg-slate-100 border border-slate-300 rounded-lg text-blue-900 font-mono font-bold">
-                    {calculatedQuantity.toFixed(2)} T
+              {!selectedTripToReconcile && !isManualReconcileEntry ? (
+                /* ---------------------------------------------------- */
+                /* VIEW A: LIST OF SUPERVISOR TRIPS TO RECONCILE        */
+                /* ---------------------------------------------------- */
+                <div className="space-y-4">
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div>
+                        <span className="font-bold">Reconcile Supervisor Hub</span>
+                        <p className="text-[11px] text-emerald-700 mt-0.5">
+                          Verify Site Supervisor Dispatched Trips, Enter Average Tonnage, and Finalize Haulage.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={fetchSupervisorTrips}
+                        className="p-1.5 text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100 rounded-lg transition-colors"
+                        title="Refresh Trips"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loadingSupervisorTrips ? 'animate-spin' : ''}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsManualReconcileEntry(true);
+                          setSelectedTripToReconcile(null);
+                        }}
+                        className="px-2.5 py-1 text-xs font-semibold bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Direct Entry</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Rate / Ton (₹)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="120"
-                    value={leadRate !== '' ? leadRate : ratePerTon}
-                    onChange={(e) => {
-                      const val = e.target.value === '' ? '' : Number(e.target.value);
-                      setRatePerTon(val);
-                      if (selectedLead) setLeadRate(val);
-                    }}
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono"
-                  />
-                </div>
-              </div>
+                  {reconcileActionSuccess && (
+                    <div className="p-3 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-xl text-xs flex items-center gap-2 font-medium">
+                      <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>{reconcileActionSuccess}</span>
+                    </div>
+                  )}
 
-              {/* Haulage Quantity & Value Calculation Summary Card */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Reconciled Mineral Quantity
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900 mt-0.5">
-                    {tripCount || 1} Trip(s) × {effectiveTonnage} Tons = <span className="text-blue-900 font-bold">{calculatedQuantity.toFixed(2)} Tons</span>
-                  </span>
+                  {loadingSupervisorTrips ? (
+                    <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
+                      <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
+                      <span className="text-xs">Loading supervisor trip logs...</span>
+                    </div>
+                  ) : supervisorTrips.length === 0 ? (
+                    <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                      <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-slate-700">No trips recorded by site supervisor</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Switch to tab 1 to log trips or click Direct Entry to record a trip with average tonnage.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsManualReconcileEntry(true)}
+                        className="mt-4 px-3 py-1.5 text-xs font-semibold bg-blue-900 text-white rounded-lg hover:bg-blue-800"
+                      >
+                        Create Direct Reconciled Entry
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                      {supervisorTrips.map((t) => {
+                        const isReconciled = t.workflowState === 'Approved' || t.tripStatus === 'Approved';
+                        const hasAverage = t.averageTonnage && t.averageTonnage > 0;
+                        return (
+                          <div
+                            key={t.id}
+                            className="p-3.5 border border-slate-200 rounded-xl bg-white hover:border-emerald-500 hover:shadow-xs transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-bold text-xs text-slate-900">{t.id}</span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                                  {t.shift || 'Shift A'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                                  {t.vehicle}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                  isReconciled
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {isReconciled ? 'Reconciled / Approved' : 'Pending Reconcile'}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                <span>Route: <strong>{t.lead || t.destination || 'Direct Route'}</strong></span>
+                                <span>Trips: <strong className="text-slate-900">{t.tripCount || 1}</strong></span>
+                                <span>
+                                  Avg:{' '}
+                                  {hasAverage ? (
+                                    <strong className="text-emerald-700 font-mono">{t.averageTonnage} T</strong>
+                                  ) : (
+                                    <span className="text-amber-600 font-medium">Pending Average</span>
+                                  )}
+                                </span>
+                                {t.calculatedQuantity ? (
+                                  <span>Total: <strong className="font-mono text-blue-900">{t.calculatedQuantity} T</strong></span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectTripForReconciliation(t)}
+                              className="shrink-0 px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-2xs"
+                            >
+                              <span>{isReconciled ? 'Edit / View' : 'Reconcile & Enter Avg'}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                <div className="flex flex-col sm:items-end">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Calculated Reconciled Amount
-                  </span>
-                  <span className="text-base font-bold text-emerald-700 mt-0.5">
-                    ₹{calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
+              ) : (
+                /* ---------------------------------------------------- */
+                /* VIEW B: RECONCILE / EDIT SELECTED TRIP FORM          */
+                /* ---------------------------------------------------- */
+                <>
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTripToReconcile(null);
+                          setIsManualReconcileEntry(false);
+                        }}
+                        className="text-emerald-800 hover:text-emerald-950 flex items-center gap-1 font-bold"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        Back to Trips List
+                      </button>
+                      {selectedTripToReconcile && (
+                        <>
+                          <span className="text-slate-300">|</span>
+                          <span>Reconciling: <strong className="font-mono">{selectedTripToReconcile.id}</strong></span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTripEntryMode('supervisor')}
+                      className="font-bold underline text-emerald-900 hover:text-emerald-700"
+                    >
+                      ← Supervisor Entry
+                    </button>
+                  </div>
 
-              {/* Row: Driver & Challan Number */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-                <LinkedField
-                  label="Assign Driver"
-                  value={driver}
-                  onChange={setDriver}
-                  options={drivers.map((d) => ({
-                    id: d.id,
-                    label: d.fullName,
-                    subtext: d.licenseNumber ? `Lic: ${d.licenseNumber}` : 'Operator',
-                  }))}
-                  placeholder="-- Choose Driver --"
-                  entityName="Driver"
-                  icon={User}
-                  onCreateNew={() => setShowAddDriver(true)}
-                  onViewRecord={(id) => setViewDriverId(id)}
-                />
+                  {/* Auto-shown Supervisor Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Date & Shift
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={dispatchDateTime}
+                        onChange={(e) => setDispatchDateTime(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Challan / Transit Pass #
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. CH-2026-908"
-                    value={challanNumber}
-                    onChange={(e) => setChallanNumber(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900"
-                  />
-                </div>
-              </div>
+                    <LinkedField
+                      label="Vehicle No"
+                      required
+                      value={vehicle}
+                      onChange={handleVehicleChange}
+                      options={vehicles.map((v) => ({
+                        id: v.id,
+                        label: v.licensePlate,
+                        subtext: `${v.payloadCapacityTons}T`,
+                      }))}
+                      placeholder="-- Vehicle --"
+                      entityName="Vehicle"
+                      icon={Truck}
+                      onCreateNew={() => setShowAddVehicle(true)}
+                      onViewRecord={(id) => setViewVehicleId(id)}
+                    />
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Lead / Route
+                      </label>
+                      <select
+                        value={selectedLead}
+                        onChange={(e) => handleLeadChange(e.target.value)}
+                        className="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
+                      >
+                        <option value="">-- Choose Lead --</option>
+                        {leads.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.leadName} ({l.leadKm} km)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Reconcile Metrics: Trip Count, Avg, Quantity, Rate, Amount */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Trip Count <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={tripCount}
+                        onChange={(e) => setTripCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        required
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Avg Payload (Tons) <span className="text-rose-500">*</span>
+                        </label>
+                        {selectedVehicleObj?.payloadCapacityTons && (
+                          <button
+                            type="button"
+                            onClick={() => setAverageTonnage(selectedVehicleObj.payloadCapacityTons)}
+                            className="text-[10px] text-blue-900 font-bold hover:underline"
+                          >
+                            Rated ({selectedVehicleObj.payloadCapacityTons}T)
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.01"
+                        value={averageTonnage}
+                        onChange={(e) => setAverageTonnage(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder={selectedVehicleObj ? `${selectedVehicleObj.payloadCapacityTons}` : '35.00'}
+                        required
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 text-slate-900 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Quantity (Tons)
+                      </label>
+                      <div className="w-full px-3 py-2 text-sm bg-slate-100 border border-slate-300 rounded-lg text-blue-900 font-mono font-bold">
+                        {calculatedQuantity.toFixed(2)} T
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Rate / Ton (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="120"
+                        value={leadRate !== '' ? leadRate : ratePerTon}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : Number(e.target.value);
+                          setRatePerTon(val);
+                          if (selectedLead) setLeadRate(val);
+                        }}
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Haulage Quantity & Value Calculation Summary Card */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        Reconciled Mineral Quantity
+                      </span>
+                      <span className="text-sm font-semibold text-slate-900 mt-0.5">
+                        {tripCount || 1} Trip(s) × {effectiveTonnage} Tons = <span className="text-blue-900 font-bold">{calculatedQuantity.toFixed(2)} Tons</span>
+                      </span>
+                    </div>
+                    <div className="flex flex-col sm:items-end">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        Calculated Reconciled Amount
+                      </span>
+                      <span className="text-base font-bold text-emerald-700 mt-0.5">
+                        ₹{calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Row: Driver & Challan Number */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                    <LinkedField
+                      label="Assign Driver"
+                      value={driver}
+                      onChange={setDriver}
+                      options={drivers.map((d) => ({
+                        id: d.id,
+                        label: d.fullName,
+                        subtext: d.licenseNumber ? `Lic: ${d.licenseNumber}` : 'Operator',
+                      }))}
+                      placeholder="-- Choose Driver --"
+                      entityName="Driver"
+                      icon={User}
+                      onCreateNew={() => setShowAddDriver(true)}
+                      onViewRecord={(id) => setViewDriverId(id)}
+                    />
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Challan / Transit Pass #
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. CH-2026-908"
+                        value={challanNumber}
+                        onChange={(e) => setChallanNumber(e.target.value)}
+                        className="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
 
           {/* Form Actions */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
-            <Button type="button" onClick={onClose} variant="outline" size="md">
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              isLoading={submitting}
-              icon={Compass}
-              disabled={loadingOptions || submitting || isUnassigned}
-              data-testid="btn-submit-trip"
-            >
-              {tripEntryMode === 'supervisor' ? 'Save Supervisor Trip Entry' : 'Confirm & Reconcile Trip Entry'}
-            </Button>
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
+            <div>
+              {tripEntryMode === 'reconcile' && selectedTripToReconcile ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTripToReconcile(null);
+                    setIsManualReconcileEntry(false);
+                  }}
+                  className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  ← Back to List
+                </button>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button type="button" onClick={onClose} variant="outline" size="md">
+                Cancel
+              </Button>
+
+              {tripEntryMode === 'reconcile' && selectedTripToReconcile ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    isLoading={submitting}
+                    disabled={submitting}
+                    onClick={() => handleReconcileSubmit(false)}
+                  >
+                    Save Draft
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    isLoading={submitting}
+                    disabled={submitting}
+                    icon={CheckCircle2}
+                    onClick={() => handleReconcileSubmit(true)}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                  >
+                    Finalize & Reconcile Trip
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  isLoading={submitting}
+                  icon={Compass}
+                  disabled={loadingOptions || submitting || isUnassigned}
+                  data-testid="btn-submit-trip"
+                >
+                  {tripEntryMode === 'supervisor' ? 'Save Supervisor Trip Entry' : 'Confirm & Reconcile Trip Entry'}
+                </Button>
+              )}
+            </div>
           </div>
         </form>
       </div>
