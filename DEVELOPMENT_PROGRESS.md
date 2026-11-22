@@ -16839,3 +16839,64 @@ During comprehensive inspection of user-facing UI copy, several instances of bac
   - `Vehicle Insurance Policy`: 0
 - Next.js application built and live on port 3001 behind Nginx (`https://fleet.uptoware.com`).
 
+---
+
+## Module 47: Mandatory Driver Dispatch Enforcement, Universal Humanized Error Translation & Typographical Corrections
+
+### 1. Context & User Directives
+- **Directives Addressed:**
+  1. *Mandatory Driver on Trip Dispatch:* Commercial haulage trucks must not move or be dispatched without a designated driver. In Tab 1 ("Site Supervisor Trip Entry"), include an explicit Driver selector with quick registration and auto-fill from vehicle allocation.
+  2. *Universal Humanized Error Messages:* Never expose raw developer jargon, stack traces, or internal database keys (e.g., `DRV-DEFAULT`, `LinkExistsError`, `PermissionError`, `IntegrityError`). All errors across the entire codebase must explain in plain business language what is missing, why, and what action the user must take.
+  3. *Spelling & Typographical Audit:* Correct "Attendance summery" to "Attendance summary" and audit navigation and UI labels for spelling mistakes (e.g., "Vender Report" -> "Vendor Report").
+  4. *Clean Production State & Universal Actions:* Production environment (`https://fleet.uptoware.com`) must remain 100% clean (0 demo records).
+
+### 2. Mandatory Driver on Tab 1 ("Site Supervisor Trip Entry")
+- **Safety & Regulatory Rationale:** A commercial haulage vehicle cannot legally or safely move on a mining site without an authorized operator. Tab 1 now enforces driver assignment directly at dispatch time.
+- **UI & Workflow Implementation:**
+  - Added `Driver / Operator` `<LinkedField>` with `User` icon directly to Tab 1.
+  - Embedded quick registration hook (`+ New Driver`) opening `AddDriverModal` so supervisors can register an operator on the spot without leaving the dispatch modal.
+  - Auto-populates the driver field when a vehicle with an existing driver assignment is chosen.
+  - Symmetrical 2-column grid layout:
+    - Row 1: Date & Time | Operating Shift
+    - Row 2: Vehicle No | Driver / Operator
+    - Row 3: Lead / Route | Mine Site / Pit
+    - Row 4: Trip Count | Summary & Value Calculation
+- **Server-Side Validation:**
+  - `frontend/src/app/api/trips/route.ts`: Rejects trip dispatches lacking an assigned driver with HTTP 400 and clear guidance.
+  - `frontend/src/lib/localDemoHandler.ts`: Validates driver presence on trip creation.
+
+### 3. Universal Humanized Business Error Translation
+- **Engine:** Implemented `humanizeBusinessError(rawMsg, fallbackStatus)` in `frontend/src/lib/frappe.ts` and integrated it directly into `extractCleanFrappeError()`.
+- **Translations Implemented:**
+  1. *Missing / Invalid Driver in Trips:* "Mining Trip Dispatch requires an assigned Driver. No driver was specified or found. Please select an active Driver for this trip before saving."
+  2. *Missing / Invalid Vehicle:* "The selected vehicle is either invalid, inactive, or not registered in the system. Please verify the vehicle registration."
+  3. *Connected Data Deletion Blockers:* "Cannot delete this record because it is actively referenced by other operational entries (e.g., trips, fuel logs, attendance, or purchase orders). Remove linked records before deleting."
+  4. *Designation Lookup Mismatches:* "The specified designation does not match any registered Master Designation. Please select a valid designation from the dropdown."
+  5. *Role Permissions & Access Control:* "Access Denied: Your account role does not have permission to perform this action or modify this document."
+  6. *Duplicate Records:* "A record with this identifier already exists in the system. Please use a unique identifier."
+  7. *Mandatory Fields Required:* "Required fields are missing. Please complete all fields marked with an asterisk (*) before proceeding."
+  8. *Monotonic Odometer Regression:* "The entered odometer reading cannot be less than the vehicle's last recorded odometer reading."
+  9. *Statutory Expiry & Insurance Restrictions:* "This action cannot be completed because the vehicle's statutory document or insurance policy has expired or is invalid."
+
+### 4. Typographical & Spelling Audit
+- **Navigation Corrections:**
+  - Corrected `ATTENDANCE SUMMERY` -> `ATTENDANCE SUMMARY` in `frontend/src/config/navigation.ts`.
+  - Corrected `VENDER REPORT` -> `VENDOR REPORT` in `frontend/src/config/navigation.ts`.
+- **Codebase Scan:**
+  - Executed automated regex audit across all TypeScript/TSX source files for common misspellings (`summery`, `vender`, `calender`, `seperat`, `mandetory`, `attendence`, `occured`, `recieve`, `maintanance`, `desabled`, `reconcilation`). All UI labels confirmed clean.
+
+### 5. Production Deployment & Database Cleanliness
+- **Git Commit:** Pushed to `origin/main` (`89ac7a8`).
+- **EC2 Build:** Successfully compiled with Turbopack (101/101 static/dynamic pages) and running live on port 3001 behind Nginx (`https://fleet.uptoware.com`).
+- **MariaDB Verification:**
+  - `tabVehicle`: 0
+  - `tabDriver`: 0
+  - `tabEmployee`: 0
+  - `tabMining Trip`: 0
+  - `tabFuel Log`: 0
+  - `tabItem`: 0
+  - `tabPurchase Order`: 0
+  - `tabSupplier`: 0
+  - `tabVehicle Insurance Policy`: 0
+
+
