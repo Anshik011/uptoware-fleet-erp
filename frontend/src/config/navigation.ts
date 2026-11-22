@@ -136,7 +136,7 @@ export const clientNavigationSections: ClientNavSection[] = [
           { name: 'SPARE PARTS ENTRY', href: '/purchases?action=new' },
           { name: 'SPARE PARTS REPORT', href: '/purchases?view=report' },
           { name: 'VENDOR ENTRY', href: '/suppliers?action=new' },
-          { name: 'VENDER REPORT', href: '/suppliers' },
+          { name: 'VENDOR REPORT', href: '/suppliers' },
         ],
       },
       {
@@ -172,7 +172,7 @@ export const clientNavigationSections: ClientNavSection[] = [
     items: [
       { name: 'HOME', href: '/employees?tab=directory' },
       { name: 'ATTENDANCE ENTRY', href: '/employees?tab=roster' },
-      { name: 'ATTENDANCE SUMMERY', href: '/employees?tab=summary' },
+      { name: 'ATTENDANCE SUMMARY', href: '/employees?tab=summary' },
     ],
   },
   {
