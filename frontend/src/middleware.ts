@@ -93,12 +93,21 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  const hasSessionCookie =
-    request.cookies.has(AUTH_COOKIE_NAME) || request.cookies.has('sid');
+  const rawSid = request.cookies.get(AUTH_COOKIE_NAME)?.value || request.cookies.get('sid')?.value;
+  const hasSessionCookie = Boolean(
+    rawSid &&
+    rawSid.trim().length > 0 &&
+    rawSid !== 'Guest' &&
+    rawSid !== 'null' &&
+    rawSid !== 'undefined'
+  );
 
   // 3. Handle /login page access
   if (pathname === '/login') {
-    if (hasSessionCookie) {
+    // Only redirect to / if a valid session cookie exists AND user was not explicitly redirected to login
+    // This prevents infinite redirect loops when a stale or expired cookie exists in the client browser
+    const hasRedirectParam = request.nextUrl.searchParams.has('redirect');
+    if (hasSessionCookie && !hasRedirectParam) {
       const url = request.nextUrl.clone();
       url.pathname = '/';
       return NextResponse.redirect(url);

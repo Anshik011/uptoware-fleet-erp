@@ -107,11 +107,18 @@ export async function POST(request: NextRequest) {
       return response;
     }
 
-    // 2. Authenticate credentials against Frappe's official login endpoint
+    // 2. Authenticate credentials against Frappe's official login endpoint using form-urlencoded data
+    const formParams = new URLSearchParams();
+    formParams.append('usr', email);
+    formParams.append('pwd', password);
+
     const loginRes = await fetch(`${FRAPPE_URL}/api/method/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usr: email, pwd: password }),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+      },
+      body: formParams.toString(),
       cache: 'no-store',
     });
 
