@@ -1494,5 +1494,5 @@ export interface EmployeeAttendanceSummary {
   absentDays: number;
   leaveDays: number;
   totalCalculatedSalary: number;
-  dailyStatus?: Record<number, 'P' | 'A' | 'HD' | 'L'>;
+  dailyStatus?: Record<number, 'P' | 'A' | 'HD' | 'L' | '2P' | 'P+P' | '2' | 'P+HD' | string>;
 }

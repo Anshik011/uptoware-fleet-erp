@@ -9992,15 +9992,20 @@ export async function getEmployeeAttendanceSummary(
         const day = parseInt(parts[2], 10);
         if (day >= 1 && day <= 31) {
           if (!summary.dailyStatus) summary.dailyStatus = {};
-          const code =
-            att.attendanceStatus === 'Present'
-              ? 'P'
-              : att.attendanceStatus === 'Half Day'
-              ? 'HD'
-              : att.attendanceStatus === 'On Leave'
-              ? 'L'
-              : 'A';
-          summary.dailyStatus[day] = code;
+          const existingCode = summary.dailyStatus[day];
+          if (att.attendanceStatus === 'Present') {
+            if (existingCode === 'P' || existingCode === '2P' || existingCode === 'P+P') {
+              summary.dailyStatus[day] = '2P';
+            } else {
+              summary.dailyStatus[day] = 'P';
+            }
+          } else if (att.attendanceStatus === 'Half Day') {
+            summary.dailyStatus[day] = existingCode && existingCode.includes('P') ? 'P+HD' : 'HD';
+          } else if (att.attendanceStatus === 'On Leave') {
+            if (!existingCode || existingCode === '-') summary.dailyStatus[day] = 'L';
+          } else {
+            if (!existingCode || existingCode === '-') summary.dailyStatus[day] = 'A';
+          }
         }
       }
     }

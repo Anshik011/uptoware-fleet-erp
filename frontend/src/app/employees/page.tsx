@@ -1142,8 +1142,36 @@ function EmployeesContent() {
                             (e) => e.id === assignedDriverId || e.assignedVehicle === vPlate
                           );
 
+                          // Filter employees to ONLY Drivers, Operators, or staff assigned to this vehicle
+                          const isDriverOrPlOpt = (desig?: string | null, name?: string | null) => {
+                            const d = (desig || '').toLowerCase().trim();
+                            const n = (name || '').toLowerCase().trim();
+                            return (
+                              d === 'driver' ||
+                              d === 'p/l opt' ||
+                              d === 'pl opt' ||
+                              d === 'operator' ||
+                              d === 'p/l operator' ||
+                              d === 'pl operator' ||
+                              d.includes('driver') ||
+                              d.includes('p/l opt') ||
+                              d.includes('pl opt') ||
+                              d.includes('operator') ||
+                              d.includes('p/l') ||
+                              n.includes('driver') ||
+                              n.includes('operator')
+                            );
+                          };
+
+                          const driverEmployees = employees.filter(
+                            (e) =>
+                              isDriverOrPlOpt(e.designation, e.employeeName) ||
+                              e.id === assignedDriverId ||
+                              e.assignedVehicle === vPlate
+                          );
+
                           // Drivers list with assigned driver first
-                          const sortedDrivers = [...employees].sort((a, b) => {
+                          const sortedDrivers = [...driverEmployees].sort((a, b) => {
                             if (a.id === assignedDriverId || a.assignedVehicle === vPlate) return -1;
                             if (b.id === assignedDriverId || b.assignedVehicle === vPlate) return 1;
                             return a.employeeName.localeCompare(b.employeeName);
@@ -1682,9 +1710,23 @@ function EmployeesContent() {
                               const code = sum.dailyStatus?.[d];
                               return (
                                 <td key={d} className="py-2 px-1 text-center font-mono">
-                                  {code === 'P' ? (
+                                  {code === '2P' || code === 'P+P' || code === '2' ? (
+                                    <span
+                                      className="inline-flex items-center justify-center min-w-5 h-5 px-1 leading-5 rounded text-[10px] font-black bg-emerald-600 text-white shadow-2xs tracking-tighter"
+                                      title="Double Shift / OT (2 Shifts Present)"
+                                    >
+                                      2P
+                                    </span>
+                                  ) : code === 'P' ? (
                                     <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
                                       P
+                                    </span>
+                                  ) : code === 'P+HD' ? (
+                                    <span
+                                      className="inline-flex items-center justify-center min-w-5 h-5 px-1 leading-5 rounded text-[9px] font-black bg-emerald-700 text-white"
+                                      title="1 Shift + Half Day"
+                                    >
+                                      1.5P
                                     </span>
                                   ) : code === 'A' ? (
                                     <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
@@ -1729,9 +1771,15 @@ function EmployeesContent() {
                             All
                           </td>
                           {dayNumbers.map((d) => {
-                            const count = filteredSummary.filter((s) => s.dailyStatus?.[d] === 'P').length;
-                            const half = filteredSummary.filter((s) => s.dailyStatus?.[d] === 'HD').length;
-                            const total = count + (half > 0 ? half * 0.5 : 0);
+                            const count = filteredSummary.reduce((acc, s) => {
+                              const st = s.dailyStatus?.[d];
+                              if (st === '2P' || st === 'P+P' || st === '2') return acc + 2;
+                              if (st === 'P+HD') return acc + 1.5;
+                              if (st === 'P') return acc + 1;
+                              if (st === 'HD') return acc + 0.5;
+                              return acc;
+                            }, 0);
+                            const total = count;
                             return (
                               <td key={d} className="py-2 px-1 text-center font-mono text-[11px]">
                                 {total > 0 ? (
@@ -1760,19 +1808,23 @@ function EmployeesContent() {
                   <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
                     <div className="flex items-center gap-4">
                       <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 inline-block text-[8px] text-center font-bold">P</span>
-                        <span>Present</span>
+                        <span className="w-5 h-5 rounded bg-emerald-600 text-white inline-flex items-center justify-center text-[10px] font-black">2P</span>
+                        <span className="font-semibold text-emerald-800">Double Shift / OT (2 Shifts)</span>
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded bg-rose-100 border border-rose-300 text-rose-800 inline-block text-[8px] text-center font-bold">A</span>
+                        <span className="w-4 h-4 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 inline-flex items-center justify-center text-[9px] font-bold">P</span>
+                        <span>Present (1 Shift)</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded bg-rose-100 border border-rose-300 text-rose-800 inline-flex items-center justify-center text-[9px] font-bold">A</span>
                         <span>Absent</span>
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded bg-amber-100 border border-amber-300 text-amber-800 inline-block text-[8px] text-center font-bold">HD</span>
+                        <span className="w-4 h-4 rounded bg-amber-100 border border-amber-300 text-amber-800 inline-flex items-center justify-center text-[9px] font-bold">HD</span>
                         <span>Half Day</span>
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded bg-purple-100 border border-purple-300 text-purple-800 inline-block text-[8px] text-center font-bold">L</span>
+                        <span className="w-4 h-4 rounded bg-purple-100 border border-purple-300 text-purple-800 inline-flex items-center justify-center text-[9px] font-bold">L</span>
                         <span>Leave</span>
                       </span>
                     </div>
