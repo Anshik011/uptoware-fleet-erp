@@ -45,10 +45,25 @@ export function CreatePurchaseOrderModal({
 
   useEffect(() => {
     setLocalSuppliers(suppliers);
+    if (suppliers.length > 0) {
+      setSupplier((curr) => curr || suppliers[0].id);
+    }
   }, [suppliers]);
 
   useEffect(() => {
     setLocalItems(items);
+    setRows((prev) => {
+      if ((prev.length === 0 || (prev.length === 1 && !prev[0].itemCode)) && items.length > 0) {
+        return [
+          {
+            itemCode: items[0].itemCode,
+            qty: prev[0]?.qty || 1,
+            rate: items[0].rate || 100,
+          },
+        ];
+      }
+      return prev;
+    });
   }, [items]);
 
   useEffect(() => {
@@ -84,6 +99,24 @@ export function CreatePurchaseOrderModal({
   const [showAddPartModal, setShowAddPartModal] = useState(false);
   const [viewPartId, setViewPartId] = useState<string | null>(null);
   const [activePartRowIndex, setActivePartRowIndex] = useState<number | null>(null);
+
+  // Synchronize modal state on open
+  useEffect(() => {
+    if (!isOpen) return;
+    setError(null);
+    if (!supplier && localSuppliers.length > 0) {
+      setSupplier(localSuppliers[0].id);
+    }
+    if ((rows.length === 0 || (rows.length === 1 && !rows[0].itemCode)) && localItems.length > 0) {
+      setRows([
+        {
+          itemCode: localItems[0].itemCode,
+          qty: 1,
+          rate: localItems[0].rate || 100,
+        },
+      ]);
+    }
+  }, [isOpen, localSuppliers, localItems]);
 
   const handleBreakdownSelect = (bkdId: string) => {
     setSelectedBreakdown(bkdId);
@@ -180,9 +213,15 @@ export function CreatePurchaseOrderModal({
           rate: i.valuationRate || 0,
         }));
         setLocalItems(mapped);
-        if (activePartRowIndex !== null && mapped.length > 0) {
+        if (mapped.length > 0) {
           const newest = mapped[mapped.length - 1];
-          handleItemChange(activePartRowIndex, newest.itemCode);
+          if (activePartRowIndex !== null && activePartRowIndex < rows.length) {
+            handleItemChange(activePartRowIndex, newest.itemCode);
+          } else {
+            const emptyIdx = rows.findIndex((r) => !r.itemCode);
+            const targetIdx = emptyIdx !== -1 ? emptyIdx : 0;
+            handleItemChange(targetIdx, newest.itemCode);
+          }
         }
       }
     } catch (err) {
@@ -209,8 +248,8 @@ export function CreatePurchaseOrderModal({
     }
 
     for (const r of rows) {
-      if (!r.itemCode) {
-        setError('Please select an item for all rows.');
+      if (!r.itemCode || !r.itemCode.trim()) {
+        setError('Please select a spare part for all order line items.');
         return;
       }
       if (r.qty <= 0) {
@@ -459,11 +498,15 @@ export function CreatePurchaseOrderModal({
                               }}
                               className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-xs text-slate-900 bg-white focus:ring-2 focus:ring-blue-500"
                             >
+                              <option value="" disabled>-- Select Spare Part --</option>
                               {localItems.map((i) => (
                                 <option key={i.itemCode} value={i.itemCode}>
                                   {i.itemName || i.itemCode} ({i.itemCode})
                                 </option>
                               ))}
+                              {row.itemCode && !localItems.some((i) => i.itemCode === row.itemCode) && (
+                                <option value={row.itemCode}>{row.itemCode}</option>
+                              )}
                               <option value="__create_new__" className="text-blue-600 font-semibold">
                                 ➕ + Create New Spare Part...
                               </option>

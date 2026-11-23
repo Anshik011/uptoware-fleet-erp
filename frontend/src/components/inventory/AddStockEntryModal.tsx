@@ -123,7 +123,22 @@ export function AddStockEntryModal({
       const json = await res.json();
       if (res.ok && json.success) {
         if (json.warehouses) setLocalWarehouses(json.warehouses);
-        if (json.items) setLocalItems(json.items);
+        if (json.items) {
+          setLocalItems(json.items);
+          setRows((prev) => {
+            if ((prev.length === 0 || (prev.length === 1 && !prev[0].itemCode)) && json.items.length > 0) {
+              return [
+                {
+                  itemCode: json.items[0].itemCode,
+                  qty: prev[0]?.qty || 1,
+                  rate: json.items[0].rate || 0,
+                  uom: json.items[0].uom || 'Nos',
+                },
+              ];
+            }
+            return prev;
+          });
+        }
         if (json.vehicles) setLocalVehicles(json.vehicles);
         if (json.breakdowns) setLocalBreakdowns(json.breakdowns);
         if (json.mineSites) setAvailableMineSites(json.mineSites);
@@ -146,7 +161,18 @@ export function AddStockEntryModal({
 
     setSelectedMineSite(initialSite);
     loadScopedOptions(initialSite);
-  }, [isOpen, currentMine, isAllMines, allowedMines, loadScopedOptions]);
+
+    if ((rows.length === 0 || (rows.length === 1 && !rows[0].itemCode)) && localItems.length > 0) {
+      setRows([
+        {
+          itemCode: localItems[0].itemCode,
+          qty: 1,
+          rate: localItems[0].rate || 0,
+          uom: localItems[0].uom || 'Nos',
+        },
+      ]);
+    }
+  }, [isOpen, currentMine, isAllMines, allowedMines, loadScopedOptions, localItems]);
 
   // Update default warehouses when warehouse list changes
   useEffect(() => {
@@ -258,9 +284,15 @@ export function AddStockEntryModal({
           rate: i.valuationRate || 0,
         }));
         setLocalItems(mapped);
-        if (activePartRowIndex !== null && mapped.length > 0) {
+        if (mapped.length > 0) {
           const newest = mapped[mapped.length - 1];
-          handleItemChange(activePartRowIndex, newest.itemCode);
+          if (activePartRowIndex !== null && activePartRowIndex < rows.length) {
+            handleItemChange(activePartRowIndex, newest.itemCode);
+          } else {
+            const emptyIdx = rows.findIndex((r) => !r.itemCode);
+            const targetIdx = emptyIdx !== -1 ? emptyIdx : 0;
+            handleItemChange(targetIdx, newest.itemCode);
+          }
         }
       }
     } catch (err) {
@@ -318,8 +350,8 @@ export function AddStockEntryModal({
     }
 
     for (const r of rows) {
-      if (!r.itemCode) {
-        setError('Please select an item for all rows.');
+      if (!r.itemCode || !r.itemCode.trim()) {
+        setError('Please select a spare part for all item rows.');
         return;
       }
       if (r.qty <= 0) {
@@ -651,11 +683,15 @@ export function AddStockEntryModal({
                               }}
                               className="flex-1 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-600"
                             >
+                              <option value="" disabled>-- Select Spare Part --</option>
                               {localItems.map((i) => (
                                 <option key={i.itemCode} value={i.itemCode}>
                                   {i.itemName || i.itemCode} ({i.itemCode})
                                 </option>
                               ))}
+                              {row.itemCode && !localItems.some((i) => i.itemCode === row.itemCode) && (
+                                <option value={row.itemCode}>{row.itemCode}</option>
+                              )}
                               <option value="__create_new__" className="text-blue-600 font-semibold">
                                 ➕ + Create New Spare Part...
                               </option>
