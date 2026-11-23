@@ -711,16 +711,6 @@ export function CreateTripModal({
                   </span>
                 </div>
               </div>
-
-              {/* Quick Summary Strip */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
-                <span className="text-slate-600">
-                  Estimated Quantity: <strong className="text-slate-900">{calculatedQuantity.toFixed(2)} Tons</strong> ({tripCount} trips × {effectiveTonnage}T)
-                </span>
-                <span className="text-slate-600">
-                  Est. Value: <strong className="text-emerald-700">₹{calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                </span>
-              </div>
             </>
           ) : (
             /* ======================================================== */

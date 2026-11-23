@@ -36,7 +36,9 @@ import {
   AlertTriangle,
   Pencil,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
+import { DriverDrawer } from '@/components/drivers/DriverDrawer';
 
 type ActiveTab = 'directory' | 'roster' | 'summary';
 
@@ -80,6 +82,33 @@ function EmployeesContent() {
   useEffect(() => {
     setMineFilter(currentMine);
   }, [currentMine]);
+
+  // Contextual Driver Drawer & Direct Unsuspend
+  const [viewingDriverId, setViewingDriverId] = useState<string | null>(null);
+  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+
+  const handleDirectUnsuspend = async (driverId: string, empName: string) => {
+    try {
+      const defaultExpiry = new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const res = await fetch(`/api/drivers/${encodeURIComponent(driverId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'Active',
+          expiryDate: defaultExpiry,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to unsuspend driver.');
+      }
+      setActionSuccessMessage(`Driver profile for '${empName}' unsuspended and activated for dispatch.`);
+      setTimeout(() => setActionSuccessMessage(null), 4000);
+      loadEmployees();
+    } catch (err: any) {
+      alert(err.message || 'Error unsuspending driver.');
+    }
+  };
 
   // Add Employee Modal
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -673,6 +702,13 @@ function EmployeesContent() {
           </button>
         </div>
 
+        {actionSuccessMessage && (
+          <div className="mb-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center gap-2 shadow-xs">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{actionSuccessMessage}</span>
+          </div>
+        )}
+
         {/* ======================================================== */}
         {/* TAB 1: PERSONNEL DIRECTORY */}
         {/* ======================================================== */}
@@ -857,10 +893,27 @@ function EmployeesContent() {
                               </div>
                             )}
                             {emp.linkedDriverId && (
-                              <div className="mt-1">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingDriverId(emp.linkedDriverId || null)}
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer"
+                                  title="Click to view driver profile & compliance details"
+                                >
                                   Linked Driver Profile ({emp.driverStatus || 'Active'})
-                                </span>
+                                  <ExternalLink className="w-2.5 h-2.5 ml-1" />
+                                </button>
+                                {emp.driverStatus === 'Suspended' && canManage && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDirectUnsuspend(emp.linkedDriverId!, emp.employeeName)}
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
+                                    title="Unsuspend driver and restore dispatch eligibility"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+                                    Unsuspend
+                                  </button>
+                                )}
                               </div>
                             )}
                           </td>
@@ -2222,6 +2275,16 @@ function EmployeesContent() {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Linked Driver Details Slide-Over Drawer */}
+        {viewingDriverId && (
+          <DriverDrawer
+            driverId={viewingDriverId}
+            onClose={() => setViewingDriverId(null)}
+            canManage={canManage}
+            onAllocationChange={loadEmployees}
+          />
         )}
       </PageContainer>
     </AppShell>

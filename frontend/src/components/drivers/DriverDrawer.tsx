@@ -17,6 +17,7 @@ import {
   FileText,
   ExternalLink,
   UserX,
+  CheckCircle2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -48,6 +49,8 @@ export function DriverDrawer({
   const [assignedVehicleDetails, setAssignedVehicleDetails] = useState<Vehicle | null>(null);
   const [isLoading, setIsLoading] = useState(Boolean(driverId));
   const [error, setError] = useState<string | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusActionMessage, setStatusActionMessage] = useState<string | null>(null);
 
   const loadDriverDetails = async () => {
     if (!driverId) {
@@ -71,6 +74,35 @@ export function DriverDrawer({
       setError(err.message || 'Error communicating with fleet server');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleUnsuspendDriver = async () => {
+    if (!driver) return;
+    try {
+      setIsUpdatingStatus(true);
+      setError(null);
+      const defaultExpiry = driver.expiryDate || new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const res = await fetch(`/api/drivers/${encodeURIComponent(driver.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'Active',
+          expiryDate: defaultExpiry,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to unsuspend driver.');
+      }
+      setStatusActionMessage('Driver unsuspended successfully! Now active and eligible for trips.');
+      setTimeout(() => setStatusActionMessage(null), 4000);
+      loadDriverDetails();
+      if (onAllocationChange) onAllocationChange();
+    } catch (err: any) {
+      setError(err.message || 'Error updating driver status.');
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -197,6 +229,43 @@ export function DriverDrawer({
             </div>
           ) : driver ? (
             <>
+              {statusActionMessage && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{statusActionMessage}</span>
+                </div>
+              )}
+
+              {/* Suspended Notice Banner with Quick Unsuspend Action */}
+              {driver.status === 'Suspended' && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-amber-900">Driver Profile Suspended</h4>
+                      <p className="text-amber-700 text-[11px] mt-0.5">
+                        This operator cannot be dispatched for trips while suspended. Click Unsuspend to restore active dispatch eligibility.
+                      </p>
+                    </div>
+                  </div>
+                  {canManage && (
+                    <button
+                      type="button"
+                      disabled={isUpdatingStatus}
+                      onClick={handleUnsuspendDriver}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shrink-0 transition-colors shadow-sm inline-flex items-center gap-1.5"
+                    >
+                      {isUpdatingStatus ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      )}
+                      <span>Unsuspend Operator</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Performance Metric Strip */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200">
@@ -490,24 +559,38 @@ export function DriverDrawer({
         </div>
 
         {/* Drawer Footer Actions */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
           <Button variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
-          {canManage && driver && onEditDriver && (
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Edit2}
-              onClick={() => {
-                onClose();
-                onEditDriver(driver);
-              }}
-              data-testid="btn-drawer-edit-driver"
-            >
-              Edit Driver Profile
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {canManage && driver?.status === 'Suspended' && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={isUpdatingStatus ? Loader2 : CheckCircle2}
+                onClick={handleUnsuspendDriver}
+                disabled={isUpdatingStatus}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {isUpdatingStatus ? 'Activating...' : 'Unsuspend Driver'}
+              </Button>
+            )}
+            {canManage && driver && onEditDriver && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Edit2}
+                onClick={() => {
+                  onClose();
+                  onEditDriver(driver);
+                }}
+                data-testid="btn-drawer-edit-driver"
+              >
+                Edit Driver Profile
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
