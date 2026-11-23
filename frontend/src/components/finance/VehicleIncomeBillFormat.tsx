@@ -15,6 +15,7 @@ import {
   AlertCircle,
   PackageCheck,
   Wrench,
+  ExternalLink,
 } from 'lucide-react';
 
 interface VehicleOption {
@@ -47,6 +48,7 @@ interface VehicleIncomeBillFormatProps {
 }
 
 // Client standard baseline template from official invoice (01.01_TO_15.01-9425-1.pdf)
+// Used ONLY when previewing the baseline demo layout when 0 live records exist
 const BASELINE_LEADS: LeadRow[] = [
   { lead: 'Sm to RLY', subLead: 'Lead (6-7 to 4-5)', trips: 55, ton: 15.88, qty: 873.40, rate: 113.12, amount: 98799.01 },
   { lead: 'Sm to RLY', subLead: 'Lead (6-7 to 3-4)', trips: 2, ton: 16.46, qty: 33.00, rate: 111.76, amount: 3688.08 },
@@ -157,6 +159,7 @@ export function VehicleIncomeBillFormat({
       );
       const targetTrips = approvedTrips.length > 0 ? approvedTrips : rawTrips;
 
+      let hasRealTrips = false;
       if (targetTrips.length > 0) {
         // Group trips by lead / route
         const leadMap = new Map<string, { lead: string; subLead: string; trips: number; qty: number; rates: number[]; amounts: number[] }>();
@@ -208,30 +211,68 @@ export function VehicleIncomeBillFormat({
 
         setLeadsData(computedLeads);
         setIsLiveTrips(true);
+        hasRealTrips = true;
       } else {
         // Fallback to baseline client template
         setLeadsData(BASELINE_LEADS);
         setIsLiveTrips(false);
       }
 
-      // Process HSD Fuel logs
-      const rawFuel: any[] = fuelJson.success && Array.isArray(fuelJson.entries) ? fuelJson.entries : [];
-      if (rawFuel.length > 0) {
-        const computedHsd: HsdRow[] = rawFuel.map((f) => {
-          const dateStr = f.date || f.postingDate || '2026-01-01';
-          const qtyLtr = Number(f.quantityLiters || f.fuelLiters || 0);
-          const rateLtr = Number(f.costPerLiter || f.rate || 94.98);
-          const amt = Number(f.totalCost || f.amount || (qtyLtr * rateLtr));
-          return {
-            date: dateStr,
-            qty: qtyLtr,
-            rate: rateLtr,
-            amount: amt,
-          };
+      // Process HSD Fuel logs for this specific vehicle
+      const rawFuel: any[] =
+        fuelJson.success && Array.isArray(fuelJson.logs)
+          ? fuelJson.logs
+          : (fuelJson.success && Array.isArray(fuelJson.entries) ? fuelJson.entries : []);
+
+      const vehicleFuel = rawFuel.filter(
+        (f) => !f.vehicle || f.vehicle === selectedVehicle || f.vehicle === selectedVehicle.replace(/\s+/g, '')
+      );
+
+      if (vehicleFuel.length > 0) {
+        // Group fuel logs by date
+        const fuelDateMap = new Map<string, { date: string; qty: number; rates: number[]; amounts: number[] }>();
+
+        vehicleFuel.forEach((f) => {
+          const rawDate = f.fuelDate || f.date || f.postingDate || '2026-01-01';
+          const dateStr = rawDate.includes('-')
+            ? rawDate.split('-').reverse().join('.')
+            : rawDate;
+
+          const qtyLtr = Number(f.quantityLitres || f.quantityLiters || f.fuelLiters || 0);
+          const rateLtr = Number(f.ratePerLitre || f.costPerLiter || f.rate || 94.98);
+          const amt = Number(f.totalFuelCost || f.totalCost || f.amount || (qtyLtr * rateLtr));
+
+          if (!fuelDateMap.has(dateStr)) {
+            fuelDateMap.set(dateStr, { date: dateStr, qty: 0, rates: [], amounts: [] });
+          }
+          const item = fuelDateMap.get(dateStr)!;
+          item.qty += qtyLtr;
+          item.rates.push(rateLtr);
+          item.amounts.push(amt);
         });
+
+        const computedHsd: HsdRow[] = [];
+        fuelDateMap.forEach((val) => {
+          const totalAmt = val.amounts.reduce((sum, a) => sum + a, 0);
+          const avgRate = val.qty > 0 ? (totalAmt / val.qty) : (val.rates[0] || 94.98);
+          computedHsd.push({
+            date: val.date,
+            qty: Number(val.qty.toFixed(2)),
+            rate: Number(avgRate.toFixed(2)),
+            amount: Number(totalAmt.toFixed(2)),
+          });
+        });
+
+        computedHsd.sort((a, b) => a.date.localeCompare(b.date));
         setHsdEntries(computedHsd);
         setIsLiveFuel(true);
+      } else if (hasRealTrips) {
+        // IMPORTANT: When a vehicle has REAL trips, show ONLY its actual fuel logs!
+        // If 0 fuel logged, show 0 HSD consumption! Do NOT inject 2,120 LTR of sample diesel!
+        setHsdEntries([]);
+        setIsLiveFuel(true);
       } else {
+        // Baseline preview mode (when 0 trips exist and vehicle is unselected or demo)
         setHsdEntries(BASELINE_HSD);
         setIsLiveFuel(false);
       }
@@ -278,9 +319,14 @@ export function VehicleIncomeBillFormat({
   const gst18 = Math.round(taxableValue * 0.18 * 100) / 100;
   const invoiceValue = taxableValue + gst18;
   const tds1 = Math.round(taxableValue * 0.01 * 100) / 100;
-  const staffSalaryAdvance = isLiveParts && sparePartsCost > 0 ? sparePartsCost : 50000.00;
+
+  // In live trips mode, staff advances/parts is actual spare parts sold or advances (0 if none)
+  const staffSalaryAdvance = isLiveTrips
+    ? (sparePartsCost > 0 ? sparePartsCost : 0)
+    : 50000.00;
+
   const totalDeduction = tds1 + totalHsdAmount + staffSalaryAdvance;
-  const paymentReceived = isLiveTrips ? Math.round(Math.max(0, invoiceValue - totalDeduction) * 100) / 100 : 101683.39;
+  const paymentReceived = isLiveTrips ? 0 : 101683.39;
   const balance = Math.max(0, invoiceValue - totalDeduction - paymentReceived);
 
   const handlePrint = () => {
@@ -406,7 +452,7 @@ export function VehicleIncomeBillFormat({
 
       {/* Dynamic Data Notification Banner */}
       {isLiveTrips ? (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900">
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>
@@ -520,46 +566,64 @@ export function VehicleIncomeBillFormat({
         {/* Section 2: Split Log — Left: HSD Fuel, Right: Financial Deductions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
           {/* Left Column: HSD Fuel Consumption */}
-          <div className="border border-slate-300 rounded-lg overflow-hidden">
-            <div className="bg-slate-200 px-3 py-2 border-b border-slate-300 flex items-center justify-between font-bold text-xs uppercase">
-              <span className="flex items-center gap-1.5">
-                <Fuel className="w-3.5 h-3.5 text-amber-700" />
-                HSD Diesel Consumption Log
-              </span>
-              <span>{isLiveFuel ? 'Live Dispensation Logs' : 'Standard Rate: ₹94.98 / Ltr'}</span>
-            </div>
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
-                <tr>
-                  <th className="py-1.5 px-3">Date</th>
-                  <th className="py-1.5 px-3 text-right">Quantity (LTR)</th>
-                  <th className="py-1.5 px-3 text-right">Rate (₹)</th>
-                  <th className="py-1.5 px-3 text-right">Amount (₹)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-mono">
-                {hsdEntries.map((h, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="py-1 px-3 text-slate-700">{h.date}</td>
-                    <td className="py-1 px-3 text-right font-medium">{h.qty > 0 ? h.qty : '-'}</td>
-                    <td className="py-1 px-3 text-right text-slate-500">{h.rate.toFixed(2)}</td>
-                    <td className="py-1 px-3 text-right font-semibold text-slate-900">
-                      {h.amount > 0 ? h.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}
-                    </td>
+          <div className="border border-slate-300 rounded-lg overflow-hidden flex flex-col justify-between">
+            <div>
+              <div className="bg-slate-200 px-3 py-2 border-b border-slate-300 flex items-center justify-between font-bold text-xs uppercase">
+                <span className="flex items-center gap-1.5">
+                  <Fuel className="w-3.5 h-3.5 text-amber-700" />
+                  HSD Diesel Consumption Log ({selectedVehicle})
+                </span>
+                <span className="text-[11px] text-slate-600 font-mono">
+                  {hsdEntries.length > 0 ? `${totalHsdLtr.toFixed(1)} LTR` : '0 LTR'}
+                </span>
+              </div>
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th className="py-1.5 px-3">Date</th>
+                    <th className="py-1.5 px-3 text-right">Quantity (LTR)</th>
+                    <th className="py-1.5 px-3 text-right">Rate (₹)</th>
+                    <th className="py-1.5 px-3 text-right">Amount (₹)</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-slate-100 border-t border-slate-300 font-bold">
-                <tr>
-                  <td className="py-2 px-3 uppercase text-slate-900">Total HSD</td>
-                  <td className="py-2 px-3 text-right font-mono font-black">{totalHsdLtr} LTR</td>
-                  <td className="py-2 px-3"></td>
-                  <td className="py-2 px-3 text-right font-mono font-black text-rose-800">
-                    ₹{totalHsdAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono">
+                  {hsdEntries.length > 0 ? (
+                    hsdEntries.map((h, i) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="py-1 px-3 text-slate-700">{h.date}</td>
+                        <td className="py-1 px-3 text-right font-medium">{h.qty > 0 ? h.qty.toFixed(1) : '-'}</td>
+                        <td className="py-1 px-3 text-right text-slate-500">{h.rate.toFixed(2)}</td>
+                        <td className="py-1 px-3 text-right font-semibold text-slate-900">
+                          {h.amount > 0 ? h.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="py-6 px-3 text-center text-slate-500 bg-slate-50/50">
+                        <div className="flex flex-col items-center justify-center gap-1">
+                          <Fuel className="w-5 h-5 text-slate-400" />
+                          <span className="font-semibold text-xs text-slate-700">No HSD Diesel Consumption logged for {selectedVehicle}</span>
+                          <span className="text-[11px] text-slate-500">
+                            Diesel dispensation records entered in Fuel Logs will dynamically aggregate here date-wise.
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="bg-slate-100 border-t border-slate-300 font-bold p-2.5 flex items-center justify-between text-xs">
+              <span className="uppercase text-slate-900">Total HSD Diesel</span>
+              <div className="flex items-center gap-4">
+                <span className="font-mono font-black">{totalHsdLtr.toFixed(1)} LTR</span>
+                <span className="font-mono font-black text-rose-800 text-sm">
+                  ₹{totalHsdAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Right Column: Statement of Deductions and Net Payment */}
@@ -604,11 +668,19 @@ export function VehicleIncomeBillFormat({
                   </div>
                   <div className="flex justify-between text-slate-700">
                     <span>• Diesel (HSD Deduction):</span>
-                    <span className="font-mono text-rose-700">- ₹{totalHsdAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span className="font-mono text-rose-700">
+                      {totalHsdAmount > 0
+                        ? `- ₹${totalHsdAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                        : '₹0.00'}
+                    </span>
                   </div>
                   <div className="flex justify-between text-slate-700">
-                    <span>• {isLiveParts && sparePartsCost > 0 ? 'Spare Parts Sold to Vehicle' : 'Staff Salary Advance'}:</span>
-                    <span className="font-mono text-rose-700">- ₹{staffSalaryAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span>• {isLiveParts && sparePartsCost > 0 ? 'Spare Parts Sold to Vehicle' : 'Staff Salary / Advances'}:</span>
+                    <span className="font-mono text-rose-700">
+                      {staffSalaryAdvance > 0
+                        ? `- ₹${staffSalaryAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                        : '₹0.00'}
+                    </span>
                   </div>
                 </div>
               </div>
