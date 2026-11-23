@@ -17104,6 +17104,29 @@ Executed `scratch/adversarial_battery.ts` against both localhost and live produc
      - `/api/mine-sites` -> 2 active operational sites
    - All endpoints returned `HTTP 200 OK` with 100% operational purity.
 
+---
+
+## Module 53: Navigation Uniformity (Section 10) & Data Import Hub Layout Unification
+
+### 1. Root Cause Analysis
+- **Sidebar Visual Discrepancy:**
+  - The first 9 sections (*1. EMPLOYEE DATA* through *9. HSD ESCALATION*) used uniform numbered titles, `px-3 py-2.5` padding, `text-xs font-bold tracking-tight` typography, active border-left highlights (`border-blue-500`), and active indicator dots.
+  - The final section was unnumbered (`TECHNICAL & WORKSHOP CONTROLS`), wrapped in an arbitrary `pt-2` spacer, lacked `currentActive` tracking, and used subdued `text-[11px] text-slate-400`, making it look out of place.
+- **Data Import Hub Layout Disconnection (`/import`):**
+  - While every other page in the ERP used `AppShell`, `PageContainer`, and `PageHeader`, `frontend/src/app/import/page.tsx` was rendered as a standalone raw `<div>`.
+  - When users navigated to `/import`, the sidebar, header, and branding vanished, making the page look like a detached external website.
+
+### 2. Actions Taken & Technical Resolution
+1. **Uniform Numbering & Accordion Architecture (`navigation.ts`, `Sidebar.tsx`, `MobileNav.tsx`):**
+   - Standardized section title to `10. TECHNICAL & WORKSHOP CONTROLS`.
+   - Added `isAdminActive` path and query detection: activates the blue accent border, header text, and indicator dot whenever any of the 13 administrative routes are viewed.
+   - Synchronized padding (`px-3 py-2.5`), typography, spacing, and active chevron indicators to be identical with sections 1-9.
+2. **Data Import Hub Layout Integration (`frontend/src/app/import/page.tsx`):**
+   - Wrapped page in `AppShell` with header title and subtitle.
+   - Integrated `PageContainer` and `PageHeader` with breadcrumbs (`Home > 10. Technical Controls > Data Import Hub`).
+   - Retained 100% of bulk spreadsheet onboarding functionality across all 8 modules (Vehicles, Employees, Mine Sites, Leads, Parts, Suppliers, Trips, Fuel).
+
+
 
 
 

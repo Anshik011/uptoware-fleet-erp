@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { AppShell } from '@/components/layout/AppShell';
+import { PageContainer } from '@/components/ui/PageContainer';
+import { PageHeader } from '@/components/ui/PageHeader';
 import {
   FileSpreadsheet,
   Upload,
@@ -239,27 +242,31 @@ export default function DataImportPage() {
   const SelectedIcon = selectedModule.icon;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Data Import Hub</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Bulk upload spreadsheets to populate operational master data into the fleet management system.
-          </p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => handleDownloadTemplate('master')}
-            className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            <FileSpreadsheet className="w-4 h-4 mr-2" />
-            Download Master Excel (All 8 Modules)
-          </button>
-        </div>
-      </div>
+    <AppShell
+      headerTitle="Data Import Hub"
+      headerSubtitle="Bulk upload spreadsheets to populate operational master data into the fleet management system"
+    >
+      <PageContainer>
+        <PageHeader
+          title="Data Import Hub"
+          subtitle="Bulk upload spreadsheets to populate operational master data into the fleet management system."
+          breadcrumbs={[
+            { label: 'Home', href: '/' },
+            { label: '10. Technical Controls', href: '/admin' },
+            { label: 'Data Import Hub' },
+          ]}
+          actions={
+            <button
+              onClick={() => handleDownloadTemplate('master')}
+              className="inline-flex items-center px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Download Master Excel (All 8 Modules)
+            </button>
+          }
+        />
 
-      {/* Module Selection Tabs */}
+        {/* Module Selection Tabs */}
       <div>
         <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
           Select Target Module
@@ -540,6 +547,7 @@ export default function DataImportPage() {
           )}
         </div>
       )}
-    </div>
+      </PageContainer>
+    </AppShell>
   );
 }

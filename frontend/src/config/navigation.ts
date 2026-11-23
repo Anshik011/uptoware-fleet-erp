@@ -204,7 +204,7 @@ export const clientNavigationSections: ClientNavSection[] = [
  * Segregated strictly from client operational navigation to preserve compliance.
  */
 export const administrationNavSection = {
-  title: 'TECHNICAL & WORKSHOP CONTROLS',
+  title: '10. TECHNICAL & WORKSHOP CONTROLS',
   roles: ['Fleet Manager', 'Workshop Supervisor', 'Accountant', 'Administrator'],
   items: [
     { name: 'Mine Sites & Pits', href: '/mine-sites', icon: MapPin },

@@ -305,53 +305,83 @@ export function Sidebar({ className = '' }: SidebarProps) {
           );
         })}
 
-        {/* Technical Administration Controls (Segregated at bottom; Collapsed by default) */}
-        {hasRole(administrationNavSection.roles) && (
-          <div className="pt-2">
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 overflow-hidden">
+        {/* Technical Administration Controls (10. TECHNICAL & WORKSHOP CONTROLS; Uniform with sections 1-9) */}
+        {hasRole(administrationNavSection.roles) && (() => {
+          const isAdminActive = administrationNavSection.items.some(
+            (item) => pathname === item.href || isLinkActive(item.href)
+          );
+          const isExpanded = openSectionId === 'admin-section';
+
+          return (
+            <div
+              className={`rounded-lg border transition-colors overflow-hidden ${
+                isAdminActive
+                  ? 'border-blue-500/50 bg-slate-950/60'
+                  : 'border-slate-800/80 bg-slate-950/40'
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => toggleSection('admin-section')}
-                className="w-full flex items-center justify-between px-3 py-2 bg-slate-800/40 hover:bg-slate-800 transition-colors text-left cursor-pointer"
-                aria-expanded={openSectionId === 'admin-section'}
+                className={`w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors cursor-pointer select-none ${
+                  isAdminActive
+                    ? 'bg-slate-800/90 text-blue-300 font-bold border-l-2 border-blue-500'
+                    : 'bg-slate-800/50 hover:bg-slate-800 text-slate-200'
+                }`}
+                aria-expanded={isExpanded}
+                data-testid="accordion-heading-admin-section"
               >
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-                  <Settings2 className="w-4 h-4 text-slate-400" />
-                  <span className="text-[11px] uppercase tracking-wider">{administrationNavSection.title}</span>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Settings2
+                    className={`w-4 h-4 flex-shrink-0 ${
+                      isAdminActive ? 'text-blue-400' : 'text-slate-400'
+                    }`}
+                  />
+                  <span className="text-xs font-bold tracking-tight truncate">
+                    {administrationNavSection.title}
+                  </span>
                 </div>
-                {openSectionId === 'admin-section' ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                )}
+                <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                  {isAdminActive && !isExpanded && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" title="Active Section" />
+                  )}
+                  {isExpanded ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  )}
+                </div>
               </button>
 
-              {openSectionId === 'admin-section' && (
-                <div className="px-2 py-1.5 space-y-0.5 bg-slate-900/40 border-t border-slate-800/60">
+              {isExpanded && (
+                <div className="px-2 py-1.5 space-y-0.5 bg-slate-900/60 border-t border-slate-800/60">
                   {administrationNavSection.items.map((item) => {
-                    const active = pathname === item.href;
+                    const active = pathname === item.href || isLinkActive(item.href);
                     const Icon = item.icon;
                     return (
                       <Link
                         key={item.name}
                         href={item.href}
                         onClick={saveScroll}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                        className={`flex items-center justify-between px-3 py-1.5 rounded text-[11px] font-medium transition-colors pl-3 ${
                           active
                             ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                         }`}
                       >
-                        <Icon className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="truncate">{item.name}</span>
+                        <div className="flex items-center gap-2 truncate">
+                          <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-white' : 'text-slate-400'}`} />
+                          <span className="truncate">{item.name}</span>
+                        </div>
+                        {active && <ChevronRight className="w-3 h-3 text-blue-200 ml-1 flex-shrink-0" />}
                       </Link>
                     );
                   })}
                 </div>
               )}
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* SLA / Cloud Health Footer */}
