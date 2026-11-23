@@ -111,7 +111,19 @@ export function AddBreakdownModal({
         const res = await fetch(`/api/breakdowns/options?${params.toString()}`);
         const json = await res.json();
         if (res.ok && json.success) {
-          if (json.vehicles) setVehicles(json.vehicles);
+          if (json.vehicles && json.vehicles.length > 0) {
+            setVehicles(json.vehicles);
+          } else {
+            try {
+              const vRes = await fetch('/api/vehicles?limit=100');
+              const vJson = await vRes.json();
+              if (vJson.success && Array.isArray(vJson.data) && vJson.data.length > 0) {
+                setVehicles(vJson.data);
+              }
+            } catch (vErr) {
+              console.warn('Failed fallback vehicle fetch:', vErr);
+            }
+          }
           if (json.drivers) setDrivers(json.drivers);
           if (json.mineSites) setMineSites(json.mineSites);
           if (json.workshops) setWorkshops(json.workshops);

@@ -2082,7 +2082,6 @@ export async function updateMiningTrip(
 
   if (updates.finalize) {
     payload.trip_status = 'Approved';
-    payload.workflow_state = 'Approved';
   } else if (updates.tripStatus) {
     payload.trip_status = updates.tripStatus;
   }
@@ -2097,7 +2096,29 @@ export async function updateMiningTrip(
     }
   );
 
-  return mapMiningTrip(res.data);
+  let finalData = res.data;
+
+  if (updates.finalize) {
+    try {
+      const wfRes = await frappeFetch<{ message?: any }>(
+        '/api/method/frappe.model.workflow.apply_workflow',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            doc: res.data,
+            action: 'Approve',
+          }),
+          sessionCookie,
+        }
+      );
+      if (wfRes.message) finalData = wfRes.message;
+    } catch (wfErr: any) {
+      console.warn('Trip finalize workflow transition:', wfErr?.message || wfErr);
+    }
+  }
+
+  return mapMiningTrip(finalData);
 }
 
 export async function applyTripTransition(

@@ -24,6 +24,7 @@ import {
   AlertCircle,
   Loader2,
   FileSpreadsheet,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface PartSaleRecord {
@@ -36,6 +37,7 @@ interface PartSaleRecord {
   grandTotal: number;
   totalQty: number;
   status: string;
+  docstatus?: number;
   remarks: string | null;
   items: Array<{
     itemCode: string;
@@ -83,6 +85,31 @@ function SalesContent() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(actionParam === 'new');
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const handleApproveSale = async (id: string) => {
+    try {
+      setApprovingId(id);
+      setActionMessage(null);
+      const res = await fetch(`/api/sales/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'submit' }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to approve parts sale.');
+      }
+      setActionMessage(`Sales Invoice ${id} approved & submitted successfully.`);
+      await loadSales();
+    } catch (err: any) {
+      console.error('Error approving sale:', err);
+      alert(err.message || 'Error approving invoice.');
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   useEffect(() => {
     if (tabParam) setActiveTab(tabParam);
@@ -303,6 +330,23 @@ function SalesContent() {
           }
         />
 
+        {/* Success Action Notification Banner */}
+        {actionMessage && (
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-medium">{actionMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActionMessage(null)}
+              className="text-emerald-600 hover:text-emerald-900 font-bold p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Tab Navigation */}
         <div className="flex items-center gap-2 border-b border-slate-200 mb-6">
           <button
@@ -449,7 +493,8 @@ function SalesContent() {
                         <th className="py-3 px-4">Parts Dispatched</th>
                         <th className="py-3 px-4 text-right">Total Qnt</th>
                         <th className="py-3 px-4 text-right">Invoice Amount (₹)</th>
-                        <th className="py-3 px-4 text-right">Status</th>
+                        <th className="py-3 px-4 text-center">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -491,10 +536,40 @@ function SalesContent() {
                           <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                             ₹{sale.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </td>
-                          <td className="py-3 px-4 text-right">
-                            <Badge variant={sale.status === 'Paid' ? 'positive' : 'neutral'} size="sm">
-                              {sale.status}
+                          <td className="py-3 px-4 text-center">
+                            <Badge
+                              variant={
+                                sale.status === 'Paid' || sale.status === 'Submitted'
+                                  ? 'positive'
+                                  : sale.status === 'Draft'
+                                  ? 'neutral'
+                                  : 'info'
+                              }
+                              size="sm"
+                            >
+                              {sale.status === 'Draft' ? 'Draft' : sale.status === 'Paid' ? 'Paid' : 'Submitted'}
                             </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {sale.status === 'Draft' || sale.docstatus === 0 ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="primary"
+                                isLoading={approvingId === sale.id}
+                                disabled={approvingId === sale.id}
+                                onClick={() => handleApproveSale(sale.id)}
+                                className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold flex items-center gap-1 shadow-2xs ml-auto"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Approve & Submit</span>
+                              </Button>
+                            ) : (
+                              <span className="text-emerald-700 text-[11px] font-semibold flex items-center justify-end gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Approved</span>
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))}

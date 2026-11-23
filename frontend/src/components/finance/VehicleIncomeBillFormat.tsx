@@ -98,8 +98,8 @@ export function VehicleIncomeBillFormat({
   const [isLiveFuel, setIsLiveFuel] = useState(false);
   const [isLiveParts, setIsLiveParts] = useState(false);
 
-  const [leadsData, setLeadsData] = useState<LeadRow[]>(BASELINE_LEADS);
-  const [hsdEntries, setHsdEntries] = useState<HsdRow[]>(BASELINE_HSD);
+  const [leadsData, setLeadsData] = useState<LeadRow[]>([]);
+  const [hsdEntries, setHsdEntries] = useState<HsdRow[]>([]);
   const [sparePartsCost, setSparePartsCost] = useState(0);
 
   // Sync prop vehicle if changed from parent
@@ -213,8 +213,7 @@ export function VehicleIncomeBillFormat({
         setIsLiveTrips(true);
         hasRealTrips = true;
       } else {
-        // Fallback to baseline client template
-        setLeadsData(BASELINE_LEADS);
+        setLeadsData([]);
         setIsLiveTrips(false);
       }
 
@@ -266,21 +265,19 @@ export function VehicleIncomeBillFormat({
         computedHsd.sort((a, b) => a.date.localeCompare(b.date));
         setHsdEntries(computedHsd);
         setIsLiveFuel(true);
-      } else if (hasRealTrips) {
-        // IMPORTANT: When a vehicle has REAL trips, show ONLY its actual fuel logs!
-        // If 0 fuel logged, show 0 HSD consumption! Do NOT inject 2,120 LTR of sample diesel!
+      } else {
+        // Honest zero consumption when no fuel logs exist for this vehicle
         setHsdEntries([]);
         setIsLiveFuel(true);
-      } else {
-        // Baseline preview mode (when 0 trips exist and vehicle is unselected or demo)
-        setHsdEntries(BASELINE_HSD);
-        setIsLiveFuel(false);
       }
 
-      // Process Spare Parts Sales
-      const rawSales: any[] = salesJson.success && Array.isArray(salesJson.sales) ? salesJson.sales : [];
+      // Process Spare Parts Sales (linked vehicle deduction)
+      const rawSales: any[] =
+        salesJson.success && Array.isArray(salesJson.data)
+          ? salesJson.data
+          : (salesJson.success && Array.isArray(salesJson.sales) ? salesJson.sales : []);
       if (rawSales.length > 0) {
-        const partsTotal = rawSales.reduce((acc, s) => acc + Number(s.totalAmount || s.grandTotal || 0), 0);
+        const partsTotal = rawSales.reduce((acc, s) => acc + Number(s.grandTotal || s.totalAmount || 0), 0);
         setSparePartsCost(partsTotal);
         setIsLiveParts(true);
       } else {
@@ -290,8 +287,8 @@ export function VehicleIncomeBillFormat({
 
     } catch (err) {
       console.error('Error fetching live financial data for vehicle bill:', err);
-      setLeadsData(BASELINE_LEADS);
-      setHsdEntries(BASELINE_HSD);
+      setLeadsData([]);
+      setHsdEntries([]);
     } finally {
       setLoading(false);
     }
@@ -311,22 +308,16 @@ export function VehicleIncomeBillFormat({
 
   // Financial deductions following Indian mining transportation norms
   const societyDeductionRate = 0.13; // 13% society deduction as per client statement
-  const societyDeduction = isLiveTrips
-    ? Math.round(grossFreightAmount * societyDeductionRate * 100) / 100
-    : 45088.00;
+  const societyDeduction = Math.round(grossFreightAmount * societyDeductionRate * 100) / 100;
 
   const taxableValue = Math.max(0, grossFreightAmount - societyDeduction);
   const gst18 = Math.round(taxableValue * 0.18 * 100) / 100;
   const invoiceValue = taxableValue + gst18;
   const tds1 = Math.round(taxableValue * 0.01 * 100) / 100;
 
-  // In live trips mode, staff advances/parts is actual spare parts sold or advances (0 if none)
-  const staffSalaryAdvance = isLiveTrips
-    ? (sparePartsCost > 0 ? sparePartsCost : 0)
-    : 50000.00;
-
-  const totalDeduction = tds1 + totalHsdAmount + staffSalaryAdvance;
-  const paymentReceived = isLiveTrips ? 0 : 101683.39;
+  // Deductions: TDS + Diesel (HSD) + Spare Parts Used
+  const totalDeduction = tds1 + totalHsdAmount + sparePartsCost;
+  const paymentReceived = 0;
   const balance = Math.max(0, invoiceValue - totalDeduction - paymentReceived);
 
   const handlePrint = () => {
@@ -357,7 +348,7 @@ export function VehicleIncomeBillFormat({
     csv += `Invoice Value,,${invoiceValue.toFixed(2)}\n`;
     csv += `TDS 1%,,${tds1.toFixed(2)}\n`;
     csv += `Diesel Consumption,,${totalHsdAmount.toFixed(2)}\n`;
-    csv += `Staff Salary / Spare Parts,,${staffSalaryAdvance.toFixed(2)}\n`;
+    csv += `Spare Parts Used,,${sparePartsCost.toFixed(2)}\n`;
     csv += `Total Deduction,,${totalDeduction.toFixed(2)}\n`;
     csv += `Less Payment,,${paymentReceived.toFixed(2)}\n`;
     csv += `Balance,,${balance.toFixed(2)}\n`;
@@ -534,19 +525,33 @@ export function VehicleIncomeBillFormat({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {leadsData.map((row, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/80">
-                  <td className="py-1.5 px-3 font-semibold text-slate-900">{row.lead}</td>
-                  <td className="py-1.5 px-3 text-slate-700">{row.subLead}</td>
-                  <td className="py-1.5 px-3 text-right font-mono font-medium">{row.trips}</td>
-                  <td className="py-1.5 px-3 text-right font-mono">{row.ton.toFixed(2)}</td>
-                  <td className="py-1.5 px-3 text-right font-mono font-semibold">{row.qty.toFixed(2)}</td>
-                  <td className="py-1.5 px-3 text-right font-mono">{row.rate.toFixed(2)}</td>
-                  <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">
-                    {row.amount > 0 ? row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+              {leadsData.length > 0 ? (
+                leadsData.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/80">
+                    <td className="py-1.5 px-3 font-semibold text-slate-900">{row.lead}</td>
+                    <td className="py-1.5 px-3 text-slate-700">{row.subLead}</td>
+                    <td className="py-1.5 px-3 text-right font-mono font-medium">{row.trips}</td>
+                    <td className="py-1.5 px-3 text-right font-mono">{row.ton.toFixed(2)}</td>
+                    <td className="py-1.5 px-3 text-right font-mono font-semibold">{row.qty.toFixed(2)}</td>
+                    <td className="py-1.5 px-3 text-right font-mono">{row.rate.toFixed(2)}</td>
+                    <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">
+                      {row.amount > 0 ? row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="py-8 px-3 text-center text-slate-500 bg-slate-50/50">
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      <Truck className="w-5 h-5 text-slate-400" />
+                      <span className="font-semibold text-xs text-slate-700">No coal haulage trips recorded for {selectedVehicle} in this period</span>
+                      <span className="text-[11px] text-slate-500">
+                        Trips logged by Site Supervisor and reconciled will dynamically display here.
+                      </span>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
             <tfoot className="bg-slate-100 border-t-2 border-slate-900 font-bold">
               <tr>
@@ -675,10 +680,10 @@ export function VehicleIncomeBillFormat({
                     </span>
                   </div>
                   <div className="flex justify-between text-slate-700">
-                    <span>• {isLiveParts && sparePartsCost > 0 ? 'Spare Parts Sold to Vehicle' : 'Staff Salary / Advances'}:</span>
+                    <span>• Spare Parts Used:</span>
                     <span className="font-mono text-rose-700">
-                      {staffSalaryAdvance > 0
-                        ? `- ₹${staffSalaryAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                      {sparePartsCost > 0
+                        ? `- ₹${sparePartsCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
                         : '₹0.00'}
                     </span>
                   </div>

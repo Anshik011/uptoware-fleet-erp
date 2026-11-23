@@ -101,6 +101,7 @@ export async function GET(request: NextRequest) {
       grandTotal: Number(inv.grand_total || 0),
       totalQty: Number(inv.total_qty || 0),
       status: inv.status,
+      docstatus: Number(inv.docstatus || 0),
       remarks: inv.remarks || null,
       items: itemsByInvoice[inv.name] || [],
     }));
