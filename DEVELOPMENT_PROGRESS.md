@@ -17038,6 +17038,35 @@ Executed `scratch/adversarial_battery.ts` against both localhost and live produc
 - Deployed to AWS EC2 (`13.239.121.225`), service `uptoware-frontend.service` active.
 - Live verified on `https://fleet.uptoware.com`.
 
+---
+
+## Module 51: Production Deployment Finalization & Shift Allocation Old Data Purge
+
+### 1. Root Cause Analysis
+- **Shift Allocations (`/shifts`):**
+  - Image `media_1795413267538_6a432be2.jpg` showed 3 demo shift allocations (`DEMO-OD-01` and `DEMO-OD-02` with `Demo Driver 01`, `02`, `03`).
+  - While earlier purge scripts wiped `tabVehicle`, `tabDriver`, `tabMining Trip`, etc., `tabVehicle Driver Shift Allocation` had been omitted from the initial cleanup scope.
+  - Safe-update mode in MariaDB prevented raw `DELETE FROM` without primary key condition.
+- **Client Deployment Sync & Rate Limit Glitch:**
+  - Code changes in commits `4cced80` (Purchase Order state sync) and `b4a8919` (Driver unsuspension & trip modal UI) had been pulled to EC2 git, but the Next.js production bundle in `.next` was built prior to those commits (at 06:18 UTC).
+  - When the client tried logging in repeatedly during service reload, the 60-second in-memory rate-limiter engaged, showing the temporary lockout banner.
+
+### 2. Actions Taken & Technical Resolution
+1. **Database Truncation & Zero-Record Verification:**
+   - Truncated `tabVehicle Driver Shift Allocation` on EC2 MariaDB (`remaining_shifts = 0`).
+   - Cleaned orphaned logs in `tabFleet Alert Log` (91 demo entries removed), `tabFleet Expiry Notification Log`, and `tabFleet Mine Transfer Log`.
+   - Verified active master data: exactly 1 operational vehicle (`OD19D1199`), 1 active driver (`RAMESH`, `HR-DRI-2026-00401`), and 1 active employee (`HR-EMP-00043`).
+2. **Next.js Production Rebuild & Service Restart:**
+   - Executed clean `npm run build` on EC2 (`13.239.121.225`).
+   - Successfully compiled 101/101 App Router routes with Turbopack.
+   - Restarted `uptoware-frontend.service` under systemd.
+3. **End-to-End API Runtime Verification:**
+   - Authenticated demo administrator session: `{"success": true}`.
+   - Verified `/api/shifts`: `{"success": true, "data": [], "count": 0}` (0 shift records).
+   - Verified `/api/trips/options`: `RAMESH` is returned as eligible active driver with DL `OD-05-2024-99881` (valid to 2030-12-31).
+   - Verified `https://fleet.uptoware.com/login` and `https://fleet.uptoware.com/shifts`: 200 OK / 307 redirect.
+
+
 
 
 
