@@ -16943,5 +16943,65 @@ Executed `scratch/adversarial_battery.ts` against both localhost and live produc
   - `tabSupplier`: 0
   - `tabVehicle Insurance Policy`: 0
 
+---
+
+## Module 49: Purchase Order & Stock Entry Line-Item State Synchronization & Visual Validation Integrity
+
+### 1. Issue Diagnosis & Root Cause
+- **User / Client Scenario (Screenshot `media_1795412654806_a5d7dcea.jpg`):**
+  - When creating a New Purchase Order, the modal displayed:
+    - Supplier: `JAI HANUMAN`
+    - Procurement Purpose: `Vehicle Maintenance`
+    - Vehicle Number: `OD19D1199`
+    - Warehouse: `Work In Progress`
+    - Order Line Item: Spare Part `F A PATI (SP-F-A-PATI-940)`, Quantity: 1, Unit Rate: ₹100, Amount: ₹100.00
+  - Upon clicking "Create Purchase Order", the form failed validation with:
+    `"Please select an item for all rows."`
+- **Root Cause Analysis:**
+  1. *Asynchronous State Desynchronization:* The `items` catalog prop is fetched asynchronously by the parent page. When `CreatePurchaseOrderModal` mounted, `rows` was initialized with `{ itemCode: items[0]?.itemCode || '', qty: 10, rate: items[0]?.rate || 100 }`. Because `items` was initially empty (`[]`), `rows[0].itemCode` was set to `""`.
+  2. *HTML Select Default Display Trap:* When `rows[0].itemCode` is `""`, and the `<select>` contains `<option>` elements without an explicit empty placeholder `<option value="" disabled>`, browsers render the first `<option>` in the DOM (`F A PATI (SP-F-A-PATI-940)`) visibly in the dropdown. The user sees `F A PATI` visually selected and assumes it is saved in state, but React state `rows[0].itemCode` was actually `""`.
+  3. *Quick Creation Callback Gap:* When creating a new part via `+ New Catalog Part` from the header button, `activePartRowIndex` was `null`. When `refreshItems()` re-fetched the catalog, the newly created item was added to the dropdown options, but was not bound to the active or empty line row.
+  4. *Identical Pattern in Stock Entries:* The exact same asynchronous synchronization vulnerability was identified in `AddStockEntryModal.tsx`.
+
+### 2. Comprehensive Implementation & Remediation
+- **`CreatePurchaseOrderModal.tsx` & `AddStockEntryModal.tsx`:**
+  1. *Automatic State Pre-Population on Prop / Catalog Arrival:*
+     ```tsx
+     useEffect(() => {
+       setLocalItems(items);
+       setRows((prev) => {
+         if ((prev.length === 0 || (prev.length === 1 && !prev[0].itemCode)) && items.length > 0) {
+           return [{
+             itemCode: items[0].itemCode,
+             qty: prev[0]?.qty || 1,
+             rate: items[0].rate || 100,
+           }];
+         }
+         return prev;
+       });
+     }, [items]);
+     ```
+  2. *On-Open State Alignment:* Added `useEffect([isOpen])` ensuring that when the modal is opened, if `rows[0].itemCode` is unpopulated, it immediately synchronizes with `localItems[0]` so that UI display and React state are 100% matched.
+  3. *Explicit Disabled Placeholder & Missing-Value Guard:*
+     - Added `<option value="" disabled>-- Select Spare Part --</option>` to every line item dropdown. If an item code is truly empty, the browser explicitly prompts `-- Select Spare Part --`, eliminating visual ambiguity.
+     - Added fallback `<option value={row.itemCode}>{row.itemCode}</option>` to prevent dropdown value truncation if a pre-selected item is not yet loaded in `localItems`.
+  4. *Quick Creation Auto-Assignment:*
+     - Enhanced `refreshItems()` in both modals: if `activePartRowIndex` was null, it scans for the first row where `!row.itemCode` (or row 0) and immediately assigns the newly created catalog part and rate to that row.
+  5. *Clear Humanized Error Feedback:*
+     - Updated validation error message from ambiguous `"Please select an item for all rows."` to explicit guidance: `"Please select a spare part for all order line items."`
+
+### 3. Verification & Deployment
+- **Local Verification:**
+  - TypeScript & Turbopack production compilation passed cleanly (`101/101` pages built with 0 errors).
+  - Local dev server on port 3001 verified responding `HTTP 200 OK`.
+- **Production Deployment on AWS EC2 (`13.239.121.225`):**
+  - Git commit `4cced80` pulled to `/home/ubuntu/uptoware-fleet-erp`.
+  - Next.js production build compiled cleanly on EC2.
+  - `uptoware-frontend.service` restarted cleanly (`systemctl is-active` confirmed active).
+  - Live HTTPS endpoint `https://fleet.uptoware.com/login` confirmed responding `HTTP 200 OK`.
+- **Database Cleanliness Guarantee:**
+  - All operational tables confirmed at 0 demo/test records.
+
+
 
 
