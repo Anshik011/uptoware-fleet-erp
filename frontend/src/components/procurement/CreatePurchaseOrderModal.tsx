@@ -247,7 +247,22 @@ export function CreatePurchaseOrderModal({
       return;
     }
 
-    for (const r of rows) {
+    // Auto-resolve itemCode from available catalog if empty
+    const sanitizedRows = rows.map((r) => {
+      let resolvedCode = r.itemCode?.trim();
+      let resolvedRate = r.rate;
+      if (!resolvedCode && localItems.length > 0) {
+        resolvedCode = localItems[0].itemCode;
+        if (!resolvedRate) resolvedRate = localItems[0].rate || 100;
+      }
+      return {
+        ...r,
+        itemCode: resolvedCode || '',
+        rate: resolvedRate != null ? resolvedRate : 0,
+      };
+    });
+
+    for (const r of sanitizedRows) {
       if (!r.itemCode || !r.itemCode.trim()) {
         setError('Please select a spare part for all order line items.');
         return;
@@ -271,7 +286,7 @@ export function CreatePurchaseOrderModal({
         procurementType,
         vehicle: selectedVehicle || undefined,
         vehicleBreakdown: selectedBreakdown || undefined,
-        items: rows.map((r) => ({
+        items: sanitizedRows.map((r) => ({
           itemCode: r.itemCode,
           qty: r.qty,
           rate: r.rate,

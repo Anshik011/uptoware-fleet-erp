@@ -17,18 +17,35 @@ def run():
 
     transitions = [
         # From Reported
-        {"state": "Reported", "action": "Approve", "next_state": "Approved", "allowed": "Fleet Manager", "allow_self_approval": 0},
-        {"state": "Reported", "action": "Reject", "next_state": "Closed", "allowed": "Fleet Manager", "allow_self_approval": 0},
+        {"state": "Reported", "action": "Send to Workshop", "next_state": "In Workshop", "allowed": "Fleet Manager", "allow_self_approval": 1},
+        {"state": "Reported", "action": "Send to Workshop", "next_state": "In Workshop", "allowed": "Workshop Supervisor", "allow_self_approval": 1},
+        {"state": "Reported", "action": "Send to Workshop", "next_state": "In Workshop", "allowed": "System Manager", "allow_self_approval": 1},
+        {"state": "Reported", "action": "Approve", "next_state": "Approved", "allowed": "Fleet Manager", "allow_self_approval": 1},
+        {"state": "Reported", "action": "Approve", "next_state": "Approved", "allowed": "Workshop Supervisor", "allow_self_approval": 1},
+        {"state": "Reported", "action": "Approve", "next_state": "Approved", "allowed": "System Manager", "allow_self_approval": 1},
+        {"state": "Reported", "action": "Reject", "next_state": "Closed", "allowed": "Fleet Manager", "allow_self_approval": 1},
+        {"state": "Reported", "action": "Reject", "next_state": "Closed", "allowed": "System Manager", "allow_self_approval": 1},
         # From Approved
-        {"state": "Approved", "action": "Send to Workshop", "next_state": "In Workshop", "allowed": "Workshop Supervisor", "allow_self_approval": 0},
+        {"state": "Approved", "action": "Send to Workshop", "next_state": "In Workshop", "allowed": "Workshop Supervisor", "allow_self_approval": 1},
+        {"state": "Approved", "action": "Send to Workshop", "next_state": "In Workshop", "allowed": "Fleet Manager", "allow_self_approval": 1},
+        {"state": "Approved", "action": "Send to Workshop", "next_state": "In Workshop", "allowed": "System Manager", "allow_self_approval": 1},
         # From In Workshop
-        {"state": "In Workshop", "action": "Request Parts", "next_state": "Awaiting Parts", "allowed": "Workshop Supervisor", "allow_self_approval": 0},
-        {"state": "In Workshop", "action": "Mark Repaired", "next_state": "Repaired", "allowed": "Workshop Supervisor", "allow_self_approval": 0},
+        {"state": "In Workshop", "action": "Request Parts", "next_state": "Awaiting Parts", "allowed": "Workshop Supervisor", "allow_self_approval": 1},
+        {"state": "In Workshop", "action": "Request Parts", "next_state": "Awaiting Parts", "allowed": "Fleet Manager", "allow_self_approval": 1},
+        {"state": "In Workshop", "action": "Request Parts", "next_state": "Awaiting Parts", "allowed": "System Manager", "allow_self_approval": 1},
+        {"state": "In Workshop", "action": "Mark Repaired", "next_state": "Repaired", "allowed": "Workshop Supervisor", "allow_self_approval": 1},
+        {"state": "In Workshop", "action": "Mark Repaired", "next_state": "Repaired", "allowed": "Fleet Manager", "allow_self_approval": 1},
+        {"state": "In Workshop", "action": "Mark Repaired", "next_state": "Repaired", "allowed": "System Manager", "allow_self_approval": 1},
         # From Awaiting Parts
-        {"state": "Awaiting Parts", "action": "Parts Received", "next_state": "In Workshop", "allowed": "Workshop Supervisor", "allow_self_approval": 0},
-        {"state": "Awaiting Parts", "action": "Mark Repaired", "next_state": "Repaired", "allowed": "Workshop Supervisor", "allow_self_approval": 0},
+        {"state": "Awaiting Parts", "action": "Parts Received", "next_state": "In Workshop", "allowed": "Workshop Supervisor", "allow_self_approval": 1},
+        {"state": "Awaiting Parts", "action": "Parts Received", "next_state": "In Workshop", "allowed": "Fleet Manager", "allow_self_approval": 1},
+        {"state": "Awaiting Parts", "action": "Parts Received", "next_state": "In Workshop", "allowed": "System Manager", "allow_self_approval": 1},
+        {"state": "Awaiting Parts", "action": "Mark Repaired", "next_state": "Repaired", "allowed": "Workshop Supervisor", "allow_self_approval": 1},
+        {"state": "Awaiting Parts", "action": "Mark Repaired", "next_state": "Repaired", "allowed": "Fleet Manager", "allow_self_approval": 1},
+        {"state": "Awaiting Parts", "action": "Mark Repaired", "next_state": "Repaired", "allowed": "System Manager", "allow_self_approval": 1},
         # From Repaired
-        {"state": "Repaired", "action": "Close Breakdown", "next_state": "Closed", "allowed": "Fleet Manager", "allow_self_approval": 0}
+        {"state": "Repaired", "action": "Close Breakdown", "next_state": "Closed", "allowed": "Fleet Manager", "allow_self_approval": 1},
+        {"state": "Repaired", "action": "Close Breakdown", "next_state": "Closed", "allowed": "System Manager", "allow_self_approval": 1}
     ]
 
     if frappe.db.exists("Workflow", wf_name):

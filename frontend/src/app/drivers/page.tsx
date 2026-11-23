@@ -111,6 +111,27 @@ function DriversTableSection() {
     }
   };
 
+  const handleUnsuspendDriver = async (driver: Driver) => {
+    try {
+      const defaultExpiry = new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const res = await fetch(`/api/drivers/${encodeURIComponent(driver.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'Active',
+          expiryDate: driver.expiryDate || defaultExpiry,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to unsuspend driver.');
+      }
+      fetchDrivers();
+    } catch (err: any) {
+      alert(err.message || 'Error unsuspending driver.');
+    }
+  };
+
   // Overall counts dynamically computed from actual backend records (Zero hardcoding!)
   const totalCount = drivers.length;
   const activeCount = drivers.filter((d) => d.status === 'Active').length;
@@ -232,6 +253,7 @@ function DriversTableSection() {
           onSortChange={setSortBy}
           onAllocateVehicle={(driverId) => setAllocatingDriverId(driverId)}
           onViewVehicle={(vehicleId) => setViewVehicleId(vehicleId)}
+          onUnsuspendDriver={handleUnsuspendDriver}
         />
       )}
 

@@ -18,6 +18,7 @@ import {
   ChevronRight,
   UserX,
   ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -42,6 +43,7 @@ interface DriverTableProps {
   onSortChange: (sort: string) => void;
   onAllocateVehicle?: (driverId: string) => void;
   onViewVehicle?: (vehicleId: string) => void;
+  onUnsuspendDriver?: (driver: Driver) => void;
 }
 
 export function DriverTable({
@@ -63,6 +65,7 @@ export function DriverTable({
   onSortChange,
   onAllocateVehicle,
   onViewVehicle,
+  onUnsuspendDriver,
 }: DriverTableProps) {
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -270,11 +273,24 @@ export function DriverTable({
                     </div>
                   </td>
 
-                  {/* Status Badge */}
-                  <td className="py-3.5 px-4">
-                    <Badge variant={getStatusBadgeVariant(driver.status)} size="sm">
-                      {driver.status}
-                    </Badge>
+                  {/* Status Badge & Unsuspend Action */}
+                  <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant={getStatusBadgeVariant(driver.status)} size="sm">
+                        {driver.status}
+                      </Badge>
+                      {driver.status === 'Suspended' && canManage && onUnsuspendDriver && (
+                        <button
+                          type="button"
+                          onClick={() => onUnsuspendDriver(driver)}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
+                          title="Unsuspend driver and restore dispatch eligibility"
+                        >
+                          <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+                          Unsuspend
+                        </button>
+                      )}
+                    </div>
                   </td>
 
                   {/* Contact Phone */}
