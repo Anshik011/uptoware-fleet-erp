@@ -191,9 +191,10 @@ export const clientNavigationSections: ClientNavSection[] = [
     order: 9,
     title: '9. HSD ESCALATION/DE-ESCALATION',
     shortTitle: 'HSD ESCALATION/DE-ESCALATION',
-    href: '/reports?report=HSD+Fuel+Price+Escalation+Report',
+    href: '/fuel/average',
     icon: Fuel,
     items: [
+      { name: 'HSD AVERAGE MENU', href: '/fuel/average' },
       { name: 'HSD ESCALATION/DE-ESCALATION REPORT', href: '/reports?report=HSD+Fuel+Price+Escalation+Report' },
     ],
   },

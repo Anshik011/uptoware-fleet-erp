@@ -11,13 +11,15 @@ import { FuelLogTable } from '@/components/fuel/FuelLogTable';
 import { AddFuelModal } from '@/components/fuel/AddFuelModal';
 import { FuelLogDrawer } from '@/components/fuel/FuelLogDrawer';
 import { FuelApprovalModal } from '@/components/fuel/FuelApprovalModal';
+import { HsdAverageMenu } from '@/components/fuel/HsdAverageMenu';
 import { Button } from '@/components/ui/Button';
-import { Fuel, PlusCircle, RefreshCw, AlertCircle } from 'lucide-react';
+import { Fuel, PlusCircle, RefreshCw, AlertCircle, Gauge, ListOrdered } from 'lucide-react';
 
 export default function FuelPage() {
   const { hasRole } = useAuth();
   const canManage = hasRole(['Fleet Manager', 'Workshop Supervisor', 'Administrator']);
 
+  const [activeTab, setActiveTab] = useState<'logs' | 'average'>('logs');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -172,26 +174,53 @@ export default function FuelPage() {
           ]}
           actions={
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="md"
-                icon={RefreshCw}
-                onClick={fetchFuelData}
-                disabled={isLoading}
-                data-testid="btn-refresh-fuel"
-              >
-                Refresh
-              </Button>
-              {canManage && (
-                <Button
-                  variant="primary"
-                  size="md"
-                  icon={PlusCircle}
-                  onClick={() => setIsAddModalOpen(true)}
-                  data-testid="btn-add-fuel-header"
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 mr-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('logs')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'logs' ? 'bg-white text-blue-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
-                  Log Fuel Entry
-                </Button>
+                  <ListOrdered className="w-3.5 h-3.5" />
+                  <span>Fuel Dispensation Logs</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('average')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'average' ? 'bg-blue-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Gauge className="w-3.5 h-3.5 text-amber-400" />
+                  <span>HSD Average Menu</span>
+                </button>
+              </div>
+
+              {activeTab === 'logs' && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="md"
+                    icon={RefreshCw}
+                    onClick={fetchFuelData}
+                    disabled={isLoading}
+                    data-testid="btn-refresh-fuel"
+                  >
+                    Refresh
+                  </Button>
+                  {canManage && (
+                    <Button
+                      variant="primary"
+                      size="md"
+                      icon={PlusCircle}
+                      onClick={() => setIsAddModalOpen(true)}
+                      data-testid="btn-add-fuel-header"
+                    >
+                      Log Fuel Entry
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           }
@@ -211,29 +240,35 @@ export default function FuelPage() {
         </div>
       )}
 
-      {/* Live Operational Metrics Dashboard */}
-      <FuelDashboard metrics={metrics} isLoading={isLoading} />
+      {activeTab === 'average' ? (
+        <HsdAverageMenu />
+      ) : (
+        <>
+          {/* Live Operational Metrics Dashboard */}
+          <FuelDashboard metrics={metrics} isLoading={isLoading} />
 
-      {/* Main Table */}
-      <FuelLogTable
-        logs={logs}
-        vehicles={vehicles}
-        fuelSources={fuelSources}
-        searchQuery={searchQuery}
-        selectedVehicle={selectedVehicle}
-        selectedSource={selectedSource}
-        selectedStatus={selectedStatus}
-        onSearchChange={setSearchQuery}
-        onVehicleChange={setSelectedVehicle}
-        onSourceChange={setSelectedSource}
-        onStatusChange={setSelectedStatus}
-        onSelectLog={(log) => setSelectedLogId(log.id)}
-        onOpenAddFuel={() => setIsAddModalOpen(true)}
-        onOpenApprovalModal={(log, action) => setApprovalModalState({ log, action })}
-        onBulkApprove={handleBulkApprove}
-        onDeleteLog={handleDeleteLog}
-        canManage={canManage}
-      />
+          {/* Main Table */}
+          <FuelLogTable
+            logs={logs}
+            vehicles={vehicles}
+            fuelSources={fuelSources}
+            searchQuery={searchQuery}
+            selectedVehicle={selectedVehicle}
+            selectedSource={selectedSource}
+            selectedStatus={selectedStatus}
+            onSearchChange={setSearchQuery}
+            onVehicleChange={setSelectedVehicle}
+            onSourceChange={setSelectedSource}
+            onStatusChange={setSelectedStatus}
+            onSelectLog={(log) => setSelectedLogId(log.id)}
+            onOpenAddFuel={() => setIsAddModalOpen(true)}
+            onOpenApprovalModal={(log, action) => setApprovalModalState({ log, action })}
+            onBulkApprove={handleBulkApprove}
+            onDeleteLog={handleDeleteLog}
+            canManage={canManage}
+          />
+        </>
+      )}
 
       {/* Add Fuel Entry Modal */}
       <AddFuelModal
