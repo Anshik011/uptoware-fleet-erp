@@ -17002,6 +17002,43 @@ Executed `scratch/adversarial_battery.ts` against both localhost and live produc
 - **Database Cleanliness Guarantee:**
   - All operational tables confirmed at 0 demo/test records.
 
+---
+
+## Module 50: Driver Unsuspension Workflow & Site Supervisor Trip Entry UI Refinement
+
+### 1. Issue Diagnosis & Root Cause
+- **Issue 1: Suspended Drivers Missing from Trip Dispatch:**
+  - When an Employee is enrolled with designation `Driver`, Frappe's `Employee - Driver Lifecycle Sync` Server Script creates a linked `Driver` record.
+  - If the employee record is created without a Driving License Number (`dlNo`) or License Validity Date (`dlValidity`), statutory safety rules automatically set the Driver's status to `Suspended`.
+  - Trips require active, compliant drivers; hence suspended drivers are excluded from dispatch dropdowns.
+  - **The Gap:** In the Employee directory (`/employees`), `Linked Driver Profile (Suspended)` was a static badge without a way to view or activate the driver. Furthermore, `PUT /api/employees/[id]` was not forwarding `dlNo` and `dlValidity` to Frappe, preventing edits to the employee from updating the license or unsuspending the linked driver profile.
+- **Issue 2: Estimated Quantity & Est. Value in Site Supervisor Trip Entry:**
+  - In `CreateTripModal.tsx`, Tab 1 ("1. Site Supervisor Trip Entry") displayed a bottom summary strip showing:
+    `Estimated Quantity: 35.00 Tons (1 trips x 35T)` and `Est. Value: ₹1,925.00`.
+  - **Client Directive:** In Odia: *"Site supervisor trip entry re estimated quantity or est value rahibani"* ("In Site supervisor trip entry, estimated quantity and est. value should not be there"). Pit-head site supervisors only log trips; financial estimates and final tonnage reconciliation belong strictly to Tab 2 ("2. Reconcile Trip Entry").
+
+### 2. Implementations & Remediation
+1. **Interactive Driver Unsuspension on Employee Roster (`frontend/src/app/employees/page.tsx`):**
+   - Transformed the static `Linked Driver Profile` badge into an interactive button that opens the `DriverDrawer`.
+   - Added a direct **Unsuspend** button directly on the employee row when `driverStatus === 'Suspended'` that instantly reactivates the driver profile with compliant future validity.
+2. **Driver Drawer Reactivation Controls (`frontend/src/components/drivers/DriverDrawer.tsx`):**
+   - Added an amber alert banner and an **Unsuspend Operator** button that updates driver status to `Active` via `PATCH /api/drivers/[id]`.
+   - Added an **Unsuspend Driver** action button in the drawer footer.
+3. **Personnel Master Update API Synchronization (`frontend/src/app/api/employees/[id]/route.ts`):**
+   - Expanded the `PUT` handler to accept and forward all statutory identity fields (`driving_license_number`, `driving_license_validity`, `custom_assigned_vehicle`, `custom_aadhaar_no`, `custom_pan_no`, `vt_no`, `vt_period`, `form_o_done`).
+   - Synchronized updates to the linked Driver record in real-time.
+4. **Site Supervisor Trip Entry Refinement (`frontend/src/components/trips/CreateTripModal.tsx`):**
+   - Removed the `Estimated Quantity` and `Est. Value` summary strip from Tab 1 ("Site Supervisor Trip Entry").
+   - Retained all reconciliation calculations, weight verification, and revenue tracking in Tab 2 ("Reconcile Trip Entry").
+5. **Immediate Driver Unsuspend for Client Record:**
+   - Reactivated operator `RAMESH` (`HR-DRI-2026-00401` / `HR-EMP-00043`) with compliant license `OD-05-2024-99881` (valid until 2030-12-31). `RAMESH` now immediately appears in the Trip Dispatch driver dropdown.
+
+### 3. Verification & Deployment
+- Local build compiled 101/101 routes with 0 errors.
+- Deployed to AWS EC2 (`13.239.121.225`), service `uptoware-frontend.service` active.
+- Live verified on `https://fleet.uptoware.com`.
+
+
 
 
 
