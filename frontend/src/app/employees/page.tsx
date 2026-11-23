@@ -1673,33 +1673,33 @@ function EmployeesContent() {
                 </div>
               ) : (
                 <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full min-w-[1280px] text-left border-collapse text-xs">
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-3 sticky left-0 bg-slate-50 z-10 w-28">Emp ID</th>
-                          <th className="py-3 px-3 sticky left-28 bg-slate-50 z-10 w-44">Name</th>
-                          <th className="py-3 px-3 w-28">Designation</th>
+                          <th className="py-3 px-3 w-32 whitespace-nowrap">Emp ID</th>
+                          <th className="py-3 px-3 w-44 whitespace-nowrap">Name</th>
+                          <th className="py-3 px-3 w-36 whitespace-nowrap">Designation</th>
                           {dayNumbers.map((d) => (
-                            <th key={d} className="py-2 px-1.5 text-center font-mono w-7">
+                            <th key={d} className="py-2 px-1 text-center font-mono w-7 whitespace-nowrap">
                               {d}
                             </th>
                           ))}
-                          <th className="py-3 px-3 text-right w-20">Present</th>
-                          <th className="py-3 px-3 text-right w-20">Absent</th>
-                          <th className="py-3 px-3 text-right w-28">Total Salary</th>
+                          <th className="py-3 px-3 text-right w-20 whitespace-nowrap">Present</th>
+                          <th className="py-3 px-3 text-right w-20 whitespace-nowrap">Absent</th>
+                          <th className="py-3 px-3 text-right w-28 whitespace-nowrap">Total Salary</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {filteredSummary.map((sum) => (
                           <tr key={sum.employee} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-2.5 px-3 font-mono font-bold text-slate-800 sticky left-0 bg-white z-10">
+                            <td className="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
                               {sum.employee}
                             </td>
-                            <td className="py-2.5 px-3 font-semibold text-slate-900 sticky left-28 bg-white z-10">
+                            <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
                               {sum.employeeName}
                             </td>
-                            <td className="py-2.5 px-3 text-slate-600">
+                            <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                                 {sum.designation || 'Staff'}
                               </span>
@@ -1761,13 +1761,13 @@ function EmployeesContent() {
                       </tbody>
                       <tfoot>
                         <tr className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900 text-xs">
-                          <td className="py-2.5 px-3 sticky left-0 bg-slate-100 z-10 uppercase tracking-wider text-[11px] text-slate-800 font-bold">
+                          <td className="py-2.5 px-3 uppercase tracking-wider text-[11px] text-slate-800 font-bold whitespace-nowrap">
                             Total
                           </td>
-                          <td className="py-2.5 px-3 sticky left-28 bg-slate-100 z-10 text-[11px] text-slate-800 font-bold">
+                          <td className="py-2.5 px-3 text-[11px] text-slate-800 font-bold whitespace-nowrap">
                             Present Staff (Date-Wise)
                           </td>
-                          <td className="py-2.5 px-3 bg-slate-100 text-[10px] text-slate-500 font-bold uppercase">
+                          <td className="py-2.5 px-3 text-[10px] text-slate-500 font-bold uppercase whitespace-nowrap">
                             All
                           </td>
                           {dayNumbers.map((d) => {
