@@ -39,6 +39,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { DriverDrawer } from '@/components/drivers/DriverDrawer';
+import { DriverCmpfSalaryFormat } from '@/components/employees/DriverCmpfSalaryFormat';
+import { OtherStaffSalaryFormat } from '@/components/employees/OtherStaffSalaryFormat';
 
 type ActiveTab = 'directory' | 'roster' | 'summary';
 
@@ -209,6 +211,7 @@ function EmployeesContent() {
   const [summarySearchQuery, setSummarySearchQuery] = useState<string>('');
   const [attendanceSummary, setAttendanceSummary] = useState<EmployeeAttendanceSummary[]>([]);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [salaryFormatMode, setSalaryFormatMode] = useState<'matrix' | 'driver_cmpf' | 'other_staff'>('matrix');
 
   // Load Employees
   const loadEmployees = useCallback(async () => {
@@ -1428,9 +1431,70 @@ function EmployeesContent() {
             return true;
           });
 
+          const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+          ];
+
           return (
             <>
-              {/* Search Filters at the Top: Month-wise and Designation-wise */}
+              {/* Official Format Sub-Tab Selector */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 mb-6 bg-blue-50/70 border border-blue-200 rounded-xl">
+                <div className="flex items-center space-x-2">
+                  <FileSpreadsheet className="w-5 h-5 text-blue-700" />
+                  <div>
+                    <h3 className="text-xs font-bold text-blue-950 uppercase tracking-wider">Salary & Attendance Statements</h3>
+                    <p className="text-[11px] text-blue-700">Official client formats for Driver CMPF statutory payroll and Other Staff salary sheets</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-1.5 bg-white p-1 rounded-lg border border-blue-200 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setSalaryFormatMode('matrix')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 ${
+                      salaryFormatMode === 'matrix' ? 'bg-blue-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>1-31 Matrix</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSalaryFormatMode('driver_cmpf')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 ${
+                      salaryFormatMode === 'driver_cmpf' ? 'bg-blue-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Truck className="w-3.5 h-3.5" />
+                    <span>Driver & P/L Opt Salary (CMPF)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSalaryFormatMode('other_staff')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center space-x-1.5 ${
+                      salaryFormatMode === 'other_staff' ? 'bg-blue-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Other Staff Salary</span>
+                  </button>
+                </div>
+              </div>
+
+              {salaryFormatMode === 'driver_cmpf' && (
+                <DriverCmpfSalaryFormat monthName={monthNames[summaryMonth - 1]} year={summaryYear} />
+              )}
+
+              {salaryFormatMode === 'other_staff' && (
+                <OtherStaffSalaryFormat monthName={monthNames[summaryMonth - 1]} year={summaryYear} />
+              )}
+
+              {salaryFormatMode === 'matrix' && (
+                <>
+                  {/* Search Filters at the Top: Month-wise and Designation-wise */}
               <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2">
@@ -1719,8 +1783,10 @@ function EmployeesContent() {
                 </div>
               )}
             </>
-          );
-        })()}
+          )}
+        </>
+      );
+    })()}
 
         {/* ======================================================== */}
         {/* ADD EMPLOYEE PROFILE MODAL (Indian Statutory Mining Master) */}

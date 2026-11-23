@@ -34,6 +34,7 @@ interface BreakdownDrawerProps {
   breakdownId: string | null;
   onClose: () => void;
   onOpenWorkflowModal: (breakdown: VehicleBreakdown, action: string) => void;
+  onTrack?: (breakdown: VehicleBreakdown) => void;
   canManage: boolean;
 }
 
@@ -41,6 +42,7 @@ export function BreakdownDrawer({
   breakdownId,
   onClose,
   onOpenWorkflowModal,
+  onTrack,
   canManage,
 }: BreakdownDrawerProps) {
   const [breakdown, setBreakdown] = useState<VehicleBreakdown | null>(null);
@@ -140,13 +142,28 @@ export function BreakdownDrawer({
               Vehicle Breakdown Incident & Workshop Maintenance Dossier
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {breakdown && onTrack && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  onTrack(breakdown);
+                }}
+                className="text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 text-xs"
+              >
+                15-Stage Tracker
+              </Button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}

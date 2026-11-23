@@ -15,6 +15,7 @@ import {
   Clock,
   ArrowRight,
   ShieldAlert,
+  Activity,
 } from 'lucide-react';
 
 interface BreakdownTableProps {
@@ -33,6 +34,7 @@ interface BreakdownTableProps {
   onTypeChange: (t: string) => void;
   onStatusChange: (status: string) => void;
   onSelectBreakdown: (b: VehicleBreakdown) => void;
+  onTrackBreakdown?: (b: VehicleBreakdown) => void;
   onOpenAddBreakdown: () => void;
   onOpenWorkflowModal: (b: VehicleBreakdown, defaultAction?: string) => void;
   canManage: boolean;
@@ -54,6 +56,7 @@ export function BreakdownTable({
   onTypeChange,
   onStatusChange,
   onSelectBreakdown,
+  onTrackBreakdown,
   onOpenAddBreakdown,
   onOpenWorkflowModal,
   canManage,
@@ -376,6 +379,19 @@ export function BreakdownTable({
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center justify-end gap-1.5">
+                        {onTrackBreakdown && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={Activity}
+                            onClick={() => onTrackBreakdown(b)}
+                            className="text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                            data-testid={`btn-track-breakdown-${b.id}`}
+                          >
+                            Track
+                          </Button>
+                        )}
+
                         <Button
                           variant="outline"
                           size="sm"

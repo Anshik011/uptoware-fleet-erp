@@ -11,6 +11,7 @@ import { BreakdownTable } from '@/components/breakdowns/BreakdownTable';
 import { AddBreakdownModal } from '@/components/breakdowns/AddBreakdownModal';
 import { BreakdownDrawer } from '@/components/breakdowns/BreakdownDrawer';
 import { BreakdownWorkflowModal } from '@/components/breakdowns/BreakdownWorkflowModal';
+import { VehicleBreakdownTracker } from '@/components/breakdowns/VehicleBreakdownTracker';
 import { Button } from '@/components/ui/Button';
 import { Wrench, PlusCircle, RefreshCw, AlertCircle } from 'lucide-react';
 
@@ -44,6 +45,7 @@ export default function BreakdownsPage() {
   // Modals & Drawers
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedBreakdownId, setSelectedBreakdownId] = useState<string | null>(null);
+  const [trackedBreakdown, setTrackedBreakdown] = useState<VehicleBreakdown | null>(null);
   const [workflowModalState, setWorkflowModalState] = useState<{
     breakdown: VehicleBreakdown;
     defaultAction?: string;
@@ -166,30 +168,40 @@ export default function BreakdownsPage() {
           </div>
         )}
 
-        {/* Live Operational Metrics Dashboard */}
-        <BreakdownDashboard metrics={metrics} isLoading={isLoading} />
+        {trackedBreakdown ? (
+          <VehicleBreakdownTracker
+            breakdown={trackedBreakdown}
+            onBack={() => setTrackedBreakdown(null)}
+          />
+        ) : (
+          <>
+            {/* Live Operational Metrics Dashboard */}
+            <BreakdownDashboard metrics={metrics} isLoading={isLoading} />
 
-        {/* Main Table */}
-        <BreakdownTable
-          breakdowns={breakdowns}
-          vehicles={vehicles}
-          breakdownTypes={breakdownTypes}
-          severities={severities}
-          searchQuery={searchQuery}
-          selectedVehicle={selectedVehicle}
-          selectedSeverity={selectedSeverity}
-          selectedType={selectedType}
-          selectedStatus={selectedStatus}
-          onSearchChange={setSearchQuery}
-          onVehicleChange={setSelectedVehicle}
-          onSeverityChange={setSelectedSeverity}
-          onTypeChange={setSelectedType}
-          onStatusChange={setSelectedStatus}
-          onSelectBreakdown={(b) => setSelectedBreakdownId(b.id)}
-          onOpenAddBreakdown={() => setIsAddModalOpen(true)}
-          onOpenWorkflowModal={(b, act) => setWorkflowModalState({ breakdown: b, defaultAction: act })}
-          canManage={canManage}
-        />
+            {/* Main Table */}
+            <BreakdownTable
+              breakdowns={breakdowns}
+              vehicles={vehicles}
+              breakdownTypes={breakdownTypes}
+              severities={severities}
+              searchQuery={searchQuery}
+              selectedVehicle={selectedVehicle}
+              selectedSeverity={selectedSeverity}
+              selectedType={selectedType}
+              selectedStatus={selectedStatus}
+              onSearchChange={setSearchQuery}
+              onVehicleChange={setSelectedVehicle}
+              onSeverityChange={setSelectedSeverity}
+              onTypeChange={setSelectedType}
+              onStatusChange={setSelectedStatus}
+              onSelectBreakdown={(b) => setSelectedBreakdownId(b.id)}
+              onTrackBreakdown={(b) => setTrackedBreakdown(b)}
+              onOpenAddBreakdown={() => setIsAddModalOpen(true)}
+              onOpenWorkflowModal={(b, act) => setWorkflowModalState({ breakdown: b, defaultAction: act })}
+              canManage={canManage}
+            />
+          </>
+        )}
 
         {/* Report Breakdown Modal */}
         <AddBreakdownModal
@@ -205,6 +217,10 @@ export default function BreakdownsPage() {
         <BreakdownDrawer
           breakdownId={selectedBreakdownId}
           onClose={() => setSelectedBreakdownId(null)}
+          onTrack={(b) => {
+            setSelectedBreakdownId(null);
+            setTrackedBreakdown(b);
+          }}
           onOpenWorkflowModal={(b, act) => {
             setSelectedBreakdownId(null);
             setWorkflowModalState({ breakdown: b, defaultAction: act });

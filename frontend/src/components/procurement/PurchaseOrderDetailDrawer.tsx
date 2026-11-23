@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PurchaseOrder } from '@/types/fleet';
-import { X, ShoppingCart, CheckCircle2, Clock, PackageCheck, UserCheck, IndianRupee, AlertCircle } from 'lucide-react';
+import { X, ShoppingCart, CheckCircle2, Clock, PackageCheck, UserCheck, IndianRupee, AlertCircle, Printer } from 'lucide-react';
 import {
   formatVehicleDisplay,
   formatMineSiteDisplay,
@@ -95,12 +95,23 @@ export function PurchaseOrderDetailDrawer({
               )}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-1">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-md transition-colors flex items-center gap-1.5 text-xs font-semibold mr-1"
+              title="Print Official Purchase Order"
+            >
+              <Printer className="w-4 h-4 text-slate-500" />
+              <span className="hidden sm:inline">Print PO</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}
@@ -228,6 +239,38 @@ export function PurchaseOrderDetailDrawer({
                       </tr>
                     </tfoot>
                   </table>
+                </div>
+              </div>
+
+              {/* Official Purchase Order Authorization Signatures */}
+              <div className="pt-6 border-t border-slate-200">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-6">
+                  Mandatory Verification & Authorization Signatures
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="flex flex-col items-center justify-between p-3 border border-slate-200 rounded-lg bg-slate-50 min-h-[110px]">
+                    <div className="w-full border-b border-dashed border-slate-400 mt-10 mb-2"></div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Workshop Incharge Sign</div>
+                      <div className="text-[10px] text-slate-500">Workshop Verification</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-between p-3 border border-slate-200 rounded-lg bg-slate-50 min-h-[110px]">
+                    <div className="w-full border-b border-dashed border-slate-400 mt-10 mb-2"></div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Mechanical Sign</div>
+                      <div className="text-[10px] text-slate-500">Technical Inspection</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-between p-3 border border-slate-200 rounded-lg bg-slate-50 min-h-[110px]">
+                    <div className="w-full border-b border-dashed border-slate-400 mt-10 mb-2"></div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Authority Sign</div>
+                      <div className="text-[10px] text-slate-500">Final Commercial Approval</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </>

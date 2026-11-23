@@ -15,7 +15,10 @@ import {
   AlertCircle,
   BarChart3,
   MapPin,
+  Receipt,
+  Table,
 } from 'lucide-react';
+import { VehicleIncomeBillFormat } from './VehicleIncomeBillFormat';
 
 export const FINANCE_REPORTS = [
   { name: 'Vehicle-wise Revenue and Profitability', desc: 'Asset P&L: Invoiced revenue, fuel, parts, labour, OpEx, net margin' },
@@ -67,6 +70,7 @@ export function FinancialReportViewer() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [billViewMode, setBillViewMode] = useState<'bill' | 'table'>('bill');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -280,8 +284,44 @@ export function FinancialReportViewer() {
         </div>
       </div>
 
-      {/* Report Results */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* When Vehicle Earning Summary Report is selected, offer Official Transport Bill Format or Analytics Table */}
+      {selectedReport === 'Vehicle Earning Summary Report' && (
+        <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-xl">
+          <div className="flex items-center space-x-2">
+            <Receipt className="w-4 h-4 text-blue-700" />
+            <span className="text-xs font-bold text-blue-900">Official Transport Haulage Bill Format</span>
+            <span className="text-[11px] text-blue-700 font-medium">· Lingaraj OCP Compliant</span>
+          </div>
+          <div className="flex items-center space-x-1.5 bg-white p-1 rounded-lg border border-blue-200">
+            <button
+              type="button"
+              onClick={() => setBillViewMode('bill')}
+              className={`px-3 py-1 rounded text-xs font-semibold transition-colors flex items-center space-x-1 ${
+                billViewMode === 'bill' ? 'bg-blue-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span>Official Bill Format</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillViewMode('table')}
+              className={`px-3 py-1 rounded text-xs font-semibold transition-colors flex items-center space-x-1 ${
+                billViewMode === 'table' ? 'bg-blue-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Table className="w-3.5 h-3.5" />
+              <span>Tabular Analytics</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectedReport === 'Vehicle Earning Summary Report' && billViewMode === 'bill' ? (
+        <VehicleIncomeBillFormat vehicleNo={vehicleFilter || 'OD19D1199'} periodFrom="01.01.2026" periodTo="15.01.2026" />
+      ) : (
+        /* Report Results */
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         {/* Table Search & Title */}
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -403,6 +443,7 @@ export function FinancialReportViewer() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

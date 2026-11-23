@@ -3999,16 +3999,20 @@ export async function getBreakdownOptions(sessionCookie: string): Promise<{
   }
 
   return {
-    vehicles: vehicles.map((v) => ({
+    vehicles: vehicles.map((v: any) => ({
       id: v.id,
       licensePlate: v.licensePlate,
-      status: v.status,
+      status: v.status || v.vehicleStatus,
       lastOdometer: v.lastOdometer,
+      customMineSite: v.customMineSite || v.mineSite || null,
+      mineSite: v.customMineSite || v.mineSite || null,
     })),
-    drivers: drivers.map((d) => ({
+    drivers: drivers.map((d: any) => ({
       id: d.id,
       fullName: d.fullName,
       status: d.status,
+      customMineSite: d.customMineSite || d.mineSite || null,
+      mineSite: d.customMineSite || d.mineSite || null,
     })),
     mineSites: sites.map((s) => ({
       id: s.id,

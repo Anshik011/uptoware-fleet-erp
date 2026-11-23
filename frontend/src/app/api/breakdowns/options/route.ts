@@ -31,13 +31,17 @@ export async function GET(request: NextRequest) {
     if (mineFilter.filterType === 'single' && mineFilter.targetMine) {
       const target = mineFilter.targetMine;
       options.mineSites = options.mineSites.filter((s) => s.id === target || s.siteName === target);
-      options.vehicles = options.vehicles.filter((v: any) => v.customMineSite === target);
-      options.drivers = options.drivers.filter((d: any) => d.customMineSite === target);
+      const filteredVehicles = options.vehicles.filter((v: any) => (v.customMineSite || v.mineSite) === target);
+      options.vehicles = filteredVehicles.length > 0 ? filteredVehicles : options.vehicles;
+      const filteredDrivers = options.drivers.filter((d: any) => (d.customMineSite || d.mineSite) === target);
+      options.drivers = filteredDrivers.length > 0 ? filteredDrivers : options.drivers;
     } else if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
       const targets = mineFilter.targetMines;
       options.mineSites = options.mineSites.filter((s) => targets.includes(s.id) || targets.includes(s.siteName));
-      options.vehicles = options.vehicles.filter((v: any) => v.customMineSite && targets.includes(v.customMineSite));
-      options.drivers = options.drivers.filter((d: any) => d.customMineSite && targets.includes(d.customMineSite));
+      const filteredVehicles = options.vehicles.filter((v: any) => (v.customMineSite || v.mineSite) && targets.includes(v.customMineSite || v.mineSite));
+      options.vehicles = filteredVehicles.length > 0 ? filteredVehicles : options.vehicles;
+      const filteredDrivers = options.drivers.filter((d: any) => (d.customMineSite || d.mineSite) && targets.includes(d.customMineSite || d.mineSite));
+      options.drivers = filteredDrivers.length > 0 ? filteredDrivers : options.drivers;
     }
 
     return NextResponse.json(

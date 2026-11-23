@@ -50,6 +50,9 @@ interface ItemOption {
   itemCode: string;
   itemName: string;
   standardRate?: number;
+  valuationRate?: number;
+  actualQty?: number;
+  stockUom?: string;
 }
 
 interface VehicleOption {
@@ -160,6 +163,9 @@ function SalesContent() {
               itemCode: it.itemCode || it.name,
               itemName: it.itemName || it.item_name || it.itemCode,
               standardRate: Number(it.standardRate || it.standard_rate || 0),
+              valuationRate: Number(it.valuationRate || it.valuation_rate || it.standardRate || 0),
+              actualQty: Number(it.totalActualQty ?? it.actual_qty ?? 0),
+              stockUom: it.stockUom || it.stock_uom || 'Nos',
             }))
           );
         }
@@ -180,8 +186,10 @@ function SalesContent() {
     const found = items.find((it) => it.itemCode === code);
     if (found) {
       setModalItemName(found.itemName);
-      if (found.standardRate) {
-        setModalRate(String(found.standardRate));
+      // Automatically populate rate from purchase valuation rate, falling back to standard rate
+      const effectiveRate = found.valuationRate && found.valuationRate > 0 ? found.valuationRate : (found.standardRate || 0);
+      if (effectiveRate > 0) {
+        setModalRate(String(effectiveRate));
       }
     }
   };
@@ -570,7 +578,7 @@ function SalesContent() {
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Record Spare Parts Sale</h2>
-                  <p className="text-xs text-slate-500">Create an official sales invoice for vehicle-linked parts ($AMOUNT = QNT \times RATE$)</p>
+                  <p className="text-xs text-slate-500">Create an official sales invoice for vehicle-linked parts (Amount = Qty × Rate)</p>
                 </div>
                 <button
                   type="button"
@@ -623,9 +631,16 @@ function SalesContent() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Select Spare Part / Item <span className="text-rose-600">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Select Spare Part / Item <span className="text-rose-600">*</span>
+                    </label>
+                    {modalItemCode && items.find((it) => it.itemCode === modalItemCode) && (
+                      <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                        Available Stock: {items.find((it) => it.itemCode === modalItemCode)?.actualQty ?? 0} {items.find((it) => it.itemCode === modalItemCode)?.stockUom || 'Nos'}
+                      </span>
+                    )}
+                  </div>
                   <select
                     required
                     value={modalItemCode}
@@ -635,7 +650,7 @@ function SalesContent() {
                     <option value="">-- Choose Spare Part Catalog Item --</option>
                     {items.map((it) => (
                       <option key={it.itemCode} value={it.itemCode}>
-                        {it.itemName} ({it.itemCode})
+                        {it.itemName} ({it.itemCode}) — Stock: {it.actualQty ?? 0} {it.stockUom || 'Nos'} | Purchase Rate: ₹{(it.valuationRate || it.standardRate || 0).toFixed(2)}
                       </option>
                     ))}
                   </select>

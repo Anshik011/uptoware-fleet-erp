@@ -61,6 +61,14 @@ def run():
             {"state": "Draft", "action": "Dispatch", "next_state": "Dispatched", "allowed": "Dispatcher", "allow_self_approval": 1},
             {"state": "Draft", "action": "Dispatch", "next_state": "Dispatched", "allowed": "System Manager", "allow_self_approval": 1},
 
+            # Direct Reconciliation / Approval from Draft or Dispatched
+            {"state": "Draft", "action": "Approve", "next_state": "Approved", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Draft", "action": "Approve", "next_state": "Approved", "allowed": "Dispatcher", "allow_self_approval": 1},
+            {"state": "Draft", "action": "Approve", "next_state": "Approved", "allowed": "System Manager", "allow_self_approval": 1},
+            {"state": "Dispatched", "action": "Approve", "next_state": "Approved", "allowed": "Fleet Manager", "allow_self_approval": 1},
+            {"state": "Dispatched", "action": "Approve", "next_state": "Approved", "allowed": "Dispatcher", "allow_self_approval": 1},
+            {"state": "Dispatched", "action": "Approve", "next_state": "Approved", "allowed": "System Manager", "allow_self_approval": 1},
+
             # Stage 2 -> 3: Dispatched -> Weighbridge Confirmed
             {"state": "Dispatched", "action": "Confirm Weighbridge", "next_state": "Weighbridge Confirmed", "allowed": "Weighbridge Operator", "allow_self_approval": 1},
             {"state": "Dispatched", "action": "Confirm Weighbridge", "next_state": "Weighbridge Confirmed", "allowed": "Fleet Manager", "allow_self_approval": 1},
