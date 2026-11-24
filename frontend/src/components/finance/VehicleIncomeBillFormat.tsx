@@ -185,9 +185,9 @@ export function VehicleIncomeBillFormat({
 
     try {
       const [tripsRes, fuelRes, salesRes] = await Promise.all([
-        fetch(`/api/trips?vehicle=${encodeURIComponent(selectedVehicle)}&limit=500`),
-        fetch(`/api/fuel?vehicle=${encodeURIComponent(selectedVehicle)}`),
-        fetch(`/api/sales?vehicle=${encodeURIComponent(selectedVehicle)}`),
+        fetch(`/api/trips?vehicle=${encodeURIComponent(selectedVehicle)}&limit=500&mine_site=ALL&status=ALL`),
+        fetch(`/api/fuel?vehicle=${encodeURIComponent(selectedVehicle)}&mine_site=ALL&status=ALL&include_test=true`),
+        fetch(`/api/sales?vehicle=${encodeURIComponent(selectedVehicle)}&mine_site=ALL`),
       ]);
 
       const [tripsJson, fuelJson, salesJson] = await Promise.all([
@@ -268,10 +268,11 @@ export function VehicleIncomeBillFormat({
           ? fuelJson.logs
           : (fuelJson.success && Array.isArray(fuelJson.entries) ? fuelJson.entries : []);
 
-      const norm = (v: string) => String(v || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      const norm = (v: string) => String(v || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^00/, 'od');
+      const targetNorm = norm(selectedVehicle);
 
       const vehicleFuel = rawFuel.filter(
-        (f) => !f.vehicle || norm(f.vehicle) === norm(selectedVehicle)
+        (f) => !f.vehicle || norm(f.vehicle) === targetNorm || (targetNorm.length >= 4 && norm(f.vehicle).endsWith(targetNorm.slice(-4)))
       );
 
       if (vehicleFuel.length > 0) {

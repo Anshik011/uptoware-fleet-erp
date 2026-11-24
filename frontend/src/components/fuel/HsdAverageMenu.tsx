@@ -149,8 +149,8 @@ export function HsdAverageMenu() {
     try {
       setIsLoading(true);
       const [tripsRes, fuelRes] = await Promise.all([
-        fetch(`/api/trips?vehicle=${encodeURIComponent(veh)}&limit=50`),
-        fetch(`/api/fuel?vehicle=${encodeURIComponent(veh)}`),
+        fetch(`/api/trips?vehicle=${encodeURIComponent(veh)}&limit=100&status=ALL&mine_site=ALL`),
+        fetch(`/api/fuel?vehicle=${encodeURIComponent(veh)}&status=ALL&mine_site=ALL`),
       ]);
       const [tripsJson, fuelJson] = await Promise.all([tripsRes.json(), fuelRes.json()]);
 
@@ -160,19 +160,32 @@ export function HsdAverageMenu() {
         : (tripsJson.success && Array.isArray(tripsJson.trips) ? tripsJson.trips : []);
 
       if (rawTrips.length > 0) {
-        const mapped: ShiftTripItem[] = rawTrips.map((t: any, idx: number) => {
+        // Group by date + shift + lead
+        const cycleMap = new Map<string, ShiftTripItem>();
+        rawTrips.forEach((t: any, idx: number) => {
           const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(' ')[0] : '2026-11-23';
-          const leadKmVal = parseFloat(String(t.leadKm || 0)) || 3.0;
-          return {
-            id: t.id || `trip-${idx}`,
-            date: rawDate,
-            shift: t.shift || (idx === 0 ? 'Shift A' : idx === 1 ? 'Shift C' : 'Shift B'),
-            leadName: t.lead || t.destination || 'CHP',
-            leadKm: leadKmVal,
-            tripCount: Number(t.tripCount || 1),
-          };
+          const shift = t.shift || (idx % 3 === 0 ? 'Shift A' : idx % 3 === 1 ? 'Shift B' : 'Shift C');
+          const leadName = t.lead || t.destination || 'CHP';
+          const key = `${rawDate}__${shift}__${leadName}`;
+          const tripCount = Number(t.tripCount || 1);
+          const leadKmVal = parseFloat(String(t.leadKm || 0)) || (leadName.includes('CHP') ? 3.0 : 5.0);
+
+          if (!cycleMap.has(key)) {
+            cycleMap.set(key, {
+              id: t.id || `trip-${idx}`,
+              date: rawDate,
+              shift: shift,
+              leadName: leadName,
+              leadKm: leadKmVal,
+              tripCount: 0,
+            });
+          }
+          cycleMap.get(key)!.tripCount += tripCount;
         });
-        setCycleTrips(mapped);
+        const mapped = Array.from(cycleMap.values());
+        if (mapped.length > 0) {
+          setCycleTrips(mapped);
+        }
       }
 
       // Check fuel
@@ -425,6 +438,36 @@ export function HsdAverageMenu() {
                 Full HSD Tank Verified
               </label>
             </div>
+          </div>
+        </div>
+
+        {/* Sync & Save Quick Bar */}
+        <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-lg">
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <Fuel className="w-4 h-4 text-amber-600" />
+            <span>Target: <strong className="text-slate-900">{selectedVehicle}</strong> | Quantity: <strong className="text-slate-900 font-mono">{fuelFilledLitres} LT</strong></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={RefreshCw}
+              onClick={() => syncFromTrips(selectedVehicle)}
+              disabled={isLoading}
+              className="text-xs h-8"
+            >
+              Sync Trips
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Save}
+              onClick={saveHsdLogToLedger}
+              disabled={isLoading}
+              className="text-xs h-8 bg-emerald-700 hover:bg-emerald-800"
+            >
+              Save to Vehicle Ledger & Income
+            </Button>
           </div>
         </div>
       </div>
