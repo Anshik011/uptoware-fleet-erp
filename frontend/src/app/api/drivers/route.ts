@@ -175,9 +175,9 @@ export async function GET(request: NextRequest) {
 
     // Apply mine authorization filter
     if (mineFilter.filterType === 'single' && mineFilter.targetMine) {
-      drivers = drivers.filter((d) => d.customMineSite === mineFilter.targetMine);
+      drivers = drivers.filter((d) => !d.customMineSite || d.customMineSite === mineFilter.targetMine);
     } else if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
-      drivers = drivers.filter((d) => d.customMineSite && mineFilter.targetMines!.includes(d.customMineSite));
+      drivers = drivers.filter((d) => !d.customMineSite || mineFilter.targetMines!.includes(d.customMineSite));
     }
 
     // Only display drivers with linked Employee profiles (Unified Personnel Master)

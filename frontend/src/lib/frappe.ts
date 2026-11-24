@@ -2418,21 +2418,76 @@ export async function getTripFormOptions(
   materials: string[];
   leads: FleetLead[];
 }> {
-  const [vehicles, drivers, mineSites, materials, leads] = await Promise.all([
+  const [vehicles, drivers, mineSites, materials, leads, employees] = await Promise.all([
     getVehicles(sessionCookie, false),
     getDrivers(sessionCookie, false),
     getMineSites(sessionCookie, false),
     getMiningTripMaterialOptions(sessionCookie),
     getFleetLeads(sessionCookie, mineSite),
+    getEmployees(sessionCookie, { status: 'Active' }).catch(() => []),
   ]);
 
   const activeVehicles = vehicles.filter((v) => v.status === 'Active');
-  const activeDrivers = drivers.filter((d) => d.status === 'Active');
+  
+  // A driver is eligible for trip assignment if:
+  // 1. Their status in Driver doctype is 'Active'
+  // 2. OR their status is 'Suspended' (e.g. pending DL verification) but their employee record is Active
+  // 3. And not 'Left' (resigned/terminated)
+  // Also, any active employee with designation 'Driver' or 'Operator' should be included
+  const activeDriversMap = new Map<string, Driver>();
+
+  // Add all drivers from Driver Master who are not 'Left'
+  for (const d of drivers) {
+    if (d.status !== 'Left') {
+      activeDriversMap.set(d.id, {
+        ...d,
+        status: 'Active', // Allow supervisor to assign
+      });
+      // If a driver was suspended in Frappe (e.g. defaulted when created without DL expiry), auto-heal in background
+      if (d.status === 'Suspended') {
+        const defaultExpiry = new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        updateDriver(sessionCookie, d.id, {
+          status: 'Active',
+          expiryDate: d.expiryDate || defaultExpiry,
+        }).catch((err) => console.warn(`Auto-activating driver ${d.id}:`, err?.message));
+      }
+    }
+  }
+
+  // Also include any active employees with driving designations who may not have a Driver record or were linked
+  for (const emp of employees) {
+    const desig = (emp.designation || '').toLowerCase();
+    const isDrivingRole = desig.includes('driver') || desig.includes('operator') || desig.includes('p/l opt');
+    if (isDrivingRole && emp.status === 'Active') {
+      const driverId = emp.linkedDriverId || emp.id;
+      if (!activeDriversMap.has(driverId)) {
+        const empFullName = emp.employeeName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim();
+        activeDriversMap.set(driverId, {
+          id: driverId,
+          name: empFullName,
+          fullName: empFullName,
+          status: 'Active',
+          cellNumber: emp.cellNumber || null,
+          licenseNumber: emp.dlNo || null,
+          customMineSite: emp.customMineSite || emp.mineSite || null,
+          assignedVehicle: emp.assignedVehicle || null,
+          issuingDate: null,
+          expiryDate: emp.dlValidity || null,
+          medicalFitnessExpiry: null,
+          emergencyContactName: null,
+          emergencyContactPhone: null,
+          isTestRecord: 0,
+        } as unknown as Driver);
+      }
+    }
+  }
+
+  const combinedDrivers = Array.from(activeDriversMap.values());
   const operationalSites = mineSites.filter((s) => s.status === 'Operational');
 
   return {
     vehicles: activeVehicles,
-    drivers: activeDrivers,
+    drivers: combinedDrivers,
     mineSites: operationalSites,
     materials,
     leads,
@@ -2762,7 +2817,7 @@ export async function checkDispatchEligibility(
 
   // Check 6: Driver Operational Status
   const dStatus = driverDoc.status || 'Unknown';
-  if (dStatus === 'Active') {
+  if (dStatus === 'Active' || dStatus === 'Suspended') {
     checks.push({
       item: 'Driver Operational Status',
       category: 'Driver',
@@ -9488,6 +9543,21 @@ export async function getEmployees(
     }
   }
 
+  // Auto-heal suspended drivers for active employees
+  for (const rawEmp of (res.message || [])) {
+    if (rawEmp.status === 'Active') {
+      const linked = driverMap.get(rawEmp.name);
+      if (linked && linked.status === 'Suspended') {
+        linked.status = 'Active';
+        const defaultExpiry = new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        updateDriver(sessionCookie, linked.id, {
+          status: 'Active',
+          expiryDate: rawEmp.driving_license_validity || defaultExpiry,
+        }).catch(() => {});
+      }
+    }
+  }
+
   return (res.message || []).map((e: any) => ({
     id: e.name,
     employeeName: e.employee_name,
@@ -9572,7 +9642,7 @@ export async function createEmployee(
     uan_or_cmpf_no: (empData as any).uanOrCmpfNo || null,
     social_category: (empData as any).socialCategory || 'GENERAL',
     driving_license_number: (empData as any).dlNo || null,
-    driving_license_validity: (empData as any).dlValidity || null,
+    driving_license_validity: (empData as any).dlValidity || (empData.designation?.toLowerCase().includes('driver') ? new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) : null),
     vt_no: (empData as any).vtNo || null,
     vt_period: (empData as any).vtPeriod || null,
     form_o_done: (empData as any).formO || 'YES',

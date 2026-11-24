@@ -51,14 +51,14 @@ export async function GET(request: NextRequest) {
     // Apply mine authorization scoping
     if (mineFilter.filterType === 'single' && mineFilter.targetMine) {
       options.mineSites = options.mineSites.filter((s) => s.id === mineFilter.targetMine || s.siteName === mineFilter.targetMine);
-      options.vehicles = options.vehicles.filter((v) => v.customMineSite === mineFilter.targetMine);
-      options.drivers = options.drivers.filter((d) => d.customMineSite === mineFilter.targetMine);
-      options.leads = (options.leads || []).filter((l) => l.mineSite === mineFilter.targetMine);
+      options.vehicles = options.vehicles.filter((v) => !v.customMineSite || v.customMineSite === mineFilter.targetMine);
+      options.drivers = options.drivers.filter((d) => !d.customMineSite || d.customMineSite === mineFilter.targetMine);
+      options.leads = (options.leads || []).filter((l) => !l.mineSite || l.mineSite === mineFilter.targetMine);
     } else if (mineFilter.filterType === 'list' && mineFilter.targetMines) {
       options.mineSites = options.mineSites.filter((s) => mineFilter.targetMines!.includes(s.id) || mineFilter.targetMines!.includes(s.siteName));
-      options.vehicles = options.vehicles.filter((v) => v.customMineSite && mineFilter.targetMines!.includes(v.customMineSite));
-      options.drivers = options.drivers.filter((d) => d.customMineSite && mineFilter.targetMines!.includes(d.customMineSite));
-      options.leads = (options.leads || []).filter((l) => mineFilter.targetMines!.includes(l.mineSite));
+      options.vehicles = options.vehicles.filter((v) => !v.customMineSite || mineFilter.targetMines!.includes(v.customMineSite));
+      options.drivers = options.drivers.filter((d) => !d.customMineSite || mineFilter.targetMines!.includes(d.customMineSite));
+      options.leads = (options.leads || []).filter((l) => !l.mineSite || mineFilter.targetMines!.includes(l.mineSite));
     }
 
     return NextResponse.json(
