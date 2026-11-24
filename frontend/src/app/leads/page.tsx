@@ -32,7 +32,7 @@ interface FleetLeadRecord {
   name?: string;
   leadName: string;
   mineSite: string;
-  leadKm: number;
+  leadKm: number | string;
   leadRate: number;
   validFrom?: string;
   validTo?: string;
@@ -44,6 +44,23 @@ interface MiningTripStats {
   tripCount: number;
   totalTonnage: number;
   totalRevenue: number;
+}
+
+function parseLeadDistance(leadKm: string | number | undefined | null): { num: number; display: string } {
+  if (leadKm == null || leadKm === '') return { num: 0, display: '—' };
+  const str = String(leadKm).trim();
+  const rangeMatch = str.match(/^([\d.]+)\s*[-–—]\s*([\d.]+)/);
+  if (rangeMatch) {
+    const low = parseFloat(rangeMatch[1]);
+    const high = parseFloat(rangeMatch[2]);
+    const avg = !isNaN(low) && !isNaN(high) ? (low + high) / 2 : (!isNaN(low) ? low : 0);
+    return { num: avg, display: `${low}–${high} KM` };
+  }
+  const clean = parseFloat(str.replace(/[^\d.]/g, ''));
+  if (!isNaN(clean)) {
+    return { num: clean, display: `${clean.toFixed(1)} KM` };
+  }
+  return { num: 0, display: str };
 }
 
 function LeadsContent() {
@@ -108,21 +125,55 @@ function LeadsContent() {
       const tripsJson = await tripsRes.json();
       if (tripsRes.ok && tripsJson.success && Array.isArray(tripsJson.data)) {
         const statsMap: Record<string, MiningTripStats> = {};
+        const activeLeads: FleetLeadRecord[] = json.data || [];
+
         for (const t of tripsJson.data) {
-          const leadKey = (t as any).custom_lead || (t as any).lead || 'Standard Corridor';
-          if (!statsMap[leadKey]) {
-            statsMap[leadKey] = {
-              leadName: leadKey,
+          const rawLead = String(t.lead || (t as any).custom_lead || t.destination || '').trim();
+          if (!rawLead) continue;
+
+          // Normalize and find matching lead
+          const matched = activeLeads.find(
+            (l) =>
+              l.leadName.toLowerCase().trim() === rawLead.toLowerCase() ||
+              l.id.toLowerCase().trim() === rawLead.toLowerCase() ||
+              rawLead.toLowerCase().startsWith(l.leadName.toLowerCase()) ||
+              l.leadName.toLowerCase().startsWith(rawLead.toLowerCase())
+          );
+          const canonicalKey = matched ? matched.leadName : rawLead;
+
+          if (!statsMap[canonicalKey]) {
+            statsMap[canonicalKey] = {
+              leadName: canonicalKey,
               tripCount: 0,
               totalTonnage: 0,
               totalRevenue: 0,
             };
           }
-          statsMap[leadKey].tripCount += 1;
-          const tonnage = Number(t.netWeightTons || t.net_weight_tons || 0);
-          statsMap[leadKey].totalTonnage += tonnage;
-          const rev = Number((t as any).custom_calculated_amount || (t as any).customCalculatedAmount || tonnage * 120);
-          statsMap[leadKey].totalRevenue += rev;
+
+          const rawTrips = Number(t.tripCount || (t as any).custom_trip_count || 1);
+          statsMap[canonicalKey].tripCount += !isNaN(rawTrips) && rawTrips > 0 ? rawTrips : 1;
+
+          // Tonnage: calculatedQuantity (volumetric) or netWeightTons
+          const rawTonnage = parseFloat(
+            String(t.calculatedQuantity ?? (t as any).custom_calculated_quantity ?? t.netWeightTons ?? (t as any).net_weight_tons ?? 0)
+          );
+          const safeTonnage = !isNaN(rawTonnage) && rawTonnage > 0 ? rawTonnage : 0;
+          statsMap[canonicalKey].totalTonnage += safeTonnage;
+
+          // Revenue: calculatedAmount or grossRevenue or tonnage * leadRate
+          let rawRev = parseFloat(
+            String(t.calculatedAmount ?? (t as any).custom_calculated_amount ?? t.grossRevenue ?? (t as any).gross_revenue ?? 0)
+          );
+          if (isNaN(rawRev) || rawRev <= 0) {
+            const rawRate = parseFloat(
+              String(t.leadRate ?? (t as any).custom_lead_rate ?? t.ratePerTon ?? matched?.leadRate ?? 0)
+            );
+            const safeRate = !isNaN(rawRate) ? rawRate : 0;
+            rawRev = safeTonnage * safeRate;
+          }
+          if (!isNaN(rawRev) && rawRev > 0) {
+            statsMap[canonicalKey].totalRevenue += rawRev;
+          }
         }
         setTripStats(statsMap);
       }
@@ -204,10 +255,23 @@ function LeadsContent() {
     });
   }, [leads, searchQuery, mineFilter]);
 
-  // Aggregate Metrics
+  // Aggregate Metrics with strict NaN protection
   const totalCorridors = leads.length;
-  const avgRate = leads.length > 0 ? leads.reduce((sum, l) => sum + (l.leadRate || 0), 0) / leads.length : 0;
-  const avgDistance = leads.length > 0 ? leads.reduce((sum, l) => sum + (l.leadKm || 0), 0) / leads.length : 0;
+  const avgRate =
+    leads.length > 0
+      ? leads.reduce((sum, l) => {
+          const r = parseFloat(String(l.leadRate || 0));
+          return sum + (!isNaN(r) ? r : 0);
+        }, 0) / leads.length
+      : 0;
+
+  const avgDistance =
+    leads.length > 0
+      ? leads.reduce((sum, l) => {
+          const d = parseLeadDistance(l.leadKm).num;
+          return sum + (!isNaN(d) ? d : 0);
+        }, 0) / leads.length
+      : 0;
 
   return (
     <AppShell>
@@ -396,11 +460,11 @@ function LeadsContent() {
                             </td>
 
                             <td className="py-3 px-4 text-right font-mono font-semibold text-slate-800">
-                              {Number(lead.leadKm || 0).toFixed(1)} KM
+                              {parseLeadDistance(lead.leadKm).display}
                             </td>
 
                             <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                              ₹{Number(lead.leadRate || 0).toFixed(2)}
+                              ₹{(parseFloat(String(lead.leadRate || 0)) || 0).toFixed(2)}
                             </td>
 
                             <td className="py-3 px-4 text-slate-600">
@@ -467,11 +531,22 @@ function LeadsContent() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {leads.map((lead) => {
-                      const stats = tripStats[lead.leadName] || tripStats[lead.id] || {
-                        tripCount: 0,
-                        totalTonnage: 0,
-                        totalRevenue: 0,
-                      };
+                      const stats =
+                        tripStats[lead.leadName] ||
+                        tripStats[lead.id] ||
+                        Object.values(tripStats).find(
+                          (s) => s.leadName.toLowerCase().trim() === lead.leadName.toLowerCase().trim()
+                        ) || {
+                          tripCount: 0,
+                          totalTonnage: 0,
+                          totalRevenue: 0,
+                        };
+
+                      const safeRate = parseFloat(String(lead.leadRate || 0)) || 0;
+                      const safeTonnage = !isNaN(stats.totalTonnage) ? stats.totalTonnage : 0;
+                      const safeRevenue = !isNaN(stats.totalRevenue) ? stats.totalRevenue : 0;
+                      const safeTrips = !isNaN(stats.tripCount) ? stats.tripCount : 0;
+
                       return (
                         <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3 px-4 font-semibold text-slate-900">
@@ -481,21 +556,46 @@ function LeadsContent() {
                             {formatMineSiteDisplay(lead.mineSite)}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-semibold text-slate-800">
-                            ₹{Number(lead.leadRate || 0).toFixed(2)}/MT
+                            ₹{safeRate.toFixed(2)}/MT
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-semibold text-blue-900">
-                            {stats.tripCount}
+                            {safeTrips} trips
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                            {stats.totalTonnage.toFixed(2)} MT
+                            {safeTonnage.toFixed(2)} MT
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
-                            ₹{stats.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            ₹{safeRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900 text-xs">
+                      <td colSpan={3} className="py-3 px-4 uppercase tracking-wider text-[11px] text-slate-700">
+                        Total Mining Haulage Performance
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">
+                        {leads.reduce((acc, l) => {
+                          const s = tripStats[l.leadName] || tripStats[l.id];
+                          return acc + (s?.tripCount || 0);
+                        }, 0)} trips
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-black text-slate-900 text-sm">
+                        {leads.reduce((acc, l) => {
+                          const s = tripStats[l.leadName] || tripStats[l.id];
+                          return acc + (s?.totalTonnage || 0);
+                        }, 0).toFixed(2)} MT
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-black text-emerald-800 text-sm">
+                        ₹{leads.reduce((acc, l) => {
+                          const s = tripStats[l.leadName] || tripStats[l.id];
+                          return acc + (s?.totalRevenue || 0);
+                        }, 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>

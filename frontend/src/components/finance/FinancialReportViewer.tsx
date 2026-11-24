@@ -161,22 +161,25 @@ export function FinancialReportViewer() {
   };
 
   const formatCellValue = (val: any, col: any) => {
-    if (val === null || val === undefined || val === '') return '—';
+    if (val === null || val === undefined || val === '' || val === 'NaN') return '—';
     if (col.fieldtype === 'Currency') {
       const num = Number(val);
-      if (isNaN(num)) return val;
+      if (isNaN(num)) return '—';
       return num < 0 ? `-${formatCurrency(Math.abs(num))}` : formatCurrency(num);
     }
     if (col.fieldtype === 'Percent') {
-      return `${val}%`;
+      const num = Number(val);
+      if (isNaN(num)) return '—';
+      return `${num.toFixed(1)}%`;
     }
     if (col.fieldtype === 'Date') {
       return formatDate(val);
     }
     if (col.fieldtype === 'Float' || col.fieldtype === 'Int') {
       const num = Number(val);
-      return isNaN(num) ? val : formatNumber(num);
+      return isNaN(num) ? '—' : formatNumber(num);
     }
+    if (val === 'NaN' || (typeof val === 'number' && isNaN(val))) return '—';
     return String(val);
   };
 
