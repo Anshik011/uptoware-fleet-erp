@@ -18,3 +18,46 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Global Print Styles to prevent blank pages */
+@media print {
+  /* Reset body and container heights/overflows so print engines don't truncate scrollable viewports */
+  html, body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Hide app navigation sidebar, headers, and UI chrome */
+  aside,
+  header,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset layout flex/overflow constraints */
+  .min-h-screen,
+  .h-screen,
+  .overflow-hidden,
+  .overflow-y-auto {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Clean up cards, borders, and shadows for clean A4 printing */
+  .shadow-sm,
+  .shadow-xs,
+  .shadow-md,
+  .shadow-lg {
+    box-shadow: none !important;
+  }
+
+  .border {
+    border-color: #cbd5e1 !important;
+  }
+}

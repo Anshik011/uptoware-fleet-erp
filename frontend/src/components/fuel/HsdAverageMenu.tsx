@@ -406,7 +406,7 @@ export function HsdAverageMenu() {
               Shifts prior to full-tank refuel (e.g. Shift B & C on previous day + Shift A on filling day)
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 print:hidden">
             <Button variant="outline" size="sm" icon={RefreshCw} onClick={syncFromTrips} disabled={isLoading}>
               Sync from Trips
             </Button>
@@ -426,7 +426,7 @@ export function HsdAverageMenu() {
                 <th className="py-3 px-4 w-32 text-right">Lead Distance</th>
                 <th className="py-3 px-4 w-32 text-right">Trip Count</th>
                 <th className="py-3 px-4 w-36 text-right">Round Trip KM (2&times;)</th>
-                <th className="py-3 px-4 w-20 text-center">Action</th>
+                <th className="py-3 px-4 w-20 text-center print:hidden">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono text-xs">
@@ -486,7 +486,7 @@ export function HsdAverageMenu() {
                     <td className="py-2.5 px-4 text-right font-bold text-slate-700">
                       {roundTrip.toFixed(1)} KM
                     </td>
-                    <td className="py-2.5 px-4 text-center">
+                    <td className="py-2.5 px-4 text-center print:hidden">
                       <button
                         type="button"
                         onClick={() => removeTripRow(index)}
@@ -511,7 +511,7 @@ export function HsdAverageMenu() {
                 <td className="py-3 px-4 text-right font-mono font-black text-indigo-900 text-sm">
                   {calculations.totalRoundTripKm.toFixed(1)} KM
                 </td>
-                <td></td>
+                <td className="print:hidden"></td>
               </tr>
             </tfoot>
           </table>
@@ -584,7 +584,7 @@ export function HsdAverageMenu() {
         </div>
 
         {/* Print & Action Footer */}
-        <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+        <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between print:hidden">
           <div className="text-xs text-slate-500">
             Certified against ground fuel dispensations and supervisor trip manifests.
           </div>
