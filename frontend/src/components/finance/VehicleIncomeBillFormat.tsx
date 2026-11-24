@@ -45,6 +45,7 @@ interface VehicleIncomeBillFormatProps {
   vehicleNo?: string;
   periodFrom?: string;
   periodTo?: string;
+  isPrintView?: boolean;
 }
 
 // Client standard baseline template from official invoice (01.01_TO_15.01-9425-1.pdf)
@@ -90,6 +91,7 @@ export function VehicleIncomeBillFormat({
   vehicleNo = 'OD19D1199',
   periodFrom = '01.01.2026',
   periodTo = '15.01.2026',
+  isPrintView = false,
 }: VehicleIncomeBillFormatProps) {
   const [selectedVehicle, setSelectedVehicle] = useState(vehicleNo);
   const [vehicleList, setVehicleList] = useState<VehicleOption[]>([]);
@@ -321,7 +323,9 @@ export function VehicleIncomeBillFormat({
   const balance = Math.max(0, invoiceValue - totalDeduction - paymentReceived);
 
   const handlePrint = () => {
-    window.print();
+    // Open dedicated pure 1-page print invoice in clean window
+    const printUrl = `/reports/print-bill?vehicle=${encodeURIComponent(selectedVehicle)}&from=${encodeURIComponent(periodFrom)}&to=${encodeURIComponent(periodTo)}&autoprint=true`;
+    window.open(printUrl, '_blank', 'width=900,height=1100');
   };
 
   const handleExportCsv = () => {
@@ -362,109 +366,113 @@ export function VehicleIncomeBillFormat({
 
   return (
     <div className="space-y-4">
-      {/* Top Action Ribbon */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-xl shadow-xs print:hidden">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-blue-50 text-blue-700 rounded-lg">
-            <FileSpreadsheet className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-sm font-bold text-slate-900">Vehicle Income / Freight Transportation Bill</h2>
-              {isLiveTrips ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Live Reconciled Data: {selectedVehicle}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-300">
-                  <AlertCircle className="w-3 h-3 text-amber-600" /> Baseline Template ({selectedVehicle})
-                </span>
-              )}
+      {/* Top Action Ribbon - Hidden in Print View */}
+      {!isPrintView && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-xl shadow-xs print:hidden">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-50 text-blue-700 rounded-lg">
+              <FileSpreadsheet className="w-5 h-5" />
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Official client coal haulage statement with lead-wise reconciliation, HSD fuel, and statutory deductions
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm font-bold text-slate-900">Vehicle Income / Freight Transportation Bill</h2>
+                {isLiveTrips ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Live Reconciled Data: {selectedVehicle}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-300">
+                    <AlertCircle className="w-3 h-3 text-amber-600" /> Baseline Template ({selectedVehicle})
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Official client coal haulage statement with lead-wise reconciliation, HSD fuel, and statutory deductions
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Dynamic Vehicle Selector Dropdown */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1">
-            <Truck className="w-3.5 h-3.5 text-slate-500" />
-            <label htmlFor="select-bill-vehicle" className="text-xs font-semibold text-slate-700">Vehicle:</label>
-            <select
-              id="select-bill-vehicle"
-              value={selectedVehicle}
-              onChange={(e) => setSelectedVehicle(e.target.value)}
-              className="bg-transparent text-xs font-bold text-blue-900 border-none focus:outline-none focus:ring-0 cursor-pointer"
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Dynamic Vehicle Selector Dropdown */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1">
+              <Truck className="w-3.5 h-3.5 text-slate-500" />
+              <label htmlFor="select-bill-vehicle" className="text-xs font-semibold text-slate-700">Vehicle:</label>
+              <select
+                id="select-bill-vehicle"
+                value={selectedVehicle}
+                onChange={(e) => setSelectedVehicle(e.target.value)}
+                className="bg-transparent text-xs font-bold text-blue-900 border-none focus:outline-none focus:ring-0 cursor-pointer"
+              >
+                {vehicleList.length > 0 ? (
+                  vehicleList.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.licensePlate} ({v.status})
+                    </option>
+                  ))
+                ) : (
+                  <option value={selectedVehicle}>{selectedVehicle}</option>
+                )}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadVehicleFinancialData}
+              disabled={loading}
+              className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs transition-colors"
+              title="Refresh financial data"
             >
-              {vehicleList.length > 0 ? (
-                vehicleList.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.licensePlate} ({v.status})
-                  </option>
-                ))
-              ) : (
-                <option value={selectedVehicle}>{selectedVehicle}</option>
-              )}
-            </select>
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-900 hover:bg-blue-800 rounded-lg shadow-xs transition-colors"
+            >
+              <Printer className="w-4 h-4 text-white" />
+              <span>Print 1-Page Bill</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={loadVehicleFinancialData}
-            disabled={loading}
-            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs transition-colors"
-            title="Refresh financial data"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs transition-colors"
-          >
-            <Printer className="w-4 h-4 text-slate-500" />
-            <span>Print Bill</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-900 hover:bg-blue-800 rounded-lg shadow-xs transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export Excel / CSV</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Dynamic Data Notification Banner */}
-      {isLiveTrips ? (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 flex-wrap gap-2 print:hidden">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              <strong>Dynamic Bill Computed:</strong> Showing <strong>{totalTrips}</strong> reconciled trips across <strong>{leadsData.length}</strong> route leads with <strong>{totalQty.toFixed(2)}</strong> Tons coal transported by <strong>{selectedVehicle}</strong>.
-            </span>
-          </div>
-          <div className="font-mono font-bold text-emerald-800">
-            Gross Freight: ₹{grossFreightAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-          </div>
-        </div>
-      ) : (
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-xs text-slate-600 print:hidden">
-          <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
-          <span>
-            No reconciled mining trips recorded yet for <strong>{selectedVehicle}</strong> in this billing period. Showing the standard baseline format below. When trips are finalized in <em>Site Supervisor Reconcile Trip Entry</em>, their lead-wise amounts, HSD diesel, and deductions will automatically calculate here.
-          </span>
         </div>
       )}
 
+      {/* Dynamic Data Notification Banner */}
+      {!isPrintView && (
+        isLiveTrips ? (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 flex-wrap gap-2 print:hidden">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                <strong>Dynamic Bill Computed:</strong> Showing <strong>{totalTrips}</strong> reconciled trips across <strong>{leadsData.length}</strong> route leads with <strong>{totalQty.toFixed(2)}</strong> Tons coal transported by <strong>{selectedVehicle}</strong>.
+              </span>
+            </div>
+            <div className="font-mono font-bold text-emerald-800">
+              Gross Freight: ₹{grossFreightAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-xs text-slate-600 print:hidden">
+            <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
+            <span>
+              No reconciled mining trips recorded yet for <strong>{selectedVehicle}</strong> in this billing period. Showing the standard baseline format below.
+            </span>
+          </div>
+        )
+      )}
+
       {/* Official Bill Card */}
-      <div className="official-bill-document bg-white border-2 border-slate-900 rounded-xl p-6 sm:p-8 shadow-xs space-y-6 text-slate-900 print:border print:p-4 print:space-y-4">
+      <div className="official-bill-document bg-white border-2 border-slate-900 rounded-xl p-5 sm:p-7 shadow-xs space-y-4 text-slate-900 print:border print:p-2 print:space-y-3 print:rounded-none">
         {/* Bill Top Bar */}
         <div className="text-center border-b-2 border-slate-900 pb-3">
           <h1 className="text-xl sm:text-2xl font-black uppercase tracking-widest">BILL</h1>
