@@ -170,7 +170,7 @@ export const clientNavigationSections: ClientNavSection[] = [
     href: '/employees?tab=roster',
     icon: UserCheck,
     items: [
-      { name: 'HOME', href: '/employees?tab=directory' },
+      { name: 'HOME', href: '/employees?tab=attendance_home' },
       { name: 'ATTENDANCE ENTRY', href: '/employees?tab=roster' },
       { name: 'ATTENDANCE SUMMARY', href: '/employees?tab=summary' },
     ],

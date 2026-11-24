@@ -305,8 +305,13 @@ export function CreateTripModal({
     setDispatchDateTime(t.dispatchDateTime ? t.dispatchDateTime.slice(0, 16) : toLocalDateTimeInput());
     setSelectedLead(t.lead || '');
     setLeadKm(t.leadKm || '');
-    setLeadRate(t.leadRate || '');
-    setRatePerTon(t.ratePerTon || t.leadRate || '');
+    
+    // Resolve lead rate from Lead master if not already populated on trip
+    const matchedLead = leads.find((l) => l.id === t.lead || l.leadName === t.lead || l.leadName === t.destination);
+    const resolvedRate = t.leadRate || matchedLead?.leadRate || t.ratePerTon || '';
+    setLeadRate(resolvedRate);
+    setRatePerTon(resolvedRate);
+
     setTripCount(t.tripCount || 1);
     setAverageTonnage(t.averageTonnage || t.payloadCapacityTons || (t.netWeightTons ? (t.netWeightTons / (t.tripCount || 1)) : 35));
     setChallanNumber(t.challanNumber || '');
@@ -334,6 +339,7 @@ export function CreateTripModal({
           leadRate: leadRate !== '' ? Number(leadRate) : undefined,
           ratePerTon: effectiveRate > 0 ? effectiveRate : undefined,
           shift: shift || undefined,
+          vehicle: vehicle || undefined,
           finalize,
         }),
       });
@@ -876,45 +882,65 @@ export function CreateTripModal({
                   </div>
 
                   {/* Auto-shown Supervisor Fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
-                    <div>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 sm:gap-4">
+                    <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Date & Shift
+                        Date & Time <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="datetime-local"
                         value={dispatchDateTime}
                         onChange={(e) => setDispatchDateTime(e.target.value)}
                         required
-                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900"
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
                       />
                     </div>
 
-                    <LinkedField
-                      label="Vehicle No"
-                      required
-                      value={vehicle}
-                      onChange={handleVehicleChange}
-                      options={vehicles.map((v) => ({
-                        id: v.id,
-                        label: v.licensePlate,
-                        subtext: `${v.payloadCapacityTons}T`,
-                      }))}
-                      placeholder="-- Vehicle --"
-                      entityName="Vehicle"
-                      icon={Truck}
-                      onCreateNew={() => setShowAddVehicle(true)}
-                      onViewRecord={(id) => setViewVehicleId(id)}
-                    />
-
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Lead / Route
+                        Shift <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={shift}
+                        onChange={(e) => setShift(e.target.value as any)}
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
+                      >
+                        <option value="Shift A">Shift A (06:00 - 14:00)</option>
+                        <option value="Shift B">Shift B (14:00 - 22:00)</option>
+                        <option value="Shift C">Shift C (22:00 - 06:00)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <LinkedField
+                        label="Vehicle No"
+                        required
+                        value={vehicle}
+                        onChange={handleVehicleChange}
+                        options={vehicles.map((v) => ({
+                          id: v.id,
+                          label: v.licensePlate,
+                          subtext: `${v.payloadCapacityTons}T`,
+                        }))}
+                        placeholder="-- Vehicle --"
+                        entityName="Vehicle"
+                        icon={Truck}
+                        onCreateNew={() => setShowAddVehicle(true)}
+                        onViewRecord={(id) => setViewVehicleId(id)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Route & Metrics: Lead, Trip Count, Avg, Quantity, Rate */}
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3.5 sm:gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Lead / Route <span className="text-rose-500">*</span>
                       </label>
                       <select
                         value={selectedLead}
                         onChange={(e) => handleLeadChange(e.target.value)}
-                        className="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
                       >
                         <option value="">-- Choose Lead --</option>
                         {leads.map((l) => (
@@ -924,10 +950,7 @@ export function CreateTripModal({
                         ))}
                       </select>
                     </div>
-                  </div>
 
-                  {/* Reconcile Metrics: Trip Count, Avg, Quantity, Rate, Amount */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                         Trip Count <span className="text-rose-500">*</span>
@@ -946,7 +969,7 @@ export function CreateTripModal({
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                          Avg Payload (Tons) <span className="text-rose-500">*</span>
+                          Avg (Tons) <span className="text-rose-500">*</span>
                         </label>
                         {selectedVehicleObj?.payloadCapacityTons && (
                           <button
@@ -972,82 +995,59 @@ export function CreateTripModal({
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Quantity (Tons)
+                        Quantity (T)
                       </label>
-                      <div className="w-full px-3 py-2 text-sm bg-slate-100 border border-slate-300 rounded-lg text-blue-900 font-mono font-bold">
-                        {calculatedQuantity.toFixed(2)} T
+                      <div className="w-full px-3 py-2 text-sm bg-slate-100 border border-slate-300 rounded-lg text-blue-900 font-mono font-bold text-center">
+                        {calculatedQuantity.toFixed(2)}
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Rate / Ton (₹) <span className="text-[10px] text-slate-500 font-normal">(from Lead Master)</span>
+                        </label>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Fixed Contract</span>
+                      </div>
+                      <input
+                        type="number"
+                        readOnly
+                        value={leadRate !== '' ? leadRate : ratePerTon}
+                        placeholder="Contracted Rate"
+                        className="w-full px-3 py-2 text-sm bg-slate-100 border border-slate-300 rounded-lg text-slate-700 font-mono font-bold cursor-not-allowed select-none"
+                      />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Rate / Ton (₹)
+                        Calculated Reconciled Amount
                       </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="120"
-                        value={leadRate !== '' ? leadRate : ratePerTon}
-                        onChange={(e) => {
-                          const val = e.target.value === '' ? '' : Number(e.target.value);
-                          setRatePerTon(val);
-                          if (selectedLead) setLeadRate(val);
-                        }}
-                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono"
-                      />
+                      <div className="w-full px-3 py-2 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 font-mono font-bold text-right flex items-center justify-between">
+                        <span className="text-xs text-emerald-600 font-sans font-medium">Reconciled Amount:</span>
+                        <span>₹{calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Haulage Quantity & Value Calculation Summary Card */}
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                     <div className="flex flex-col">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        Reconciled Mineral Quantity
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Reconciled Mineral Quantity Formula
                       </span>
-                      <span className="text-sm font-semibold text-slate-900 mt-0.5">
+                      <span className="font-semibold text-slate-900 mt-0.5">
                         {tripCount || 1} Trip(s) × {effectiveTonnage} Tons = <span className="text-blue-900 font-bold">{calculatedQuantity.toFixed(2)} Tons</span>
                       </span>
                     </div>
                     <div className="flex flex-col sm:items-end">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        Calculated Reconciled Amount
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Total Haulage Valuation
                       </span>
-                      <span className="text-base font-bold text-emerald-700 mt-0.5">
+                      <span className="text-sm font-bold text-emerald-700 mt-0.5">
                         ₹{calculatedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
-                    </div>
-                  </div>
-
-                  {/* Row: Driver & Challan Number */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-                    <LinkedField
-                      label="Assign Driver"
-                      value={driver}
-                      onChange={setDriver}
-                      options={drivers.map((d) => ({
-                        id: d.id,
-                        label: d.fullName,
-                        subtext: d.licenseNumber ? `Lic: ${d.licenseNumber}` : 'Operator',
-                      }))}
-                      placeholder="-- Choose Driver --"
-                      entityName="Driver"
-                      icon={User}
-                      onCreateNew={() => setShowAddDriver(true)}
-                      onViewRecord={(id) => setViewDriverId(id)}
-                    />
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Challan / Transit Pass #
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. CH-2026-908"
-                        value={challanNumber}
-                        onChange={(e) => setChallanNumber(e.target.value)}
-                        className="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900"
-                      />
                     </div>
                   </div>
                 </>

@@ -15,7 +15,10 @@ import {
   FileQuestion,
   ChevronRight,
   Pencil,
-  Trash2
+  Trash2,
+  Printer,
+  Calendar,
+  Building2,
 } from 'lucide-react';
 
 interface VehicleTableProps {
@@ -179,12 +182,23 @@ export function VehicleTable({
               </select>
             </div>
 
+            {/* Print Button */}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-xs transition-colors print:hidden"
+              title="Print Vehicle Fleet Directory"
+            >
+              <Printer className="w-4 h-4 text-slate-500" />
+              <span>Print</span>
+            </button>
+
             {/* Primary Action Button: Add Vehicle */}
             <button
               type="button"
               data-testid="btn-register-vehicle"
               onClick={onOpenAddVehicle}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-900 hover:bg-blue-800 text-white font-medium text-xs shadow-sm transition-colors ml-auto sm:ml-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-900 hover:bg-blue-800 text-white font-medium text-xs shadow-sm transition-colors ml-auto sm:ml-0 print:hidden"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Register Vehicle</span>
@@ -193,24 +207,26 @@ export function VehicleTable({
         </div>
       </div>
 
-      {/* Vehicles Data Table */}
+      {/* Vehicles Data Table with Full Borders */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse border border-slate-300 text-xs">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <th scope="col" className="px-6 py-3.5 text-left">Registration & Model</th>
-              <th scope="col" className="px-6 py-3.5 text-left">Assigned Driver</th>
-              <th scope="col" className="px-6 py-3.5 text-left">Operational Status</th>
-              <th scope="col" className="px-6 py-3.5 text-right">Odometer Reading</th>
-              <th scope="col" className="px-6 py-3.5 text-right">Payload Limit</th>
-              <th scope="col" className="px-6 py-3.5 text-center">Statutory Compliance</th>
-              <th scope="col" className="px-6 py-3.5 text-right">Actions</th>
+            <tr className="bg-slate-100/90 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-center border border-slate-300 w-12">Sl No</th>
+              <th scope="col" className="px-4 py-3 text-left border border-slate-300">Registration & Model</th>
+              <th scope="col" className="px-4 py-3 text-left border border-slate-300">Owner Name</th>
+              <th scope="col" className="px-4 py-3 text-left border border-slate-300">Assigned Driver Name</th>
+              <th scope="col" className="px-3 py-3 text-center border border-slate-300">Operational Status</th>
+              <th scope="col" className="px-4 py-3 text-left border border-slate-300">Assigned Mines</th>
+              <th scope="col" className="px-3 py-3 text-center border border-slate-300">Registration Date</th>
+              <th scope="col" className="px-4 py-3 text-left border border-slate-300 min-w-[280px]">Statutory Compliance (Expiry Dates)</th>
+              <th scope="col" className="px-3 py-3 text-right border border-slate-300 print:hidden">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 text-xs">
+          <tbody className="text-xs">
             {vehicles.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                <td colSpan={9} className="px-6 py-12 text-center text-slate-500 border border-slate-300">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <FileQuestion className="w-8 h-8 text-slate-400" />
                     <span className="font-semibold text-slate-700 text-sm">No vehicles matched your search or filter</span>
@@ -219,92 +235,73 @@ export function VehicleTable({
                 </td>
               </tr>
             ) : (
-              vehicles.map((v) => {
+              vehicles.map((v, index) => {
                 const stat = v.statutory;
+
+                const docs = [
+                  { label: 'Insurance', short: 'INS', doc: stat.insurance },
+                  { label: 'Fitness', short: 'FIT', doc: stat.fitness },
+                  { label: 'PUC', short: 'PUC', doc: stat.puc },
+                  { label: 'Road Tax', short: 'TAX', doc: stat.roadTax },
+                  { label: 'Permit', short: 'PMT', doc: stat.permit },
+                ];
 
                 return (
                   <tr
                     key={v.id}
                     data-testid="vehicle-row"
                     data-vehicle-id={v.id}
-                    className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
-                    onClick={() => onSelectVehicle(v.id)}
+                    className="hover:bg-slate-50 transition-colors"
                   >
-                    {/* Registration & Model (Left) */}
-                    <td className="px-6 py-4 text-left">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                          <Truck className="w-4 h-4" />
+                    {/* 1. Sl No */}
+                    <td className="px-3 py-3 text-center border border-slate-300 font-bold text-slate-600 font-mono">
+                      {index + 1}
+                    </td>
+
+                    {/* 2. Registration No & Model */}
+                    <td className="px-4 py-3 text-left border border-slate-300">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-center shrink-0">
+                          <Truck className="w-3.5 h-3.5" />
                         </div>
                         <div>
-                          <div className="font-bold text-slate-900 font-mono tracking-wide text-sm">
+                          <div className="font-bold text-slate-900 font-mono tracking-wide text-xs">
                             {v.licensePlate}
                           </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[11px] text-slate-500 font-medium">
-                              {v.make} · {v.model}
-                            </span>
-                            {v.vehicleType && (
-                              <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
-                                {v.vehicleType}
-                              </span>
-                            )}
+                          <div className="text-[10px] text-slate-500 font-medium">
+                            {v.make} · {v.model}
+                            {v.vehicleType && <span className="ml-1 text-slate-600">({v.vehicleType})</span>}
                           </div>
-                          {(v.ownerName || v.chassisNumber) && (
-                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              {v.ownerName && <span>Owner: {v.ownerName}</span>}
-                              {v.ownerName && v.chassisNumber && <span> · </span>}
-                              {v.chassisNumber && <span>Chassis: {v.chassisNumber}</span>}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </td>
 
-                    {/* Assigned Driver (Left) */}
-                    <td className="px-6 py-4 text-left">
+                    {/* 3. Owner Name */}
+                    <td className="px-4 py-3 text-left border border-slate-300 font-medium text-slate-800">
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>{v.ownerName || 'OMM MAA COAL TRANSPORT'}</span>
+                      </div>
+                    </td>
+
+                    {/* 4. Assigned Driver Name */}
+                    <td className="px-4 py-3 text-left border border-slate-300">
                       {v.assignedDriverName ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (v.assignedDriverId && onSelectDriver) {
-                              onSelectDriver(v.assignedDriverId);
-                            } else {
-                              window.location.href = `/drivers`;
-                            }
-                          }}
-                          className="group inline-flex items-center gap-1.5 font-medium text-slate-800 hover:text-blue-600 transition-colors text-left"
-                          title="View driver details"
-                        >
-                          <User className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500" />
-                          <span className="group-hover:underline">{v.assignedDriverName}</span>
-                          <ExternalLink className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </button>
+                        <div className="inline-flex items-center gap-1.5 font-semibold text-slate-800">
+                          <User className="w-3.5 h-3.5 text-blue-600" />
+                          <span>{v.assignedDriverName}</span>
+                        </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onAllocateDriver) {
-                              onAllocateDriver(v.id);
-                            } else {
-                              window.location.href = `/shifts?vehicle=${encodeURIComponent(v.id)}&action=new&returnUrl=/vehicles`;
-                            }
-                          }}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-900 border border-amber-200/80 transition-colors shadow-2xs"
-                          title="Click to allocate a driver to this vehicle"
-                        >
-                          <UserPlus className="w-3.5 h-3.5 text-amber-600" />
-                          <span>No Driver Allocated</span>
-                        </button>
+                        <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
+                          No Driver Allocated
+                        </span>
                       )}
                     </td>
 
-                    {/* Operational Status (Left) */}
-                    <td className="px-6 py-4 text-left">
+                    {/* 5. Operational Status */}
+                    <td className="px-3 py-3 text-center border border-slate-300">
                       <span
-                        className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full border ${getStatusBadge(
+                        className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusBadge(
                           v.status
                         )}`}
                       >
@@ -312,69 +309,78 @@ export function VehicleTable({
                       </span>
                     </td>
 
-                    {/* Odometer (Right) */}
-                    <td className="px-6 py-4 text-right font-mono font-semibold text-slate-900">
-                      {v.lastOdometer.toLocaleString('en-IN')} KM
+                    {/* 6. Assigned Mines */}
+                    <td className="px-4 py-3 text-left border border-slate-300 font-medium text-slate-700">
+                      {v.customMineSite || v.mineSite || 'JBR Eastern — Talcher Site'}
                     </td>
 
-                    {/* Payload Limit (Right) */}
-                    <td className="px-6 py-4 text-right font-semibold text-slate-700">
-                      {v.payloadCapacityTons} MT
+                    {/* 7. Registration Date */}
+                    <td className="px-3 py-3 text-center border border-slate-300 font-mono text-slate-700 whitespace-nowrap">
+                      {v.registrationDate || '2024-03-15'}
                     </td>
 
-                    {/* Statutory Compliance Indicator (Center) */}
-                    <td className="px-6 py-4 text-center">
-                      <div className="inline-flex flex-col items-center">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          {getDocDot(stat.insurance.status, 'Insurance')}
-                          {getDocDot(stat.fitness.status, 'Fitness')}
-                          {getDocDot(stat.puc.status, 'PUC')}
-                          {getDocDot(stat.roadTax.status, 'Road Tax')}
-                          {getDocDot(stat.permit.status, 'Permit')}
-                        </div>
-                        <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
-                          {stat.overall === 'valid'
-                            ? 'All 5 Valid'
-                            : stat.overall === 'expiring_soon'
-                            ? 'Expiring Soon'
-                            : 'Renewal Needed'}
-                        </span>
+                    {/* 8. Statutory Compliance with Expired Dates */}
+                    <td className="px-4 py-3 text-left border border-slate-300">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {docs.map((d) => {
+                          const isExp = d.doc.status === 'expired';
+                          const isWarn = d.doc.status === 'expiring_soon';
+                          const isValid = d.doc.status === 'valid';
+                          const badgeColor = isExp
+                            ? 'bg-rose-50 text-rose-800 border-rose-300'
+                            : isWarn
+                            ? 'bg-amber-50 text-amber-800 border-amber-300'
+                            : isValid
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                            : 'bg-slate-50 text-slate-600 border-slate-200';
+
+                          return (
+                            <div
+                              key={d.label}
+                              className={`flex items-center justify-between px-1.5 py-0.5 rounded border text-[10px] ${badgeColor}`}
+                              title={`${d.label}: ${d.doc.status} (Exp: ${d.doc.expiryDate || 'N/A'})`}
+                            >
+                              <span className="font-bold">{d.short}:</span>
+                              <span className="font-mono ml-1">{d.doc.expiryDate || 'Valid'}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </td>
 
-                    {/* Actions (Far Right) */}
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    {/* 9. Action */}
+                    <td className="px-3 py-3 text-right border border-slate-300 print:hidden whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1">
                         {onEditVehicle && (
                           <button
                             type="button"
                             onClick={() => onEditVehicle(v)}
-                            className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors"
+                            className="p-1 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
                             title="Edit Vehicle Details"
                             data-testid={`btn-edit-vehicle-${v.id}`}
                           >
-                            <Pencil className="w-4 h-4" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {onDeleteVehicle && (
                           <button
                             type="button"
                             onClick={() => onDeleteVehicle(v)}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors"
                             title="Delete Vehicle"
                             data-testid={`btn-delete-vehicle-${v.id}`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                         <button
                           type="button"
                           data-testid="btn-view-details"
                           onClick={() => onSelectVehicle(v.id)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold shadow-xs transition-colors"
+                          className="inline-flex items-center gap-0.5 px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold transition-colors"
                         >
                           <span>Details</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                          <ChevronRight className="w-3 h-3 text-slate-400" />
                         </button>
                       </div>
                     </td>

@@ -37,12 +37,13 @@ import {
   Pencil,
   Trash2,
   ExternalLink,
+  Printer,
 } from 'lucide-react';
 import { DriverDrawer } from '@/components/drivers/DriverDrawer';
 import { DriverCmpfSalaryFormat } from '@/components/employees/DriverCmpfSalaryFormat';
 import { OtherStaffSalaryFormat } from '@/components/employees/OtherStaffSalaryFormat';
 
-type ActiveTab = 'directory' | 'roster' | 'summary';
+type ActiveTab = 'directory' | 'roster' | 'summary' | 'attendance_home';
 
 function EmployeesContent() {
   const { hasRole } = useAuth();
@@ -65,6 +66,7 @@ function EmployeesContent() {
   // Directory Filters
   const [statusFilter, setStatusFilter] = useState<string>(statusParam || 'ALL');
   const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
+  const [directoryDesignationFilter, setDirectoryDesignationFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [mineFilter, setMineFilter] = useState<string>(currentMine);
 
@@ -306,7 +308,7 @@ function EmployeesContent() {
   useEffect(() => {
     if (activeTab === 'roster') {
       loadAttendanceForDate(rosterDate, mineFilter);
-    } else if (activeTab === 'summary') {
+    } else if (activeTab === 'summary' || activeTab === 'attendance_home') {
       loadAttendanceSummary(summaryMonth, summaryYear, mineFilter);
     }
   }, [activeTab, rosterDate, mineFilter, summaryMonth, summaryYear, loadAttendanceForDate, loadAttendanceSummary]);
@@ -601,6 +603,7 @@ function EmployeesContent() {
   const filteredEmployees = employees.filter((emp) => {
     if (statusFilter !== 'ALL' && emp.status !== statusFilter) return false;
     if (departmentFilter !== 'ALL' && emp.department !== departmentFilter) return false;
+    if (directoryDesignationFilter !== 'ALL' && (emp.designation || 'Fleet Personnel') !== directoryDesignationFilter) return false;
     if (mineFilter !== 'ALL') {
       const empMine = emp.customMineSite || emp.mineSite;
       if (empMine && empMine !== mineFilter) return false;
@@ -661,18 +664,18 @@ function EmployeesContent() {
         />
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 border-b border-slate-200 mb-6 bg-white px-2 rounded-t-xl">
+        <div className="flex items-center gap-1 border-b border-slate-200 mb-6 bg-white px-2 rounded-t-xl print:hidden overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab('directory')}
-            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'directory'
                 ? 'border-blue-900 text-blue-900'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Personnel Directory</span>
+            <span>Personnel Directory (Emp Home)</span>
             <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-600 font-bold">
               {employees.length}
             </span>
@@ -680,8 +683,21 @@ function EmployeesContent() {
 
           <button
             type="button"
+            onClick={() => setActiveTab('attendance_home')}
+            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'attendance_home'
+                ? 'border-blue-900 text-blue-900'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>Attendance Home</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('roster')}
-            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'roster'
                 ? 'border-blue-900 text-blue-900'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -694,14 +710,14 @@ function EmployeesContent() {
           <button
             type="button"
             onClick={() => setActiveTab('summary')}
-            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'summary'
                 ? 'border-blue-900 text-blue-900'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <FileSpreadsheet className="w-4 h-4" />
-            <span>Attendance & Salary Summary</span>
+            <span>Attendance Summary</span>
           </button>
         </div>
 
@@ -770,6 +786,20 @@ function EmployeesContent() {
                   />
                 </div>
 
+                {/* Designation-wise search filter */}
+                <select
+                  value={directoryDesignationFilter}
+                  onChange={(e) => setDirectoryDesignationFilter(e.target.value)}
+                  className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                >
+                  <option value="ALL">All Designations</option>
+                  {Array.from(new Set(employees.map((e) => e.designation).filter(Boolean))).map((d) => (
+                    <option key={d as string} value={d as string}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+
                 {mineOptions.length > 0 && (
                   <select
                     value={mineFilter}
@@ -812,8 +842,19 @@ function EmployeesContent() {
                 </select>
               </div>
 
-              <div className="text-xs text-slate-500 font-medium">
-                Showing {filteredEmployees.length} of {employees.length} personnel
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-xs transition-colors print:hidden"
+                  title="Print Employee Directory"
+                >
+                  <Printer className="w-4 h-4 text-slate-500" />
+                  <span>Print</span>
+                </button>
+                <div className="text-xs text-slate-500 font-medium">
+                  Showing {filteredEmployees.length} of {employees.length} personnel
+                </div>
               </div>
             </div>
 
@@ -851,114 +892,123 @@ function EmployeesContent() {
                 </p>
               </div>
             ) : (
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+              <div className="border border-slate-300 rounded-xl overflow-hidden bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
+                  <table className="w-full text-left border-collapse border border-slate-300 text-xs">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4">Employee</th>
-                        <th className="py-3 px-4">Mine & Vehicle</th>
-                        <th className="py-3 px-4">Contact Info</th>
-                        <th className="py-3 px-4">Bank & KYC</th>
-                        <th className="py-3 px-4 text-right">Daily Salary</th>
-                        <th className="py-3 px-4 text-center">Status</th>
-                        <th className="py-3 px-4 text-right">Actions</th>
+                      <tr className="bg-slate-100/90 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                        <th className="py-3 px-3 text-center border border-slate-300 w-12">Sl No</th>
+                        <th className="py-3 px-3 text-left border border-slate-300">Emp Name</th>
+                        <th className="py-3 px-3 text-left border border-slate-300 font-mono">Emp ID</th>
+                        <th className="py-3 px-3 text-left border border-slate-300 font-mono">Mob No</th>
+                        <th className="py-3 px-3 text-left border border-slate-300">DL Validity</th>
+                        <th className="py-3 px-3 text-left border border-slate-300">VT Validity</th>
+                        <th className="py-3 px-3 text-left border border-slate-300">Mine & Vehicle</th>
+                        <th className="py-3 px-3 text-left border border-slate-300">Designation</th>
+                        <th className="py-3 px-3 text-left border border-slate-300">Account Details</th>
+                        <th className="py-3 px-3 text-center border border-slate-300">Status</th>
+                        <th className="py-3 px-3 text-right border border-slate-300 print:hidden">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredEmployees.map((emp) => (
-                        <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="font-semibold text-slate-900 flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold text-xs">
+                    <tbody className="divide-y divide-slate-200">
+                      {filteredEmployees.map((emp, index) => (
+                        <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
+                          {/* 1. Sl No */}
+                          <td className="py-2.5 px-3 text-center border border-slate-300 font-bold text-slate-600 font-mono">
+                            {index + 1}
+                          </td>
+
+                          {/* 2. Emp Name */}
+                          <td className="py-2.5 px-3 border border-slate-300 font-semibold text-slate-900 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
                                 {emp.firstName?.charAt(0) || 'E'}
                               </div>
-                              <div>
-                                <div>{emp.employeeName}</div>
-                                <div className="text-[10px] text-slate-500 font-medium">
-                                  {emp.id} • {emp.designation || 'Fleet Personnel'}
-                                  {emp.skillCategory ? ` • ${emp.skillCategory}` : ''}
-                                  {emp.formO === 'YES' ? ' • Form O' : ''}
-                                </div>
-                              </div>
+                              <span>{emp.employeeName}</span>
                             </div>
                           </td>
 
-                          <td className="py-3 px-4">
-                            <div className="font-medium text-slate-800 flex items-center gap-1.5">
-                              <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                              <span>{formatMineSiteDisplay(emp.customMineSite || emp.mineSite) || 'Unassigned Mine'}</span>
-                            </div>
-                            {emp.assignedVehicle && (
-                              <div className="text-[10px] text-slate-600 flex items-center gap-1 mt-1 font-mono">
-                                <Truck className="w-3 h-3 text-slate-400" />
-                                <span className="font-semibold text-slate-700">{formatVehicleDisplay(emp.assignedVehicle)}</span>
-                              </div>
-                            )}
-                            {emp.linkedDriverId && (
-                              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                                <button
-                                  type="button"
-                                  onClick={() => setViewingDriverId(emp.linkedDriverId || null)}
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer"
-                                  title="Click to view driver profile & compliance details"
-                                >
-                                  Linked Driver Profile ({emp.driverStatus || 'Active'})
-                                  <ExternalLink className="w-2.5 h-2.5 ml-1" />
-                                </button>
-                                {emp.driverStatus === 'Suspended' && canManage && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDirectUnsuspend(emp.linkedDriverId!, emp.employeeName)}
-                                    className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
-                                    title="Unsuspend driver and restore dispatch eligibility"
-                                  >
-                                    <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
-                                    Unsuspend
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                          {/* 3. Emp ID */}
+                          <td className="py-2.5 px-3 border border-slate-300 font-mono font-bold text-blue-900 whitespace-nowrap">
+                            {emp.id}
                           </td>
 
-                          <td className="py-3 px-4">
-                            {emp.cellNumber && (
-                              <div className="font-mono text-slate-700 flex items-center gap-1 text-[11px]">
+                          {/* 4. Mob No */}
+                          <td className="py-2.5 px-3 border border-slate-300 font-mono text-slate-700 whitespace-nowrap">
+                            {emp.cellNumber ? (
+                              <div className="flex items-center gap-1">
                                 <Phone className="w-3 h-3 text-slate-400" />
                                 <span>{emp.cellNumber}</span>
                               </div>
+                            ) : (
+                              <span className="text-slate-400">—</span>
                             )}
-                            {emp.companyEmail && (
-                              <div className="text-slate-500 flex items-center gap-1 text-[10px] mt-0.5">
-                                <Mail className="w-3 h-3 text-slate-400" />
-                                <span>{emp.companyEmail}</span>
+                          </td>
+
+                          {/* 5. DL Validity */}
+                          <td className="py-2.5 px-3 border border-slate-300 text-slate-700 whitespace-nowrap">
+                            {emp.dlValidity ? (
+                              <div>
+                                <span className="font-semibold text-emerald-700">Exp: {emp.dlValidity}</span>
+                                {emp.dlNo && <div className="text-[10px] text-slate-500 font-mono">{emp.dlNo}</div>}
+                              </div>
+                            ) : emp.dlNo ? (
+                              <span className="font-mono text-slate-700">{emp.dlNo}</span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+
+                          {/* 6. VT Validity */}
+                          <td className="py-2.5 px-3 border border-slate-300 text-slate-700 whitespace-nowrap">
+                            {emp.vtPeriod ? (
+                              <div>
+                                <span className="font-semibold text-blue-700">Exp: {emp.vtPeriod}</span>
+                                {emp.vtNo && <div className="text-[10px] text-slate-500 font-mono">{emp.vtNo}</div>}
+                              </div>
+                            ) : emp.formO === 'YES' ? (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300">
+                                Form O Certified
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+
+                          {/* 7. Mine & Vehicle */}
+                          <td className="py-2.5 px-3 border border-slate-300 text-slate-700 whitespace-nowrap">
+                            <div className="flex items-center gap-1 font-medium">
+                              <MapPin className="w-3 h-3 text-blue-600 shrink-0" />
+                              <span>{formatMineSiteDisplay(emp.customMineSite || emp.mineSite) || 'Unassigned Mine'}</span>
+                            </div>
+                            {emp.assignedVehicle && (
+                              <div className="text-[10px] text-slate-600 flex items-center gap-1 mt-0.5 font-mono">
+                                <Truck className="w-3 h-3 text-slate-400" />
+                                <span className="font-semibold text-slate-800">{formatVehicleDisplay(emp.assignedVehicle)}</span>
                               </div>
                             )}
-                            {!emp.cellNumber && !emp.companyEmail && (
-                              <span className="text-slate-400 text-[11px]">—</span>
-                            )}
                           </td>
 
-                          <td className="py-3 px-4">
-                            <div className="text-[11px] text-slate-700 font-mono">
-                              {emp.bankName || 'SBI'} • A/C: {emp.bankAcNo || '—'}
+                          {/* 8. Designation */}
+                          <td className="py-2.5 px-3 border border-slate-300 text-slate-800 font-medium whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-300">
+                              {emp.designation || 'Staff'}
+                            </span>
+                          </td>
+
+                          {/* 9. Account Details */}
+                          <td className="py-2.5 px-3 border border-slate-300 font-mono text-[11px] text-slate-700">
+                            <div>
+                              <span className="font-bold text-slate-800">{emp.bankName || 'SBI'}</span>
+                              <span className="ml-1">A/C: {emp.bankAcNo || '—'}</span>
                             </div>
-                            <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                            <div className="text-[10px] text-slate-500">
                               IFSC: {emp.ifscCode || 'SBIN0001234'}
                             </div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">
-                              DOJ: {emp.dateOfJoining || '—'}{emp.relievingDate ? ` • DOE: ${emp.relievingDate}` : ''}
-                            </div>
                           </td>
 
-                          <td className="py-3 px-4 text-right">
-                            <span className="font-semibold text-slate-900 font-mono text-xs">
-                              ₹{(emp.dailySalary || 0).toLocaleString('en-IN')}
-                            </span>
-                            <div className="text-[10px] text-slate-400">/ day</div>
-                          </td>
-
-                          <td className="py-3 px-4 text-center">
+                          {/* 10. Status */}
+                          <td className="py-2.5 px-3 text-center border border-slate-300 whitespace-nowrap">
                             <Badge
                               variant={emp.status === 'Active' ? 'positive' : 'neutral'}
                               size="sm"
@@ -967,23 +1017,24 @@ function EmployeesContent() {
                             </Badge>
                           </td>
 
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                          {/* 11. Action */}
+                          <td className="py-2.5 px-3 text-right border border-slate-300 print:hidden whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
                               <button
                                 type="button"
                                 onClick={() => handleEditEmployee(emp)}
-                                className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors"
+                                className="p-1 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
                                 title="Edit Employee Profile"
                               >
-                                <Pencil className="w-4 h-4" />
+                                <Pencil className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleDeleteEmployee(emp)}
-                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
+                                className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors"
                                 title="Delete Employee"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </td>
@@ -1475,6 +1526,275 @@ function EmployeesContent() {
         )}
 
         {/* ======================================================== */}
+        {/* TAB 2: ATTENDANCE HOME (CURRENT MONTH PRESENT STAFF)      */}
+        {/* ======================================================== */}
+        {activeTab === 'attendance_home' && (() => {
+          const uniqueDesignations = Array.from(
+            new Set(
+              employees
+                .map((e) => e.designation)
+                .concat(attendanceSummary.map((s) => s.designation || ''))
+                .filter(Boolean)
+            )
+          ) as string[];
+
+          const filteredHomeStaff = attendanceSummary
+            .filter((sum) => {
+              if (
+                summaryDesignationFilter !== 'ALL' &&
+                (sum.designation || 'Staff') !== summaryDesignationFilter
+              ) {
+                return false;
+              }
+              if (summarySearchQuery.trim()) {
+                const q = summarySearchQuery.toLowerCase().trim();
+                const matchName = sum.employeeName.toLowerCase().includes(q);
+                const matchId = sum.employee.toLowerCase().includes(q);
+                const matchDesig = (sum.designation || '').toLowerCase().includes(q);
+                if (!matchName && !matchId && !matchDesig) return false;
+              }
+              // Only present staff (or all staff if searching)
+              return sum.presentDays > 0 || summarySearchQuery.trim() !== '';
+            })
+            .map((sum) => {
+              const emp = employees.find(
+                (e) => e.id === sum.employee || e.employeeName.toLowerCase() === sum.employeeName.toLowerCase()
+              );
+              const rate = emp?.dailySalary || 850;
+              const amount = sum.presentDays * rate;
+              return {
+                ...sum,
+                emp,
+                rate,
+                amount,
+              };
+            });
+
+          const totalPresentSum = filteredHomeStaff.reduce((acc, s) => acc + s.presentDays, 0);
+          const totalAmountSum = filteredHomeStaff.reduce((acc, s) => acc + s.amount, 0);
+
+          return (
+            <>
+              {/* Search bar: Designation wise, Month wise, Employee wise + Print Button */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+                  {/* Employee wise search */}
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search Employee Name / ID..."
+                      value={summarySearchQuery}
+                      onChange={(e) => setSummarySearchQuery(e.target.value)}
+                      className="w-full text-xs pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white"
+                    />
+                  </div>
+
+                  {/* Designation-wise filter */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Designation:
+                    </span>
+                    <select
+                      value={summaryDesignationFilter}
+                      onChange={(e) => setSummaryDesignationFilter(e.target.value)}
+                      className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                    >
+                      <option value="ALL">All Designations</option>
+                      {uniqueDesignations.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Month-wise filter */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Month:
+                    </span>
+                    <select
+                      value={summaryMonth}
+                      onChange={(e) => setSummaryMonth(parseInt(e.target.value, 10))}
+                      className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                    >
+                      <option value={1}>January</option>
+                      <option value={2}>February</option>
+                      <option value={3}>March</option>
+                      <option value={4}>April</option>
+                      <option value={5}>May</option>
+                      <option value={6}>June</option>
+                      <option value={7}>July</option>
+                      <option value={8}>August</option>
+                      <option value={9}>September</option>
+                      <option value={10}>October</option>
+                      <option value={11}>November</option>
+                      <option value={12}>December</option>
+                    </select>
+                  </div>
+
+                  {/* Year-wise filter */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Year:
+                    </span>
+                    <select
+                      value={summaryYear}
+                      onChange={(e) => setSummaryYear(parseInt(e.target.value, 10))}
+                      className="text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white font-medium"
+                    >
+                      <option value={2026}>2026</option>
+                      <option value={2025}>2025</option>
+                      <option value={2027}>2027</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-xs transition-colors print:hidden"
+                    title="Print Attendance Home Statement"
+                  >
+                    <Printer className="w-4 h-4 text-slate-500" />
+                    <span>Print</span>
+                  </button>
+                  <div className="text-xs text-slate-500 font-medium">
+                    Showing {filteredHomeStaff.length} present staff
+                  </div>
+                </div>
+              </div>
+
+              {/* Attendance Home Data Table with Full Borders */}
+              {isSummaryLoading ? (
+                <div className="p-12 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
+                  <p className="text-xs text-slate-500">Loading attendance data...</p>
+                </div>
+              ) : filteredHomeStaff.length === 0 ? (
+                <div className="p-12 rounded-xl border border-dashed border-slate-300 bg-white shadow-sm text-center">
+                  <UserCheck className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <h3 className="text-sm font-semibold text-slate-700">No present staff recorded for this period</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Try selecting a different month or recording attendance entries.
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-slate-300 rounded-xl overflow-hidden bg-white shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse border border-slate-300 text-xs">
+                      <thead>
+                        <tr className="bg-slate-100/90 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          <th className="py-3 px-3 text-center border border-slate-300 w-12">Sl No</th>
+                          <th className="py-3 px-4 border border-slate-300">Emp. Name</th>
+                          <th className="py-3 px-3 border border-slate-300">Designation</th>
+                          <th className="py-3 px-3 text-right border border-slate-300 font-mono">Total Present</th>
+                          <th className="py-3 px-3 text-right border border-slate-300 font-mono">Rate Per Day</th>
+                          <th className="py-3 px-3 text-right border border-slate-300 font-mono">Total Amount</th>
+                          <th className="py-3 px-4 border border-slate-300">Bank Details</th>
+                          <th className="py-3 px-3 text-right border border-slate-300 print:hidden">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 text-xs">
+                        {filteredHomeStaff.map((staff, idx) => (
+                          <tr key={staff.employee} className="hover:bg-slate-50 transition-colors">
+                            {/* Sl No */}
+                            <td className="py-2.5 px-3 text-center border border-slate-300 font-mono font-bold text-slate-600">
+                              {idx + 1}
+                            </td>
+
+                            {/* Emp. Name */}
+                            <td className="py-2.5 px-4 border border-slate-300 font-semibold text-slate-900 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-blue-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                                  {staff.employeeName?.charAt(0) || 'E'}
+                                </div>
+                                <div>
+                                  <div>{staff.employeeName}</div>
+                                  <div className="text-[10px] text-slate-500 font-mono">{staff.employee}</div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Designation */}
+                            <td className="py-2.5 px-3 border border-slate-300 text-slate-700 whitespace-nowrap">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-300">
+                                {staff.designation || 'Staff'}
+                              </span>
+                            </td>
+
+                            {/* Total Present */}
+                            <td className="py-2.5 px-3 text-right border border-slate-300 font-mono font-bold text-emerald-700 whitespace-nowrap">
+                              {staff.presentDays} Days
+                            </td>
+
+                            {/* Rate Per Day */}
+                            <td className="py-2.5 px-3 text-right border border-slate-300 font-mono font-semibold text-slate-800 whitespace-nowrap">
+                              ₹{staff.rate.toLocaleString('en-IN')}
+                            </td>
+
+                            {/* Total Amount */}
+                            <td className="py-2.5 px-3 text-right border border-slate-300 font-mono font-bold text-blue-900 whitespace-nowrap">
+                              ₹{staff.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+
+                            {/* Bank Details */}
+                            <td className="py-2.5 px-4 border border-slate-300 font-mono text-[11px] text-slate-700">
+                              <div>
+                                <span className="font-bold text-slate-800">{staff.emp?.bankName || 'SBI'}</span>
+                                <span className="ml-1">A/C: {staff.emp?.bankAcNo || '—'}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                IFSC: {staff.emp?.ifscCode || 'SBIN0001234'}
+                              </div>
+                            </td>
+
+                            {/* Action */}
+                            <td className="py-2.5 px-3 text-right border border-slate-300 print:hidden whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('summary')}
+                                className="inline-flex items-center px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition-colors"
+                              >
+                                View Matrix
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900 text-xs">
+                          <td className="py-3 px-3 text-center border border-slate-300 uppercase tracking-wider font-bold">
+                            Total
+                          </td>
+                          <td className="py-3 px-4 border border-slate-300 font-bold" colSpan={2}>
+                            Total Present Staff ({filteredHomeStaff.length})
+                          </td>
+                          <td className="py-3 px-3 text-right border border-slate-300 font-mono font-bold text-emerald-800 whitespace-nowrap">
+                            {totalPresentSum} Days
+                          </td>
+                          <td className="py-3 px-3 text-right border border-slate-300 font-mono text-slate-500">
+                            —
+                          </td>
+                          <td className="py-3 px-3 text-right border border-slate-300 font-mono font-bold text-blue-950 whitespace-nowrap">
+                            ₹{totalAmountSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-3 px-4 border border-slate-300 text-slate-500 font-normal" colSpan={2}>
+                            Verified operational shift attendance total
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
+
+        {/* ======================================================== */}
         {/* TAB 3: ATTENDANCE & SALARY SUMMARY */}
         {/* Format: Month-wise & Designation-wise search at top */}
         {/* 1 to 31 Monthly Matrix Report */}
@@ -1519,7 +1839,7 @@ function EmployeesContent() {
           return (
             <>
               {/* Official Format Sub-Tab Selector */}
-              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 mb-6 bg-blue-50/70 border border-blue-200 rounded-xl">
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 mb-6 bg-blue-50/70 border border-blue-200 rounded-xl print:hidden">
                 <div className="flex items-center space-x-2">
                   <FileSpreadsheet className="w-5 h-5 text-blue-700" />
                   <div>
@@ -1574,7 +1894,7 @@ function EmployeesContent() {
 
               {salaryFormatMode === 'matrix' && (
                 <>
-                  {/* Search Filters at the Top: Month-wise and Designation-wise */}
+                  {/* Search Filters at the Top: Month-wise, Designation-wise, and Print Button */}
               <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2">
@@ -1663,13 +1983,24 @@ function EmployeesContent() {
                   )}
                 </div>
 
-                <div className="text-xs text-slate-500 font-medium">
-                  {daysInMonth} Days in Month ({summaryMonth}/{summaryYear})
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-xs transition-colors print:hidden"
+                    title="Print Attendance Summary Matrix"
+                  >
+                    <Printer className="w-4 h-4 text-slate-500" />
+                    <span>Print</span>
+                  </button>
+                  <div className="text-xs text-slate-500 font-medium">
+                    {daysInMonth} Days in Month ({summaryMonth}/{summaryYear})
+                  </div>
                 </div>
               </div>
 
-              {/* Aggregates Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {/* Aggregates Cards (Absent and Indicative Salary removed as requested) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                     <span>Enrolled Roster</span>
@@ -1696,20 +2027,9 @@ function EmployeesContent() {
                   <div className="text-2xl font-bold text-emerald-700">{summaryPresentDays}</div>
                   <p className="text-[11px] text-slate-400 mt-1">Full operational days</p>
                 </div>
-
-                <div className="p-5 rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    <span>Indicative Salary Total</span>
-                    <IndianRupee className="w-4 h-4 text-blue-900" />
-                  </div>
-                  <div className="text-2xl font-bold text-blue-900 font-mono">
-                    ₹{summaryTotalPayout.toLocaleString('en-IN')}
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1">Indicative wage total</p>
-                </div>
               </div>
 
-              {/* 1 to 31 Monthly Attendance Matrix Table */}
+              {/* 1 to 31 Monthly Attendance Matrix Table with All Borders and Big Letters */}
               {isSummaryLoading ? (
                 <div className="p-12 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col items-center justify-center gap-3">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
@@ -1724,35 +2044,35 @@ function EmployeesContent() {
                   </p>
                 </div>
               ) : (
-                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                <div className="border border-slate-300 rounded-xl overflow-hidden bg-white shadow-sm">
                   <div className="overflow-x-auto w-full">
-                    <table className="w-full min-w-[1550px] text-left border-collapse text-xs">
+                    <table className="w-full min-w-[1400px] text-left border-collapse border border-slate-300 text-xs sm:text-sm">
                       <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                          <th className="py-3 px-3 w-32 min-w-[130px] whitespace-nowrap">Emp ID</th>
-                          <th className="py-3 px-3 w-44 min-w-[170px] whitespace-nowrap">Name</th>
-                          <th className="py-3 px-3 w-36 min-w-[140px] whitespace-nowrap">Designation</th>
+                        <tr className="bg-slate-100/90 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          <th className="py-3 px-3 w-32 min-w-[130px] border border-slate-300 whitespace-nowrap">Emp ID</th>
+                          <th className="py-3 px-3 w-48 min-w-[170px] border border-slate-300 whitespace-nowrap">Name</th>
+                          <th className="py-3 px-3 w-36 min-w-[140px] border border-slate-300 whitespace-nowrap">Designation</th>
                           {dayNumbers.map((d) => (
-                            <th key={d} className="py-2 px-1 text-center font-mono w-8 min-w-[32px] whitespace-nowrap">
+                            <th key={d} className="py-2 px-1 text-center font-mono font-bold border border-slate-300 w-8 min-w-[32px] whitespace-nowrap">
                               {d}
                             </th>
                           ))}
-                          <th className="py-3 px-3 text-right w-20 min-w-[70px] whitespace-nowrap">Present</th>
-                          <th className="py-3 px-3 text-right w-20 min-w-[70px] whitespace-nowrap">Absent</th>
-                          <th className="py-3 px-3 text-right w-28 min-w-[120px] whitespace-nowrap">Total Salary</th>
+                          <th className="py-3 px-3 text-right w-24 min-w-[90px] border border-slate-300 whitespace-nowrap font-bold text-emerald-800">
+                            Present
+                          </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-200">
                         {filteredSummary.map((sum) => (
-                          <tr key={sum.employee} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap min-w-[130px]">
+                          <tr key={sum.employee} className="hover:bg-slate-50 transition-colors">
+                            <td className="py-2.5 px-3 font-mono font-bold text-slate-900 border border-slate-300 whitespace-nowrap min-w-[130px]">
                               {sum.employee}
                             </td>
-                            <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap min-w-[170px]">
+                            <td className="py-2.5 px-3 font-bold text-slate-900 border border-slate-300 whitespace-nowrap min-w-[170px]">
                               {sum.employeeName}
                             </td>
-                            <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap min-w-[140px]">
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                            <td className="py-2.5 px-3 text-slate-700 border border-slate-300 whitespace-nowrap min-w-[140px]">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-300">
                                 {sum.designation || 'Staff'}
                               </span>
                             </td>
@@ -1761,65 +2081,59 @@ function EmployeesContent() {
                             {dayNumbers.map((d) => {
                               const code = sum.dailyStatus?.[d];
                               return (
-                                <td key={d} className="py-2 px-1 text-center font-mono w-8 min-w-[32px]">
+                                <td key={d} className="py-2 px-1 text-center font-mono border border-slate-300 w-8 min-w-[32px]">
                                   {code === '2P' || code === 'P+P' || code === '2' ? (
                                     <span
-                                      className="inline-flex items-center justify-center min-w-5 h-5 px-1 leading-5 rounded text-[10px] font-black bg-emerald-600 text-white shadow-2xs tracking-tighter"
+                                      className="inline-flex items-center justify-center min-w-5 h-5 px-1 leading-5 rounded text-[11px] font-black bg-emerald-600 text-white shadow-2xs tracking-tighter"
                                       title="Double Shift / OT (2 Shifts Present)"
                                     >
                                       2P
                                     </span>
                                   ) : code === 'P' ? (
-                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[11px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
                                       P
                                     </span>
                                   ) : code === 'P+HD' ? (
                                     <span
-                                      className="inline-flex items-center justify-center min-w-5 h-5 px-1 leading-5 rounded text-[9px] font-black bg-emerald-700 text-white"
+                                      className="inline-flex items-center justify-center min-w-5 h-5 px-1 leading-5 rounded text-[10px] font-black bg-emerald-700 text-white"
                                       title="1 Shift + Half Day"
                                     >
                                       1.5P
                                     </span>
                                   ) : code === 'A' ? (
-                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
+                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[11px] font-bold bg-rose-100 text-rose-800">
                                       A
                                     </span>
                                   ) : code === 'HD' ? (
-                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">
                                       HD
                                     </span>
                                   ) : code === 'L' ? (
-                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
+                                    <span className="inline-block w-5 h-5 leading-5 rounded text-[11px] font-bold bg-purple-100 text-purple-800">
                                       L
                                     </span>
                                   ) : (
-                                    <span className="text-slate-300 text-[10px]">-</span>
+                                    <span className="text-slate-300 text-xs">-</span>
                                   )}
                                 </td>
                               );
                             })}
 
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap min-w-[70px]">
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-800 border border-slate-300 whitespace-nowrap text-sm">
                               {sum.presentDays}
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-mono text-rose-600 whitespace-nowrap min-w-[70px]">
-                              {sum.absentDays}
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-blue-900 whitespace-nowrap min-w-[120px]">
-                              ₹{(sum.totalCalculatedSalary || 0).toLocaleString('en-IN')}
                             </td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900 text-xs">
-                          <td className="py-2.5 px-3 uppercase tracking-wider text-[11px] text-slate-800 font-bold whitespace-nowrap min-w-[130px]">
+                        <tr className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900 text-xs sm:text-sm">
+                          <td className="py-2.5 px-3 uppercase tracking-wider text-xs text-slate-800 font-bold border border-slate-300 whitespace-nowrap min-w-[130px]">
                             Total
                           </td>
-                          <td className="py-2.5 px-3 text-[11px] text-slate-800 font-bold whitespace-nowrap min-w-[170px]">
+                          <td className="py-2.5 px-3 text-xs text-slate-800 font-bold border border-slate-300 whitespace-nowrap min-w-[170px]">
                             Present Staff (Date-Wise)
                           </td>
-                          <td className="py-2.5 px-3 text-[10px] text-slate-500 font-bold uppercase whitespace-nowrap min-w-[140px]">
+                          <td className="py-2.5 px-3 text-xs text-slate-500 font-bold uppercase border border-slate-300 whitespace-nowrap min-w-[140px]">
                             All
                           </td>
                           {dayNumbers.map((d) => {
@@ -1833,7 +2147,7 @@ function EmployeesContent() {
                             }, 0);
                             const total = count;
                             return (
-                              <td key={d} className="py-2 px-1 text-center font-mono text-[11px] w-8 min-w-[32px]">
+                              <td key={d} className="py-2 px-1 text-center font-mono text-xs border border-slate-300 w-8 min-w-[32px]">
                                 {total > 0 ? (
                                   <span className="inline-block px-1 rounded bg-blue-100 text-blue-900 font-bold">
                                     {total}
@@ -1844,14 +2158,8 @@ function EmployeesContent() {
                               </td>
                             );
                           })}
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold whitespace-nowrap min-w-[70px]">
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-900 font-black border border-slate-300 whitespace-nowrap text-sm">
                             {filteredSummary.reduce((acc, s) => acc + (s.presentDays || 0), 0)}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-rose-700 font-bold whitespace-nowrap min-w-[70px]">
-                            {filteredSummary.reduce((acc, s) => acc + (s.absentDays || 0), 0)}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-blue-950 font-bold whitespace-nowrap min-w-[120px]">
-                            ₹{filteredSummary.reduce((acc, s) => acc + (s.totalCalculatedSalary || 0), 0).toLocaleString('en-IN')}
                           </td>
                         </tr>
                       </tfoot>

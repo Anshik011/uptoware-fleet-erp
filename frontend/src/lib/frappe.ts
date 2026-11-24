@@ -2080,12 +2080,8 @@ export async function updateMiningTrip(
     }
   }
 
-  if (updates.finalize) {
-    payload.trip_status = 'Approved';
-  } else if (updates.tripStatus) {
-    payload.trip_status = updates.tripStatus;
-  }
-
+  // Never send trip_status or workflow_state in direct resource PUT payload,
+  // as Frappe enforces that workflow transitions must be executed via apply_workflow.
   const res = await frappeFetch<{ data: any }>(
     `/api/resource/Mining%20Trip/${encodeURIComponent(id)}`,
     {
@@ -2098,7 +2094,7 @@ export async function updateMiningTrip(
 
   let finalData = res.data;
 
-  if (updates.finalize) {
+  if (updates.finalize && res.data?.workflow_state !== 'Approved' && res.data?.trip_status !== 'Approved') {
     try {
       const wfRes = await frappeFetch<{ message?: any }>(
         '/api/method/frappe.model.workflow.apply_workflow',
