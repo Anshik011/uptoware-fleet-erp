@@ -25,3 +25,6 @@
 ## 4. VEHICLE INCOME & FUEL AUDIT RULES
 - Zero hardcoded numbers or sample arrays.
 - Fuel dispensation entries entered in `HsdAverageMenu` must persist directly to Frappe's `Fuel Log` doctype so they dynamically reflect under `HSD Diesel Consumption Log` in the Vehicle Income statement.
+
+## 5. COMMUNICATION RULE
+- Always communicate with the user strictly in English.
