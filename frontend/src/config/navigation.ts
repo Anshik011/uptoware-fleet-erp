@@ -198,6 +198,70 @@ export const clientNavigationSections: ClientNavSection[] = [
       { name: 'HSD ESCALATION/DE-ESCALATION REPORT', href: '/reports?report=HSD+Fuel+Price+Escalation+Report' },
     ],
   },
+  {
+    id: 'all-reports-panel',
+    order: 10,
+    title: 'ALL REPORTS PANEL',
+    shortTitle: 'ALL REPORTS PANEL',
+    href: '/all-reports',
+    icon: FileSpreadsheet,
+    groups: [
+      {
+        title: 'OPERATIONS & FLEET',
+        items: [
+          { name: 'ALL REPORTS HUB', href: '/all-reports' },
+          { name: 'TRIP REPORT', href: '/all-reports?report=trip-report' },
+          { name: 'VEHICLE REPORT', href: '/all-reports?report=vehicle-report' },
+          { name: 'LEAD & ROUTE REPORT', href: '/all-reports?report=lead-report' },
+          { name: 'BREAKDOWN REPORT', href: '/all-reports?report=breakdown-report' },
+          { name: 'EXPENSES REPORT', href: '/all-reports?report=expenses-report' },
+        ],
+      },
+      {
+        title: 'FUEL & HSD',
+        items: [
+          { name: 'HSD FUEL & AVERAGE REPORT', href: '/all-reports?report=hsd-fuel-logs' },
+          { name: 'HSD ESCALATION REPORT', href: '/all-reports?report=hsd-escalation-report' },
+        ],
+      },
+      {
+        title: 'HR & ATTENDANCE',
+        items: [
+          { name: 'EMPLOYEE DIRECTORY', href: '/all-reports?report=employee-directory-report' },
+          { name: 'ATTENDANCE & SALARY SUMMARY', href: '/all-reports?report=attendance-summary-report' },
+          { name: 'SHIFT ROSTER REPORT', href: '/all-reports?report=attendance-shift-report' },
+        ],
+      },
+      {
+        title: 'FINANCE & INCOME',
+        items: [
+          { name: 'VEHICLE EARNING / INCOME', href: '/all-reports?report=vehicle-earning-summary' },
+          { name: 'VEHICLE PROFITABILITY', href: '/all-reports?report=vehicle-wise-profitability' },
+          { name: 'DAILY FLEET INCOME/EXPENSE', href: '/all-reports?report=daily-fleet-income-expense' },
+          { name: 'MONTHLY FLEET INCOME/EXPENSE', href: '/all-reports?report=monthly-fleet-income-expense' },
+          { name: 'ALL FINANCE REPORTS', href: '/all-reports?category=finance' },
+        ],
+      },
+      {
+        title: 'SPARE PARTS & STOCK',
+        items: [
+          { name: 'SPARE PARTS STOCK REGISTER', href: '/all-reports?report=spare-parts-stock-register' },
+          { name: 'STOCK MOVEMENT HISTORY', href: '/all-reports?report=stock-movement-history' },
+          { name: 'PURCHASE ORDER REGISTER', href: '/all-reports?report=purchase-order-register' },
+          { name: 'VENDOR / SUPPLIER REPORT', href: '/all-reports?report=supplier-register' },
+          { name: 'ALL STOCK & PARTS REPORTS', href: '/all-reports?category=procurement' },
+        ],
+      },
+      {
+        title: 'COMPLIANCE & INSURANCE',
+        items: [
+          { name: 'VEHICLE INSURANCE REGISTER', href: '/all-reports?report=vehicle-insurance-register' },
+          { name: 'INSURANCE & DOC EXPIRY', href: '/all-reports?report=document-expiry-report' },
+          { name: 'ALL COMPLIANCE REPORTS', href: '/all-reports?category=compliance' },
+        ],
+      },
+    ],
+  },
 ];
 
 /**
