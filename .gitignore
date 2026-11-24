@@ -44,3 +44,7 @@ backups/
 .DS_Store
 Thumbs.db
 
+# GSD Staging
+.agents/.gsd-staging/
+
+
