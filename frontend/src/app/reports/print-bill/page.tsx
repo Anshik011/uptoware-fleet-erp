@@ -11,15 +11,18 @@ function PrintBillContent() {
   const periodFrom = searchParams.get('from') || '01.01.2026';
   const periodTo = searchParams.get('to') || '15.01.2026';
   const autoPrint = searchParams.get('autoprint') === 'true';
+  const [isReadyToPrint, setIsReadyToPrint] = useState(false);
+  const [hasTriggeredPrint, setHasTriggeredPrint] = useState(false);
 
   useEffect(() => {
-    if (autoPrint) {
+    if (autoPrint && isReadyToPrint && !hasTriggeredPrint) {
+      setHasTriggeredPrint(true);
       const timer = setTimeout(() => {
         window.print();
-      }, 600);
+      }, 300);
       return () => clearTimeout(timer);
     }
-  }, [autoPrint]);
+  }, [autoPrint, isReadyToPrint, hasTriggeredPrint]);
 
   return (
     <div className="bg-white min-h-screen text-black p-0 m-0">
@@ -30,6 +33,7 @@ function PrintBillContent() {
           periodFrom={periodFrom}
           periodTo={periodTo}
           isPrintView={true}
+          onDataReady={() => setIsReadyToPrint(true)}
         />
       </div>
     </div>

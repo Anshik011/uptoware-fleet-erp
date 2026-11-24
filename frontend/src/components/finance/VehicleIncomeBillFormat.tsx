@@ -53,6 +53,7 @@ interface VehicleIncomeBillFormatProps {
   periodFrom?: string;
   periodTo?: string;
   isPrintView?: boolean;
+  onDataReady?: () => void;
 }
 
 const DEFAULT_CUSTOMERS: Record<string, CustomerParty> = {
@@ -117,10 +118,12 @@ export function VehicleIncomeBillFormat({
   periodFrom = '01.01.2026',
   periodTo = '15.01.2026',
   isPrintView = false,
+  onDataReady,
 }: VehicleIncomeBillFormatProps) {
   const [selectedVehicle, setSelectedVehicle] = useState(vehicleNo);
   const [vehicleList, setVehicleList] = useState<VehicleOption[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [isLiveTrips, setIsLiveTrips] = useState(false);
   const [isLiveFuel, setIsLiveFuel] = useState(false);
   const [isLiveParts, setIsLiveParts] = useState(false);
@@ -366,12 +369,19 @@ export function VehicleIncomeBillFormat({
       setHsdEntries([]);
     } finally {
       setLoading(false);
+      setHasLoadedOnce(true);
     }
   }, [selectedVehicle]);
 
   useEffect(() => {
     loadVehicleFinancialData();
   }, [loadVehicleFinancialData]);
+
+  useEffect(() => {
+    if (hasLoadedOnce && !loading && onDataReady) {
+      onDataReady();
+    }
+  }, [hasLoadedOnce, loading, onDataReady]);
 
   // Dynamic Financial Aggregations
   const totalTrips = leadsData.reduce((acc, row) => acc + row.trips, 0);
@@ -545,14 +555,14 @@ export function VehicleIncomeBillFormat({
       )}
 
       {/* Official Bill Card */}
-      <div className="official-bill-document bg-white border-2 border-slate-900 rounded-xl p-5 sm:p-7 shadow-xs space-y-4 text-slate-900 print:border print:p-2 print:space-y-3 print:rounded-none">
+      <div className="official-bill-document bg-white border-2 border-slate-900 rounded-xl p-5 sm:p-7 shadow-xs space-y-4 text-slate-900 print:border-2 print:border-slate-900 print:p-3 print:space-y-2.5 print:rounded-none print:shadow-none">
         {/* Bill Top Bar */}
-        <div className="text-center border-b-2 border-slate-900 pb-3">
-          <h1 className="text-xl sm:text-2xl font-black uppercase tracking-widest">BILL</h1>
+        <div className="text-center border-b-2 border-slate-900 pb-3 print:pb-2">
+          <h1 className="text-xl sm:text-2xl font-black uppercase tracking-widest print:text-lg">BILL</h1>
         </div>
 
         {/* Parties & Reference Header */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-b border-slate-300 pb-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 print:grid-cols-2 gap-6 print:gap-4 border-b border-slate-300 pb-4 print:pb-2.5 text-xs">
           {/* Bill From */}
           <div className="space-y-1">
             <div className="flex justify-between items-center">
@@ -562,8 +572,9 @@ export function VehicleIncomeBillFormat({
                   type="text"
                   value={billNo}
                   onChange={(e) => setBillNo(e.target.value)}
-                  className="font-mono font-bold bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+                  className="font-mono font-bold bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden"
                 />
+                <span className="hidden print:inline font-mono font-bold">{billNo}</span>
               </span>
             </div>
             <div className="font-bold text-slate-700 uppercase mt-2">Bill From:</div>
@@ -571,30 +582,37 @@ export function VehicleIncomeBillFormat({
               type="text"
               value={billFromName}
               onChange={(e) => setBillFromName(e.target.value)}
-              className="text-sm font-black text-slate-900 w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+              className="text-sm font-black text-slate-900 w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden"
             />
+            <div className="hidden print:block text-xs font-black text-slate-900 leading-snug break-words">
+              {billFromName}
+            </div>
             <input
               type="text"
               value={billFromAddress}
               onChange={(e) => setBillFromAddress(e.target.value)}
-              className="text-slate-600 w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none text-[11px]"
+              className="text-slate-600 w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden text-[11px]"
             />
+            <div className="hidden print:block text-[10px] text-slate-600 leading-snug break-words">
+              {billFromAddress}
+            </div>
             <div className="font-semibold text-slate-900 mt-1 flex items-center gap-1">
               <span>GSTIN:</span>
               <input
                 type="text"
                 value={billFromGstin}
                 onChange={(e) => setBillFromGstin(e.target.value)}
-                className="font-mono font-bold bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+                className="font-mono font-bold bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden"
               />
+              <span className="hidden print:inline font-mono font-bold">{billFromGstin}</span>
             </div>
             <div className="font-bold text-blue-900 mt-1">
-              V. No- <span className="font-mono text-sm">{selectedVehicle}</span>
+              V. No- <span className="font-mono text-sm print:text-xs">{selectedVehicle}</span>
             </div>
           </div>
 
           {/* Bill To */}
-          <div className="space-y-1 sm:text-right">
+          <div className="space-y-1 sm:text-right print:text-right">
             <div>
               <span className="font-bold">
                 Date:{' '}
@@ -602,8 +620,9 @@ export function VehicleIncomeBillFormat({
                   type="text"
                   value={billDate}
                   onChange={(e) => setBillDate(e.target.value)}
-                  className="font-mono font-normal text-right bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+                  className="font-mono font-normal text-right bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden"
                 />
+                <span className="hidden print:inline font-mono font-normal">{billDate}</span>
               </span>
             </div>
             <div className="flex items-center justify-end gap-2 mt-2">
@@ -634,36 +653,44 @@ export function VehicleIncomeBillFormat({
               type="text"
               value={billToName}
               onChange={(e) => setBillToName(e.target.value)}
-              className="text-sm font-black text-slate-900 sm:text-right w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+              className="text-sm font-black text-slate-900 sm:text-right w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden"
             />
+            <div className="hidden print:block text-xs font-black text-slate-900 text-right leading-snug break-words">
+              {billToName}
+            </div>
             <input
               type="text"
               value={billToAddress}
               onChange={(e) => setBillToAddress(e.target.value)}
-              className="text-slate-600 sm:text-right w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none text-[11px]"
+              className="text-slate-600 sm:text-right w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden text-[11px]"
             />
-            <div className="font-semibold text-slate-900 mt-1 flex items-center sm:justify-end gap-1">
+            <div className="hidden print:block text-[10px] text-slate-600 text-right leading-snug break-words">
+              {billToAddress}
+            </div>
+            <div className="font-semibold text-slate-900 mt-1 flex items-center sm:justify-end print:justify-end gap-1">
               <span>GSTIN:</span>
               <input
                 type="text"
                 value={billToGstin}
                 onChange={(e) => setBillToGstin(e.target.value)}
-                className="font-mono font-bold bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+                className="font-mono font-bold bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden"
               />
+              <span className="hidden print:inline font-mono font-bold">{billToGstin}</span>
             </div>
           </div>
         </div>
 
         {/* Operational Context Strip */}
-        <div className="flex flex-wrap items-center justify-between text-xs py-2 px-3 bg-slate-100 rounded-lg border border-slate-200">
+        <div className="flex flex-wrap items-center justify-between text-xs py-2 px-3 print:py-1.5 print:px-2.5 bg-slate-100 rounded-lg border border-slate-200">
           <div className="flex-1 flex items-center gap-1.5">
             <span className="font-bold text-slate-700 whitespace-nowrap">Description of Work:</span>
             <input
               type="text"
               value={workDescription}
               onChange={(e) => setWorkDescription(e.target.value)}
-              className="font-semibold text-slate-900 bg-transparent border-b border-dotted border-slate-400 w-full focus:outline-none print:border-none"
+              className="font-semibold text-slate-900 bg-transparent border-b border-dotted border-slate-400 w-full focus:outline-none print:hidden"
             />
+            <span className="hidden print:inline font-semibold text-slate-900">{workDescription}</span>
           </div>
           <div className="flex items-center space-x-4 shrink-0 pl-3">
             <div className="flex items-center gap-1">
@@ -672,8 +699,9 @@ export function VehicleIncomeBillFormat({
                 type="text"
                 value={sacCode}
                 onChange={(e) => setSacCode(e.target.value)}
-                className="font-mono font-bold w-16 bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+                className="font-mono font-bold w-16 bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden"
               />
+              <span className="hidden print:inline font-mono font-bold">{sacCode}</span>
             </div>
             <div>
               <span className="font-bold text-slate-700">Period:</span>{' '}
@@ -741,7 +769,7 @@ export function VehicleIncomeBillFormat({
         </div>
 
         {/* Section 2: Split Log — Left: HSD Fuel, Right: Financial Deductions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 print:grid-cols-2 gap-6 print:gap-3 pt-2 print:pt-1 print:break-inside-avoid">
           {/* Left Column: HSD Fuel Consumption */}
           <div className="border border-slate-300 rounded-lg overflow-hidden flex flex-col justify-between">
             <div>
