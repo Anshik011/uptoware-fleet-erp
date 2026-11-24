@@ -1885,11 +1885,21 @@ function EmployeesContent() {
               </div>
 
               {salaryFormatMode === 'driver_cmpf' && (
-                <DriverCmpfSalaryFormat monthName={monthNames[summaryMonth - 1]} year={summaryYear} />
+                <DriverCmpfSalaryFormat
+                  monthName={monthNames[summaryMonth - 1]}
+                  year={summaryYear}
+                  employees={employees}
+                  attendanceSummary={attendanceSummary}
+                />
               )}
 
               {salaryFormatMode === 'other_staff' && (
-                <OtherStaffSalaryFormat monthName={monthNames[summaryMonth - 1]} year={summaryYear} />
+                <OtherStaffSalaryFormat
+                  monthName={monthNames[summaryMonth - 1]}
+                  year={summaryYear}
+                  employees={employees}
+                  attendanceSummary={attendanceSummary}
+                />
               )}
 
               {salaryFormatMode === 'matrix' && (

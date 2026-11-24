@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Download, Printer, Users, FileSpreadsheet } from 'lucide-react';
+import { EmployeeProfile, EmployeeAttendanceSummary } from '@/types/fleet';
 
 interface StaffSalaryRecord {
   slNo: number;
@@ -20,85 +21,62 @@ interface StaffSalaryRecord {
 interface OtherStaffSalaryFormatProps {
   monthName?: string;
   year?: number;
+  employees?: EmployeeProfile[];
+  attendanceSummary?: EmployeeAttendanceSummary[];
 }
 
 export function OtherStaffSalaryFormat({
   monthName = 'November',
   year = 2026,
+  employees = [],
+  attendanceSummary = [],
 }: OtherStaffSalaryFormatProps) {
-  // Official client data matching image media_1795432935580_849c453e.jpg
-  const sampleData: StaffSalaryRecord[] = [
-    {
-      slNo: 1,
-      name: 'CHIDANANDA PRADHAN',
-      designation: 'SUPERVISOR',
-      totalPresent: 28,
-      monthlySalary: 11000,
-      perDay: 366.67,
-      grossSalary: 10266.67,
-      advanceAmount: 0.00,
-      netSalaryAmount: 10266.67,
-      accountNumber: '04350110035313',
-      ifscCode: 'UCBA0000435',
-    },
-    {
-      slNo: 2,
-      name: 'SANJAY KU BEHERA',
-      designation: 'SUPERVISOR',
-      totalPresent: 31,
-      monthlySalary: 11000,
-      perDay: 366.67,
-      grossSalary: 11366.67,
-      advanceAmount: 0.00,
-      netSalaryAmount: 11366.67,
-      accountNumber: '077301000214',
-      ifscCode: 'ICIC0000773',
-    },
-    {
-      slNo: 3,
-      name: 'RASMI RANJAN PRADHAN',
-      designation: 'SUPERVISOR',
-      totalPresent: 12,
-      monthlySalary: 11000,
-      perDay: 366.67,
-      grossSalary: 4400.00,
-      advanceAmount: 0.00,
-      netSalaryAmount: 4400.00,
-      accountNumber: '36921974460',
-      ifscCode: 'SBIN0007340',
-    },
-    {
-      slNo: 4,
-      name: 'ANIL SAHOO',
-      designation: 'SUPERVISOR',
-      totalPresent: 12,
-      monthlySalary: 11000,
-      perDay: 366.67,
-      grossSalary: 4400.00,
-      advanceAmount: 0.00,
-      netSalaryAmount: 4400.00,
-      accountNumber: '15610110092989',
-      ifscCode: 'UCBA0001561',
-    },
-    {
-      slNo: 5,
-      name: 'SPANDAN PRADHAN',
-      designation: 'SUPERVISOR',
-      totalPresent: 31,
-      monthlySalary: 11000,
-      perDay: 366.67,
-      grossSalary: 11366.67,
-      advanceAmount: 0.00,
-      netSalaryAmount: 11366.67,
-      accountNumber: '36462331178',
-      ifscCode: 'SBIN0007340',
-    },
-  ];
+  // Generate real data dynamically from enrolled staff roster & attendance
+  const staffData: StaffSalaryRecord[] = useMemo(() => {
+    // Filter non-driver employees (Supervisors, Incharge, Admin, Maintenance, etc.)
+    const nonDrivers = employees.filter((e) => {
+      const desig = (e.designation || '').toUpperCase();
+      return !desig.includes('DRIVER');
+    });
 
-  const totalPresentSum = sampleData.reduce((acc, r) => acc + r.totalPresent, 0);
-  const grossSalarySum = sampleData.reduce((acc, r) => acc + r.grossSalary, 0);
-  const advanceAmountSum = sampleData.reduce((acc, r) => acc + r.advanceAmount, 0);
-  const netSalaryAmountSum = sampleData.reduce((acc, r) => acc + r.netSalaryAmount, 0);
+    const targetList = nonDrivers.length > 0 ? nonDrivers : employees;
+
+    return targetList.map((emp, idx) => {
+      const att = attendanceSummary.find(
+        (a) => a.employee === emp.id || a.employeeName?.toLowerCase() === emp.employeeName?.toLowerCase()
+      );
+
+      const totalPresent = att ? (att.presentDays ?? 0) : 0;
+      const dailyRate = emp.dailySalary || (att ? att.dailySalaryRate : 0) || 366.67;
+      const monthlySalary = Number((dailyRate * 30).toFixed(2));
+      const perDay = Number(dailyRate.toFixed(2));
+      const grossSalary = Number((totalPresent * perDay).toFixed(2));
+      const advanceAmount = 0.0;
+      const netSalaryAmount = Number((grossSalary - advanceAmount).toFixed(2));
+
+      const bankAcc = (emp as any).bankAccount || (emp as any).accountNumber || (emp as any).bankDetails?.accountNo || '—';
+      const ifsc = emp.ifscCode || (emp as any).bankDetails?.ifsc || '—';
+
+      return {
+        slNo: idx + 1,
+        name: emp.employeeName || emp.firstName || emp.id,
+        designation: (emp.designation || 'Staff').toUpperCase(),
+        totalPresent,
+        monthlySalary,
+        perDay,
+        grossSalary,
+        advanceAmount,
+        netSalaryAmount,
+        accountNumber: bankAcc,
+        ifscCode: ifsc,
+      };
+    });
+  }, [employees, attendanceSummary]);
+
+  const totalPresentSum = staffData.reduce((acc, r) => acc + r.totalPresent, 0);
+  const grossSalarySum = staffData.reduce((acc, r) => acc + r.grossSalary, 0);
+  const advanceAmountSum = staffData.reduce((acc, r) => acc + r.advanceAmount, 0);
+  const netSalaryAmountSum = staffData.reduce((acc, r) => acc + r.netSalaryAmount, 0);
 
   const handlePrint = () => {
     window.print();
@@ -107,7 +85,7 @@ export function OtherStaffSalaryFormat({
   const handleExportCsv = () => {
     let csv = `OTHER STAFF SALARY STATEMENT - ${monthName.toUpperCase()} ${year}\n`;
     csv += `SL NO,NAME,DESIGNATION,TOTAL PRESENT,MONTHLY SALARY,PER DAY,GROSS SALARY,ADVANCE AMOUNT,NET SALARY AMOUNT,ACCOUNT NUMBER,IFSC CODE\n`;
-    sampleData.forEach((r) => {
+    staffData.forEach((r) => {
       csv += `${r.slNo},"${r.name}","${r.designation}",${r.totalPresent},${r.monthlySalary},${r.perDay},${r.grossSalary},${r.advanceAmount},${r.netSalaryAmount},'${r.accountNumber}','${r.ifscCode}'\n`;
     });
     csv += `TOTAL,,,${totalPresentSum},,,${grossSalarySum},${advanceAmountSum},${netSalaryAmountSum},,\n`;
@@ -175,25 +153,33 @@ export function OtherStaffSalaryFormat({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-mono text-[11px]">
-              {sampleData.map((row) => (
-                <tr key={row.slNo} className="hover:bg-slate-50/70">
-                  <td className="py-2.5 px-3 text-center border-r border-slate-200">{row.slNo}</td>
-                  <td className="py-2.5 px-4 font-sans font-bold text-slate-900 border-r border-slate-200">{row.name}</td>
-                  <td className="py-2.5 px-3 text-center font-sans text-slate-700 border-r border-slate-200">{row.designation}</td>
-                  <td className="py-2.5 px-3 text-right border-r border-slate-200 font-bold">{row.totalPresent}</td>
-                  <td className="py-2.5 px-3 text-right border-r border-slate-200">{row.monthlySalary.toFixed(2)}</td>
-                  <td className="py-2.5 px-3 text-right border-r border-slate-200">{row.perDay.toFixed(2)}</td>
-                  <td className="py-2.5 px-3 text-right font-semibold text-slate-900 border-r border-slate-200">{row.grossSalary.toFixed(2)}</td>
-                  <td className="py-2.5 px-3 text-right text-rose-700 border-r border-slate-200">
-                    {row.advanceAmount > 0 ? row.advanceAmount.toFixed(2) : '-'}
+              {staffData.length > 0 ? (
+                staffData.map((row) => (
+                  <tr key={row.slNo} className="hover:bg-slate-50/70">
+                    <td className="py-2.5 px-3 text-center border-r border-slate-200">{row.slNo}</td>
+                    <td className="py-2.5 px-4 font-sans font-bold text-slate-900 border-r border-slate-200">{row.name}</td>
+                    <td className="py-2.5 px-3 text-center font-sans text-slate-700 border-r border-slate-200">{row.designation}</td>
+                    <td className="py-2.5 px-3 text-right border-r border-slate-200 font-bold">{row.totalPresent}</td>
+                    <td className="py-2.5 px-3 text-right border-r border-slate-200">{row.monthlySalary.toFixed(2)}</td>
+                    <td className="py-2.5 px-3 text-right border-r border-slate-200">{row.perDay.toFixed(2)}</td>
+                    <td className="py-2.5 px-3 text-right font-semibold text-slate-900 border-r border-slate-200">{row.grossSalary.toFixed(2)}</td>
+                    <td className="py-2.5 px-3 text-right text-rose-700 border-r border-slate-200">
+                      {row.advanceAmount > 0 ? row.advanceAmount.toFixed(2) : '-'}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-bold text-blue-900 bg-blue-50/70 border-r border-slate-200">
+                      {row.netSalaryAmount.toFixed(2)}
+                    </td>
+                    <td className="py-2.5 px-4 text-left border-r border-slate-200 font-sans font-medium">{row.accountNumber}</td>
+                    <td className="py-2.5 px-3 text-left font-sans">{row.ifscCode}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={11} className="py-8 text-center text-slate-500 font-sans">
+                    No staff records found for this period.
                   </td>
-                  <td className="py-2.5 px-3 text-right font-bold text-blue-900 bg-blue-50/70 border-r border-slate-200">
-                    {row.netSalaryAmount.toFixed(2)}
-                  </td>
-                  <td className="py-2.5 px-4 text-left border-r border-slate-200 font-sans font-medium">{row.accountNumber}</td>
-                  <td className="py-2.5 px-3 text-left font-sans">{row.ifscCode}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
             <tfoot className="bg-slate-100 border-t-2 border-slate-900 font-mono text-[11px] font-bold">
               <tr>

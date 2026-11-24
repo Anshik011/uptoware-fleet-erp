@@ -117,7 +117,13 @@ export function TripTable({
       const veh = t.vehicle || '';
       const lead = t.lead || t.destination || '';
       const tripCnt = Number(t.tripCount || 1);
-      const avg = '25 LT / Trip';
+      const avgTons = Number(
+        t.averageTonnage ||
+          (t.calculatedQuantity && tripCnt > 0 ? Number(t.calculatedQuantity) / tripCnt : 0) ||
+          (t.netWeightTons && tripCnt > 0 ? Number(t.netWeightTons) / tripCnt : 0) ||
+          35
+      );
+      const avg = `${avgTons} T`;
       const qnt = Number(
         t.calculatedQuantity ??
           t.netWeightTons ??
@@ -383,7 +389,13 @@ export function TripTable({
                 const qntVal = Number(trip.calculatedQuantity ?? trip.netWeightTons ?? (tripCountVal * 35));
                 const rateVal = Number(trip.leadRate ?? trip.ratePerTon ?? 120);
                 const amountVal = Number(trip.calculatedAmount ?? trip.grossRevenue ?? (qntVal * rateVal));
-                const avgDisplay = '25 LT / Trip';
+                const avgTons = Number(
+                  trip.averageTonnage ||
+                    (trip.calculatedQuantity && tripCountVal > 0 ? Number(trip.calculatedQuantity) / tripCountVal : 0) ||
+                    (trip.netWeightTons && tripCountVal > 0 ? Number(trip.netWeightTons) / tripCountVal : 0) ||
+                    35
+                );
+                const avgDisplay = `${avgTons} T`;
 
                 return (
                   <tr
