@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { PurchaseOrder } from '@/types/fleet';
-import { Search, ShoppingCart, Eye, CheckCircle2, Clock, PackageCheck, AlertCircle, Trash2 } from 'lucide-react';
+import { Search, ShoppingCart, Eye, CheckCircle2, Clock, PackageCheck, AlertCircle, Trash2, Printer, Calendar } from 'lucide-react';
 import { formatVehicleDisplay } from '@/lib/displayFormatters';
+import { Button } from '@/components/ui/Button';
 
 interface PurchaseOrdersTableProps {
   orders: PurchaseOrder[];
@@ -19,6 +20,12 @@ interface PurchaseOrdersTableProps {
   onStatusChange: (s: string) => void;
   selectedSupplier: string;
   onSupplierChange: (s: string) => void;
+  viewMode?: 'home' | 'report';
+  onViewModeChange?: (mode: 'home' | 'report') => void;
+  fromDate?: string;
+  onFromDateChange?: (d: string) => void;
+  toDate?: string;
+  onToDateChange?: (d: string) => void;
 }
 
 export function PurchaseOrdersTable({
@@ -37,12 +44,38 @@ export function PurchaseOrdersTable({
   onStatusChange,
   selectedSupplier,
   onSupplierChange,
+  viewMode = 'home',
+  onViewModeChange,
+  fromDate = '',
+  onFromDateChange,
+  toDate = '',
+  onToDateChange,
 }: PurchaseOrdersTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 15;
+  const pageSize = 20;
 
-  const totalPages = Math.ceil(orders.length / pageSize) || 1;
-  const paginatedOrders = orders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  // Filter orders by date range if provided
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      if (fromDate && o.transactionDate && o.transactionDate < fromDate) return false;
+      if (toDate && o.transactionDate && o.transactionDate > toDate) return false;
+      return true;
+    });
+  }, [orders, fromDate, toDate]);
+
+  const totalPages = Math.ceil(filteredOrders.length / pageSize) || 1;
+  const paginatedOrders = filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const totalQtySum = useMemo(() => {
+    return filteredOrders.reduce((sum, o) => {
+      const q = o.items?.reduce((iSum, it) => iSum + (it.qty || 0), 0) || 1;
+      return sum + q;
+    }, 0);
+  }, [filteredOrders]);
+
+  const totalAmountSum = useMemo(() => {
+    return filteredOrders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+  }, [filteredOrders]);
 
   const getStatusBadge = (status: string, docstatus: number) => {
     if (docstatus === 0) {
@@ -97,9 +130,9 @@ export function PurchaseOrdersTable({
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
       {/* Filter Bar */}
-      <div className="p-6 border-b border-slate-200 bg-slate-50/50">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="relative">
+      <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -109,26 +142,8 @@ export function PurchaseOrdersTable({
                 onSearchChange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-900"
             />
-          </div>
-
-          <div>
-            <select
-              value={selectedStatus}
-              onChange={(e) => {
-                onStatusChange(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="ALL">All Order Statuses</option>
-              <option value="Draft">Draft</option>
-              <option value="To Receive and Bill">To Receive and Bill</option>
-              <option value="To Receive">To Receive</option>
-              <option value="To Bill">To Bill</option>
-              <option value="Completed">Completed</option>
-            </select>
           </div>
 
           <div>
@@ -138,7 +153,7 @@ export function PurchaseOrdersTable({
                 onSupplierChange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-900"
             >
               <option value="ALL">All Suppliers</option>
               {suppliers.map((s) => (
@@ -148,28 +163,119 @@ export function PurchaseOrdersTable({
               ))}
             </select>
           </div>
+
+          <div>
+            <select
+              value={selectedStatus}
+              onChange={(e) => {
+                onStatusChange(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-900"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="Draft">Draft</option>
+              <option value="To Receive and Bill">To Receive and Bill</option>
+              <option value="To Receive">To Receive</option>
+              <option value="To Bill">To Bill</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+
+          {/* Date Range Filters */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => onFromDateChange?.(e.target.value)}
+              className="px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800"
+              title="From Date"
+            />
+            <span>to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => onToDateChange?.(e.target.value)}
+              className="px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800"
+              title="To Date"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {onViewModeChange && (
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
+              <button
+                type="button"
+                onClick={() => onViewModeChange('home')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  viewMode === 'home'
+                    ? 'bg-blue-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Purchase Home
+              </button>
+              <button
+                type="button"
+                onClick={() => onViewModeChange('report')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  viewMode === 'report'
+                    ? 'bg-blue-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Purchase Report
+              </button>
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            icon={Printer}
+            onClick={() => window.print()}
+            className="text-xs"
+          >
+            Print
+          </Button>
         </div>
       </div>
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-sm">
+        <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-xs tracking-wider uppercase">
-              <th className="py-3.5 px-4">Order Reference</th>
-              <th className="py-3.5 px-4">Date</th>
-              <th className="py-3.5 px-4">Supplier</th>
-              <th className="py-3.5 px-4">Procurement Type</th>
-              <th className="py-3.5 px-4">Fleet Link</th>
-              <th className="py-3.5 px-4 text-right">Grand Total</th>
-              <th className="py-3.5 px-4 text-center">Status</th>
-              <th className="py-3.5 px-4 text-right">Actions</th>
-            </tr>
+            {viewMode === 'home' ? (
+              <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-[10px] tracking-wider uppercase">
+                <th className="py-3 px-4">Date</th>
+                <th className="py-3 px-4">PO Number</th>
+                <th className="py-3 px-4">Supplier Name</th>
+                <th className="py-3 px-4">Items Name</th>
+                <th className="py-3 px-4 text-right">Qnt</th>
+                <th className="py-3 px-4 text-right">Amount</th>
+                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-right">Action</th>
+              </tr>
+            ) : (
+              <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-[10px] tracking-wider uppercase">
+                <th className="py-3 px-4">Ref No</th>
+                <th className="py-3 px-4">Date</th>
+                <th className="py-3 px-4">Supply Name</th>
+                <th className="py-3 px-4">Item Name</th>
+                <th className="py-3 px-4">Vehicle Number</th>
+                <th className="py-3 px-4 text-right">Qnt</th>
+                <th className="py-3 px-4 text-right">Rate</th>
+                <th className="py-3 px-4 text-right">Amount</th>
+                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-right">Action</th>
+              </tr>
+            )}
           </thead>
           <tbody className="divide-y divide-slate-200 text-slate-800">
             {isLoading ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-500">
+                <td colSpan={viewMode === 'home' ? 8 : 10} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                     <span>Loading purchase orders...</span>
@@ -178,7 +284,7 @@ export function PurchaseOrdersTable({
               </tr>
             ) : paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-500">
+                <td colSpan={viewMode === 'home' ? 8 : 10} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <ShoppingCart className="w-8 h-8 text-slate-400" />
                     <p className="font-medium text-slate-700">No purchase orders found</p>
@@ -189,104 +295,96 @@ export function PurchaseOrdersTable({
                 </td>
               </tr>
             ) : (
-              paginatedOrders.map((o) => (
-                <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <span className="font-semibold text-slate-900">{o.supplier}</span>
-                    <div className="text-[11px] text-slate-500 font-medium">
-                      {o.procurementType || 'Replenishment Order'}
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4 text-xs text-slate-600">
-                    <div>{o.transactionDate}</div>
-                    {o.scheduleDate && (
-                      <div className="text-slate-400">Due: {o.scheduleDate}</div>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="font-medium text-slate-900">{o.supplier}</div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="inline-block bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs">
-                      {o.procurementType || 'Replenishment'}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-xs">
-                    {o.vehicle ? (
-                      <div className="font-semibold text-slate-900 font-mono">
-                        {formatVehicleDisplay(o.vehicle, vehicles)}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                    {o.vehicleBreakdown && (
-                      <div className="text-blue-600 font-medium text-[11px]">
-                        Linked Breakdown Service
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-900">
-                    ₹{o.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    {getStatusBadge(o.status, o.docstatus)}
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="flex items-center justify-end space-x-1.5">
-                      <button
-                        onClick={() => onSelectOrder(o)}
-                        className="inline-flex items-center px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
-                      >
-                        <Eye className="w-3.5 h-3.5 mr-1" />
-                        View
-                      </button>
+              paginatedOrders.map((o) => {
+                const totalQty = o.items?.reduce((sum, it) => sum + (it.qty || 0), 0) || 1;
+                const itemsName = o.items?.map((it) => it.itemName).join(', ') || 'Spare Parts Replenishment';
+                const rate = o.items?.[0]?.rate || (o.grandTotal / totalQty);
 
-                      {canManage && o.docstatus === 0 && (
-                        <button
-                          onClick={() => onSubmitOrder(o)}
-                          className="inline-flex items-center px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
-                        >
-                          Submit
-                        </button>
-                      )}
-
-                      {canManage && o.docstatus === 1 && (o.status === 'To Receive and Bill' || o.status === 'To Receive') && (
-                        <button
-                          onClick={() => onReceiveGoods(o)}
-                          className="inline-flex items-center px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded transition-colors"
-                        >
-                          <PackageCheck className="w-3.5 h-3.5 mr-1" />
-                          Receive
-                        </button>
-                      )}
-
-                      {canManage && onDeleteOrder && (
-                        o.docstatus === 0 ? (
+                if (viewMode === 'home') {
+                  return (
+                    <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 text-slate-700">{o.transactionDate}</td>
+                      <td className="py-3 px-4 font-mono font-semibold text-blue-900">{o.name}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-900">{o.supplier}</td>
+                      <td className="py-3 px-4 text-slate-800">{itemsName}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{totalQty}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                        ₹{o.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-center">{getStatusBadge(o.status, o.docstatus)}</td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
                           <button
-                            type="button"
-                            onClick={() => onDeleteOrder(o)}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
-                            title="Delete Draft Purchase Order"
+                            onClick={() => onSelectOrder(o)}
+                            className="inline-flex items-center px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            View
                           </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled
-                            className="p-1.5 text-slate-300 cursor-not-allowed rounded-md"
-                            title="Submitted orders cannot be deleted (cancel/return required)"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                          {canManage && o.docstatus === 0 && (
+                            <button
+                              onClick={() => onSubmitOrder(o)}
+                              className="inline-flex items-center px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
+                            >
+                              Submit
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                } else {
+                  return (
+                    <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-semibold text-blue-900">{o.name}</td>
+                      <td className="py-3 px-4 text-slate-700">{o.transactionDate}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-900">{o.supplier}</td>
+                      <td className="py-3 px-4 text-slate-800">{itemsName}</td>
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-800">
+                        {o.vehicle ? formatVehicleDisplay(o.vehicle, vehicles) : '—'}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{totalQty}</td>
+                      <td className="py-3 px-4 text-right font-mono text-slate-700">₹{rate.toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                        ₹{o.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-center">{getStatusBadge(o.status, o.docstatus)}</td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          onClick={() => onSelectOrder(o)}
+                          className="inline-flex items-center px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1" />
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
+              })
             )}
           </tbody>
+          {filteredOrders.length > 0 && (
+            <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
+              <tr>
+                <td colSpan={viewMode === 'home' ? 4 : 5} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
+                  TOTAL ({filteredOrders.length} ORDERS)
+                </td>
+                <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">
+                  {totalQtySum}
+                </td>
+                {viewMode === 'report' && (
+                  <td className="py-3 px-4 text-right font-mono text-slate-500">
+                    —
+                  </td>
+                )}
+                <td className="py-3 px-4 text-right font-mono font-black text-emerald-800 text-sm">
+                  ₹{totalAmountSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td colSpan={2}></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

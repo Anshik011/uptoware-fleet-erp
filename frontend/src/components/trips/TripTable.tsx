@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { MiningTrip, TripStatus } from '@/types/fleet';
 import {
   Compass,
@@ -21,6 +21,8 @@ import {
   XCircle,
   Pencil,
   Trash2,
+  Printer,
+  Download,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -67,6 +69,90 @@ export function TripTable({
   sortBy,
   onSortChange,
 }: TripTableProps) {
+  const totalTripsCount = useMemo(
+    () => trips.reduce((acc, t) => acc + Number(t.tripCount || 1), 0),
+    [trips]
+  );
+  const totalQuantitySum = useMemo(
+    () =>
+      trips.reduce(
+        (acc, t) =>
+          acc +
+          Number(
+            t.calculatedQuantity ??
+              t.netWeightTons ??
+              Number(t.tripCount || 1) * 35
+          ),
+        0
+      ),
+    [trips]
+  );
+  const totalAmountSum = useMemo(
+    () =>
+      trips.reduce((acc, t) => {
+        const q = Number(
+          t.calculatedQuantity ??
+            t.netWeightTons ??
+            Number(t.tripCount || 1) * 35
+        );
+        const r = Number(t.leadRate ?? t.ratePerTon ?? 120);
+        return acc + Number(t.calculatedAmount ?? t.grossRevenue ?? q * r);
+      }, 0),
+    [trips]
+  );
+
+  const handleDownloadCsv = () => {
+    const headers = [
+      'Date',
+      'Vehicle No',
+      'Lead/Route',
+      'Trip',
+      'Avg',
+      'Qnt (MT)',
+      'Rate (INR)',
+      'Amount (INR)',
+    ];
+    const rows = trips.map((t) => {
+      const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(' ')[0] : '2026-11-23';
+      const veh = t.vehicle || '';
+      const lead = t.lead || t.destination || '';
+      const tripCnt = Number(t.tripCount || 1);
+      const avg = '25 LT / Trip';
+      const qnt = Number(
+        t.calculatedQuantity ??
+          t.netWeightTons ??
+          tripCnt * 35
+      ).toFixed(2);
+      const rate = Number(t.leadRate ?? t.ratePerTon ?? 120).toFixed(2);
+      const amt = Number(
+        t.calculatedAmount ??
+          t.grossRevenue ??
+          parseFloat(qnt) * parseFloat(rate)
+      ).toFixed(2);
+      return [
+        rawDate,
+        veh,
+        `"${lead}"`,
+        tripCnt,
+        `"${avg}"`,
+        qnt,
+        rate,
+        amt,
+      ].join(',');
+    });
+    const csvContent =
+      'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute(
+      'download',
+      `Mining_Trips_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
   const getStatusBadge = (status: TripStatus | string) => {
     switch (status) {
       case 'Draft':
@@ -208,6 +294,27 @@ export function TripTable({
             </select>
           </div>
 
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Printer}
+              onClick={() => window.print()}
+              className="text-xs"
+            >
+              Print
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Download}
+              onClick={handleDownloadCsv}
+              className="text-xs"
+            >
+              Download
+            </Button>
+          </div>
+
           {canManage && (
             <Button
               onClick={onOpenCreateTrip}
@@ -224,23 +331,24 @@ export function TripTable({
 
       {/* Table Content */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse whitespace-nowrap">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/75 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-              <th className="py-3.5 px-4 sm:px-6">Material & Cargo</th>
-              <th className="py-3.5 px-4">Status</th>
-              <th className="py-3.5 px-4">Vehicle</th>
-              <th className="py-3.5 px-4">Driver</th>
-              <th className="py-3.5 px-4">Haulage Route</th>
-              <th className="py-3.5 px-4 text-right">Net Weight</th>
-              <th className="py-3.5 px-4">Dispatch Timestamp</th>
-              <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
+              <th className="py-3.5 px-4">Date</th>
+              <th className="py-3.5 px-4">Vehicle No</th>
+              <th className="py-3.5 px-4">Lead/Route</th>
+              <th className="py-3.5 px-4 text-right">Trip</th>
+              <th className="py-3.5 px-4 text-center">Avg</th>
+              <th className="py-3.5 px-4 text-right">Qnt</th>
+              <th className="py-3.5 px-4 text-right">Rate</th>
+              <th className="py-3.5 px-4 text-right">Amount</th>
+              <th className="py-3.5 px-4 text-right">Edit</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 text-sm">
             {trips.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-16 text-center">
+                <td colSpan={9} className="py-16 text-center">
                   <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
                     <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
                       <Compass className="w-6 h-6" />
@@ -268,246 +376,84 @@ export function TripTable({
               </tr>
             ) : (
               trips.map((trip) => {
+                const rawDate = trip.dispatchDateTime ? trip.dispatchDateTime.split(' ')[0] : '2026-11-23';
+                const formattedDate = rawDate.includes('-') ? rawDate.split('-').reverse().join('.') : rawDate;
+                const tripCountVal = Number(trip.tripCount || 1);
+                const leadName = trip.lead || trip.destination || 'CHP';
+                const qntVal = Number(trip.calculatedQuantity ?? trip.netWeightTons ?? (tripCountVal * 35));
+                const rateVal = Number(trip.leadRate ?? trip.ratePerTon ?? 120);
+                const amountVal = Number(trip.calculatedAmount ?? trip.grossRevenue ?? (qntVal * rateVal));
+                const avgDisplay = '25 LT / Trip';
+
                 return (
                   <tr
                     key={trip.id}
                     onClick={() => onSelectTrip(trip.id)}
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                   >
-                    {/* Material & Cargo */}
-                    <td className="py-4 px-4 sm:px-6">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-slate-900 group-hover:text-blue-900 transition-colors">
-                          {trip.materialType || 'Bulk Mineral Cargo'}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          {trip.challanNumber ? (
-                            <span className="text-[11px] text-slate-500 font-medium">
-                              Challan #{trip.challanNumber}
-                            </span>
-                          ) : (
-                            <Badge variant="neutral" size="sm" className="font-medium text-[10px]">
-                              Standard Haul
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
+                    {/* Date */}
+                    <td className="py-3 px-4 font-mono text-xs text-slate-700">
+                      {formattedDate}
                     </td>
 
-                    {/* Status */}
-                    <td className="py-4 px-4">
-                      {getStatusBadge(trip.tripStatus || trip.status)}
+                    {/* Vehicle no */}
+                    <td className="py-3 px-4">
+                      <span className="font-semibold text-slate-900 font-mono text-xs">
+                        {formatVehicleDisplay(trip.vehicle)}
+                      </span>
                     </td>
 
-                    {/* Vehicle */}
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
-                          <Truck className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-slate-900 font-mono">
-                            {formatVehicleDisplay(trip.vehicle)}
-                          </span>
-                          {trip.openingOdometer != null && trip.openingOdometer > 0 && (
-                            <span className="text-[11px] text-slate-400">
-                              Odo: {trip.openingOdometer.toLocaleString()} km
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    {/* Lead/Route */}
+                    <td className="py-3 px-4 text-xs text-slate-800">
+                      {leadName}
                     </td>
 
-                    {/* Driver */}
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-                          <User className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-slate-800">
-                            {formatDriverDisplay(trip.driver, trip.driverName)}
-                          </span>
-                        </div>
-                      </div>
+                    {/* Trip */}
+                    <td className="py-3 px-4 text-right font-mono font-bold text-blue-900 text-xs">
+                      {tripCountVal}
                     </td>
 
-                    {/* Haulage Route */}
-                    <td className="py-4 px-4">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span className="font-medium text-slate-900 truncate max-w-[140px]" title={formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}>
-                            {formatMineSiteDisplay(trip.mineSite, trip.mineSiteName)}
-                          </span>
-                          <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className="text-slate-600 truncate max-w-[120px]">
-                            {trip.destination}
-                          </span>
-                        </div>
-                        {trip.leadKm != null && trip.leadKm !== '' && trip.leadKm !== 0 && (
-                          <span className="text-[11px] text-slate-500 font-medium">
-                            {trip.leadKm} km lead {trip.leadRate != null && trip.leadRate > 0 ? `• ₹${trip.leadRate}/T` : ''}
-                          </span>
-                        )}
-                      </div>
+                    {/* Avg */}
+                    <td className="py-3 px-4 text-center font-mono text-xs text-slate-600">
+                      {avgDisplay}
                     </td>
 
-                    {/* Net Weight */}
-                    <td className="py-4 px-4 text-right">
-                      {trip.netWeightTons > 0 ? (
-                        <div className="flex flex-col items-end">
-                          <span className="font-semibold text-slate-900">
-                            {trip.netWeightTons.toFixed(2)} T
-                          </span>
-                          {trip.tripCount && trip.tripCount > 1 && (
-                            <span className="text-[10px] text-blue-700 font-semibold">
-                              {trip.tripCount} Trips ({trip.averageTonnage || 35}T avg)
-                            </span>
-                          )}
-                          {trip.grossRevenue > 0 && (
-                            <span
-                              className="text-[11px] text-slate-500 font-medium"
-                              title="Calculated Haulage Amount (Indicative)"
-                            >
-                              ₹{trip.grossRevenue.toLocaleString('en-IN')}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs text-slate-400 italic">Pending</span>
-                          {trip.calculatedQuantity != null && trip.calculatedQuantity > 0 && (
-                            <span className="text-[11px] text-blue-700 font-semibold">
-                              Est. {trip.calculatedQuantity.toFixed(2)} T
-                            </span>
-                          )}
-                        </div>
-                      )}
+                    {/* Qnt */}
+                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 text-xs">
+                      {qntVal.toFixed(2)} MT
                     </td>
 
-                    {/* Dispatch Timestamp */}
-                    <td className="py-4 px-4 text-xs text-slate-600">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{formatDateTime(trip.dispatchDateTime)}</span>
-                      </div>
-                      {trip.shift && (
-                        <div className="mt-1">
-                          <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                            {trip.shift} Shift
-                          </span>
-                        </div>
-                      )}
+                    {/* Rate */}
+                    <td className="py-3 px-4 text-right font-mono text-xs text-slate-700">
+                      ₹{rateVal.toFixed(2)}
                     </td>
 
-                    {/* Actions */}
-                    <td className="py-4 px-4 sm:px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {canManage && trip.tripStatus === 'Approved' && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="primary"
-                            icon={CheckCircle2}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenActionModal?.(trip, 'Mark Delivered');
-                            }}
-                            className="whitespace-nowrap shadow-2xs font-semibold text-xs py-1 px-2.5"
-                            data-testid={`btn-deliver-trip-${trip.id}`}
-                          >
-                            Complete Delivery
-                          </Button>
-                        )}
-                        {canManage && trip.tripStatus === 'Weighbridge Confirmed' && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            icon={CheckCircle2}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenActionModal?.(trip, 'Approve');
-                            }}
-                            className="whitespace-nowrap font-medium text-xs py-1 px-2.5"
-                            data-testid={`btn-approve-trip-${trip.id}`}
-                          >
-                            Approve
-                          </Button>
-                        )}
-                        {canManage && trip.tripStatus === 'Dispatched' && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            icon={Scale}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenActionModal?.(trip, 'Confirm Weighbridge');
-                            }}
-                            className="whitespace-nowrap font-medium text-xs py-1 px-2.5"
-                            data-testid={`btn-weighbridge-trip-${trip.id}`}
-                          >
-                            Weighbridge
-                          </Button>
-                        )}
-                        {canManage && trip.tripStatus === 'Draft' && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            icon={Compass}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenActionModal?.(trip, 'Dispatch');
-                            }}
-                            className="whitespace-nowrap font-medium text-xs py-1 px-2.5"
-                            data-testid={`btn-dispatch-trip-${trip.id}`}
-                          >
-                            Dispatch
-                          </Button>
-                        )}
+                    {/* Amount */}
+                    <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700 text-xs">
+                      ₹{amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+
+                    {/* Edit / Action */}
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                         {canManage && onEditTrip && (
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditTrip(trip);
-                            }}
-                            className="p-1.5 text-slate-500 hover:text-blue-900 hover:bg-slate-100 rounded-md transition-colors"
-                            title="Edit / Reconcile Trip"
-                            data-testid={`btn-edit-trip-${trip.id}`}
+                            onClick={() => onEditTrip(trip)}
+                            className="p-1 text-slate-600 hover:text-blue-900 hover:bg-slate-100 rounded transition-colors"
+                            title="Edit Trip"
                           >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                        )}
-                        {canManage && onDeleteTrip && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteTrip(trip);
-                            }}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-md transition-colors"
-                            title="Delete Trip"
-                            data-testid={`btn-delete-trip-${trip.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                         )}
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectTrip(trip.id);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-blue-900 hover:bg-slate-100 rounded-md transition-colors"
-                          title="View Trip Details"
-                          data-testid={`btn-view-trip-${trip.id}`}
+                          onClick={() => onSelectTrip(trip.id)}
+                          className="p-1 text-slate-400 hover:text-blue-900 hover:bg-slate-100 rounded transition-colors"
+                          title="View Details"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all" />
                       </div>
                     </td>
                   </tr>
@@ -515,6 +461,31 @@ export function TripTable({
               })
             )}
           </tbody>
+          {trips.length > 0 && (
+            <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
+              <tr>
+                <td colSpan={3} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
+                  TOTAL {searchQuery ? `FOR "${searchQuery}"` : ''} ({trips.length} RECORDS)
+                </td>
+                <td className="py-3 px-4 text-right font-mono text-blue-900">
+                  {totalTripsCount}
+                </td>
+                <td className="py-3 px-4 text-center font-mono text-slate-500">
+                  —
+                </td>
+                <td className="py-3 px-4 text-right font-mono text-slate-900">
+                  {totalQuantitySum.toFixed(2)} MT
+                </td>
+                <td className="py-3 px-4 text-right font-mono text-slate-500">
+                  —
+                </td>
+                <td className="py-3 px-4 text-right font-mono text-emerald-800">
+                  ₹{totalAmountSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td className="py-3 px-4"></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

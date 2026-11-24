@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SparePartItem } from '@/types/fleet';
-import { Search, Filter, Eye, AlertCircle, Package, Pencil, Trash2 } from 'lucide-react';
+import { Search, Filter, Eye, AlertCircle, Package, Pencil, Trash2, Printer, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 
 interface SparePartsTableProps {
   items: SparePartItem[];
@@ -18,6 +19,10 @@ interface SparePartsTableProps {
   onWarehouseChange: (w: string) => void;
   selectedStatus: string;
   onStatusChange: (s: string) => void;
+  fromDate?: string;
+  onFromDateChange?: (d: string) => void;
+  toDate?: string;
+  onToDateChange?: (d: string) => void;
 }
 
 export function SparePartsTable({
@@ -36,6 +41,10 @@ export function SparePartsTable({
   onWarehouseChange,
   selectedStatus,
   onStatusChange,
+  fromDate = '',
+  onFromDateChange,
+  toDate = '',
+  onToDateChange,
 }: SparePartsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 15;
@@ -71,20 +80,20 @@ export function SparePartsTable({
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
       {/* Table Filter Header */}
-      <div className="p-6 border-b border-slate-200 bg-slate-50/50">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Search Box */}
-          <div className="relative">
+      <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+          {/* Search Box - Parts Wise */}
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search part code, name, OEM..."
+              placeholder="Search by parts name, code, OEM..."
               value={searchQuery}
               onChange={(e) => {
                 onSearchChange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-900"
             />
           </div>
 
@@ -96,31 +105,12 @@ export function SparePartsTable({
                 onGroupChange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-900"
             >
               <option value="ALL">All Categories</option>
               {itemGroups.map((g) => (
                 <option key={g} value={g}>
                   {g}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Warehouse Filter */}
-          <div>
-            <select
-              value={selectedWarehouse}
-              onChange={(e) => {
-                onWarehouseChange(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="ALL">All Warehouses</option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
                 </option>
               ))}
             </select>
@@ -134,7 +124,7 @@ export function SparePartsTable({
                 onStatusChange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-900"
             >
               <option value="ALL">All Stock Statuses</option>
               <option value="In Stock">In Stock</option>
@@ -142,28 +132,59 @@ export function SparePartsTable({
               <option value="Out of Stock">Out of Stock</option>
             </select>
           </div>
+
+          {/* Date to Date Filters */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => onFromDateChange?.(e.target.value)}
+              className="px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800"
+              title="From Date"
+            />
+            <span>to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => onToDateChange?.(e.target.value)}
+              className="px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800"
+              title="To Date"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            icon={Printer}
+            onClick={() => window.print()}
+            className="text-xs"
+          >
+            Print
+          </Button>
         </div>
       </div>
 
       {/* Table Content */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-sm">
+        <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-xs tracking-wider uppercase">
-              <th className="py-3.5 px-4">Part Name & OEM</th>
-              <th className="py-3.5 px-4">Part Description</th>
-              <th className="py-3.5 px-4">Category</th>
-              <th className="py-3.5 px-4 text-center">Status</th>
-              <th className="py-3.5 px-4 text-right">Available Qty</th>
-              <th className="py-3.5 px-4 text-right">Valuation Rate</th>
-              <th className="py-3.5 px-4 text-right">Total Value</th>
-              <th className="py-3.5 px-4 text-right">Action</th>
+            <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-[10px] tracking-wider uppercase">
+              <th className="py-3 px-4">Sl No</th>
+              <th className="py-3 px-4">Parts Name</th>
+              <th className="py-3 px-4 text-center">Status</th>
+              <th className="py-3 px-4 text-right">Available Qnt</th>
+              <th className="py-3 px-4 text-right">Rate</th>
+              <th className="py-3 px-4 text-right">Total Amount</th>
+              <th className="py-3 px-4 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 text-slate-800">
             {isLoading ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-500">
+                <td colSpan={7} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                     <span>Loading spare parts catalog...</span>
@@ -172,7 +193,7 @@ export function SparePartsTable({
               </tr>
             ) : paginatedItems.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-500">
+                <td colSpan={7} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <Package className="w-8 h-8 text-slate-400" />
                     <p className="font-medium text-slate-700">No spare parts found</p>
@@ -183,45 +204,30 @@ export function SparePartsTable({
                 </td>
               </tr>
             ) : (
-              paginatedItems.map((item) => (
+              paginatedItems.map((item, idx) => (
                 <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3.5 px-4">
+                  <td className="py-3 px-4 font-mono text-slate-600 font-medium">
+                    {(currentPage - 1) * pageSize + idx + 1}
+                  </td>
+                  <td className="py-3 px-4">
                     <div className="font-semibold text-slate-900">{item.itemName}</div>
                     {item.partNumber && (
-                      <div className="text-xs text-slate-500 font-mono">OEM: {item.partNumber}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">OEM: {item.partNumber}</div>
                     )}
                   </td>
-                  <td className="py-3.5 px-4">
-                    <div className="font-medium text-slate-900">{item.compatibleModel ? `Fit: ${item.compatibleModel}` : 'Universal Fitting'}</div>
-                    {item.preferredSupplier && (
-                      <div className="text-xs text-slate-500">Vendor: {item.preferredSupplier}</div>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-600">
-                    <span className="inline-block bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs">
-                      {item.itemGroup}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
+                  <td className="py-3 px-4 text-center">
                     {getStatusBadge(item.stockStatus)}
                   </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="font-semibold text-slate-900">
-                      {item.totalActualQty.toLocaleString()} {item.stockUom}
-                    </div>
-                    {item.reorderLevel > 0 && (
-                      <div className="text-xs text-slate-400">
-                        Reorder: {item.reorderLevel} {item.stockUom}
-                      </div>
-                    )}
+                  <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                    {item.totalActualQty.toLocaleString()} {item.stockUom}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-mono text-slate-700">
+                  <td className="py-3 px-4 text-right font-mono text-slate-700">
                     ₹{item.valuationRate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-900">
+                  <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
                     ₹{item.totalStockValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-3.5 px-4 text-right">
+                  <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       {onEditItem && (
                         <button
@@ -245,7 +251,7 @@ export function SparePartsTable({
                       )}
                       <button
                         onClick={() => onSelectItem(item)}
-                        className="inline-flex items-center px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
+                        className="inline-flex items-center px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded transition-colors"
                       >
                         <Eye className="w-3.5 h-3.5 mr-1" />
                         View
@@ -256,6 +262,25 @@ export function SparePartsTable({
               ))
             )}
           </tbody>
+          {items.length > 0 && (
+            <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
+              <tr>
+                <td colSpan={3} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
+                  TOTAL ({items.length} PARTS)
+                </td>
+                <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">
+                  {items.reduce((sum, it) => sum + (it.totalActualQty || 0), 0).toLocaleString()}
+                </td>
+                <td className="py-3 px-4 text-right font-mono text-slate-500">
+                  —
+                </td>
+                <td className="py-3 px-4 text-right font-mono font-black text-emerald-800 text-sm">
+                  ₹{items.reduce((sum, it) => sum + (it.totalStockValue || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td className="py-3 px-4"></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

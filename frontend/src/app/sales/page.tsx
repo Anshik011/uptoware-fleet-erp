@@ -25,6 +25,7 @@ import {
   Loader2,
   FileSpreadsheet,
   CheckCircle2,
+  Printer,
 } from 'lucide-react';
 
 interface PartSaleRecord {
@@ -454,6 +455,16 @@ function SalesContent() {
                 className="text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 bg-white"
               />
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Printer}
+              onClick={() => window.print()}
+              className="text-xs"
+            >
+              Print
+            </Button>
           </div>
 
           <div className="text-xs text-slate-500 font-medium">
@@ -484,57 +495,190 @@ function SalesContent() {
             ) : (
               <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
+                  <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4">Invoice #</th>
+                        <th className="py-3 px-4">Ref No</th>
                         <th className="py-3 px-4">Date</th>
-                        <th className="py-3 px-4">Vehicle</th>
-                        <th className="py-3 px-4">Parts Dispatched</th>
-                        <th className="py-3 px-4 text-right">Total Qnt</th>
-                        <th className="py-3 px-4 text-right">Invoice Amount (₹)</th>
+                        <th className="py-3 px-4">Vehicle Number</th>
+                        <th className="py-3 px-4">Item Name</th>
+                        <th className="py-3 px-4 text-right">Qnt</th>
+                        <th className="py-3 px-4 text-right">Rate</th>
+                        <th className="py-3 px-4 text-right">Amount</th>
                         <th className="py-3 px-4 text-center">Status</th>
-                        <th className="py-3 px-4 text-right">Actions</th>
+                        <th className="py-3 px-4 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredSales.map((sale) => (
-                        <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
+                      {filteredSales.map((sale) => {
+                        const totalQty = sale.items.reduce((sum, it) => sum + it.qty, 0);
+                        const primaryItem = sale.items[0];
+                        const rate = primaryItem ? primaryItem.rate : 0;
+
+                        return (
+                          <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-3 px-4 font-mono font-semibold text-blue-900">
+                              {sale.id}
+                            </td>
+                            <td className="py-3 px-4 text-slate-700">{sale.postingDate}</td>
+                            <td className="py-3 px-4">
+                              {sale.vehicle ? (
+                                <div className="flex items-center gap-1.5 font-semibold text-slate-800 font-mono">
+                                  <Truck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  <span>{formatVehicleDisplay(sale.vehicle)}</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">Direct / Counter Sale</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-semibold text-slate-800">
+                                {primaryItem?.itemName || 'Spare Parts'}
+                              </span>
+                              {sale.items.length > 1 && (
+                                <span className="text-slate-400 ml-1">
+                                  +{sale.items.length - 1} more
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                              {totalQty}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono text-slate-700">
+                              ₹{rate.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                              ₹{sale.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <Badge
+                                variant={
+                                  sale.status === 'Paid' || sale.status === 'Submitted'
+                                    ? 'positive'
+                                    : sale.status === 'Draft'
+                                    ? 'neutral'
+                                    : 'info'
+                                }
+                                size="sm"
+                              >
+                                {sale.status === 'Draft' ? 'Draft' : sale.status === 'Paid' ? 'Paid' : 'Submitted'}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {sale.status === 'Draft' || sale.docstatus === 0 ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="primary"
+                                  isLoading={approvingId === sale.id}
+                                  disabled={approvingId === sale.id}
+                                  onClick={() => handleApproveSale(sale.id)}
+                                  className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold flex items-center gap-1 shadow-2xs ml-auto"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Approve & Submit</span>
+                                </Button>
+                              ) : (
+                                <span className="text-emerald-700 text-[11px] font-semibold flex items-center justify-end gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Approved</span>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {filteredSales.length > 0 && (
+                      <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
+                        <tr>
+                          <td colSpan={4} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
+                            TOTAL ({filteredSales.length} TRANSACTIONS)
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">
+                            {filteredSales.reduce((acc, s) => acc + s.items.reduce((sum, it) => sum + it.qty, 0), 0)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-500">
+                            —
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-emerald-800 text-sm">
+                            ₹{filteredSales.reduce((acc, s) => acc + (s.grandTotal || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td colSpan={2}></td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* TAB 2: Sale Parts Report */}
+        {activeTab === 'report' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Sale Parts Itemized Report</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Detailed ledger of spare parts sold, verified by vehicle registration ($AMOUNT = QNT \times RATE$)
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={Printer}
+                  onClick={() => window.print()}
+                  className="text-xs"
+                >
+                  Print Report
+                </Button>
+                <Badge variant="neutral" size="sm">
+                  Itemized Verification
+                </Badge>
+              </div>
+            </div>
+
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-4">Ref No</th>
+                      <th className="py-3 px-4">Date</th>
+                      <th className="py-3 px-4">Vehicle No</th>
+                      <th className="py-3 px-4">Item Name</th>
+                      <th className="py-3 px-4 text-right">Qnt</th>
+                      <th className="py-3 px-4 text-right">Rate</th>
+                      <th className="py-3 px-4 text-right">Amount</th>
+                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredSales.flatMap((sale) =>
+                      sale.items.map((it, idx) => (
+                        <tr key={`${sale.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3 px-4 font-mono font-semibold text-blue-900">
                             {sale.id}
                           </td>
                           <td className="py-3 px-4 text-slate-700">{sale.postingDate}</td>
-                          <td className="py-3 px-4">
-                            {sale.vehicle ? (
-                              <div className="flex items-center gap-1.5 font-semibold text-slate-800 font-mono">
-                                <Truck className="w-3.5 h-3.5 text-blue-600" />
-                                <span>{formatVehicleDisplay(sale.vehicle)}</span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">Direct / Counter Sale</span>
-                            )}
+                          <td className="py-3 px-4 font-mono font-medium text-slate-800">
+                            {sale.vehicle ? formatVehicleDisplay(sale.vehicle) : 'Counter Sale'}
                           </td>
-                          <td className="py-3 px-4">
-                            {sale.items.length > 0 ? (
-                              <div>
-                                <span className="font-semibold text-slate-800">
-                                  {sale.items[0].itemName}
-                                </span>
-                                {sale.items.length > 1 && (
-                                  <span className="text-slate-400 ml-1">
-                                    +{sale.items.length - 1} more
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-700">
-                            {sale.items.reduce((sum, it) => sum + it.qty, 0)}
+                          <td className="py-3 px-4 font-semibold text-slate-900">
+                            {it.itemName}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                            ₹{sale.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            {it.qty}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-700">
+                            ₹{it.rate.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                            ₹{it.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <Badge
@@ -562,7 +706,7 @@ function SalesContent() {
                                 className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold flex items-center gap-1 shadow-2xs ml-auto"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Approve & Submit</span>
+                                <span>Approve</span>
                               </Button>
                             ) : (
                               <span className="text-emerald-700 text-[11px] font-semibold flex items-center justify-end gap-1">
@@ -572,74 +716,35 @@ function SalesContent() {
                             )}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* TAB 2: Sale Parts Report */}
-        {activeTab === 'report' && (
-          <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Sale Parts Itemized Report</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Detailed ledger of spare parts sold, verified by vehicle registration ($AMOUNT = QNT \times RATE$)
-                </p>
-              </div>
-              <Badge variant="neutral" size="sm">
-                Itemized Verification
-              </Badge>
-            </div>
-
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Vehicle</th>
-                      <th className="py-3 px-4">Spare Part / Item</th>
-                      <th className="py-3 px-4 text-right">Quantity</th>
-                      <th className="py-3 px-4 text-right">Unit Rate (₹)</th>
-                      <th className="py-3 px-4 text-right">Total Amount (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredSales.flatMap((sale) =>
-                      sale.items.map((it, idx) => (
-                        <tr key={`${sale.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-4 text-slate-700">{sale.postingDate}</td>
-                          <td className="py-3 px-4 font-mono font-medium text-slate-800">
-                            {sale.vehicle ? formatVehicleDisplay(sale.vehicle) : 'Counter Sale'}
-                          </td>
-                          <td className="py-3 px-4 font-semibold text-slate-900">
-                            {it.itemName}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-semibold text-slate-800">
-                            {it.qty}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-700">
-                            ₹{it.rate.toFixed(2)}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
-                            ₹{it.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
                       ))
                     )}
                     {filteredSales.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-400">
+                        <td colSpan={9} className="py-8 text-center text-slate-400">
                           No sold parts matching criteria.
                         </td>
                       </tr>
                     )}
                   </tbody>
+                  {filteredSales.length > 0 && (
+                    <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
+                      <tr>
+                        <td colSpan={4} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
+                          TOTAL ({filteredSales.length} TRANSACTIONS)
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">
+                          {filteredSales.reduce((acc, s) => acc + s.items.reduce((sum, it) => sum + it.qty, 0), 0)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-slate-500">
+                          —
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-black text-emerald-800 text-sm">
+                          ₹{filteredSales.reduce((acc, s) => acc + (s.grandTotal || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>

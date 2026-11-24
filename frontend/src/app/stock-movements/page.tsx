@@ -28,8 +28,28 @@ export default function StockMovementsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('ALL');
   const [selectedVehicle, setSelectedVehicle] = useState('ALL');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [stockItems, setStockItems] = useState<any[]>([]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // Load inventory items for item-wise stock balances
+  const loadStockItems = useCallback(async () => {
+    try {
+      const res = await fetch('/api/inventory/items?limit=100');
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setStockItems(json.items || []);
+      }
+    } catch (e) {
+      console.warn('Could not load inventory items for stock report:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStockItems();
+  }, [loadStockItems]);
 
   // Load options scoped by current mine
   const loadOptions = useCallback(async () => {
@@ -147,6 +167,7 @@ export default function StockMovementsPage() {
         {/* Movements Table */}
         <StockMovementsTable
           movements={movements}
+          stockItems={stockItems}
           isLoading={isLoading}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -155,6 +176,10 @@ export default function StockMovementsPage() {
           selectedVehicle={selectedVehicle}
           onVehicleChange={setSelectedVehicle}
           vehicles={vehicles}
+          fromDate={fromDate}
+          onFromDateChange={setFromDate}
+          toDate={toDate}
+          onToDateChange={setToDate}
         />
 
         {/* Add Stock Entry Modal */}

@@ -1415,6 +1415,58 @@ function EmployeesContent() {
                         ));
                       })()}
                     </tbody>
+                    {(() => {
+                      const isDriverOrPlOpt = (desig?: string | null, name?: string | null) => {
+                        const d = (desig || '').toLowerCase().trim();
+                        const n = (name || '').toLowerCase().trim();
+                        return (
+                          d === 'driver' ||
+                          d === 'p/l opt' ||
+                          d === 'pl opt' ||
+                          d === 'operator' ||
+                          d === 'p/l operator' ||
+                          d === 'pl operator' ||
+                          d.includes('driver') ||
+                          d.includes('p/l opt') ||
+                          d.includes('pl opt') ||
+                          d.includes('operator') ||
+                          d.includes('p/l') ||
+                          n.includes('driver') ||
+                          n.includes('operator')
+                        );
+                      };
+                      const otherStaffList = filteredEmployees.filter((emp) => !isDriverOrPlOpt(emp.designation, emp.employeeName));
+                      if (otherStaffList.length === 0) return null;
+
+                      const shiftAPresentTotal = otherStaffList.filter(
+                        (emp) => attendanceRecords[`${emp.id}_Shift A`]?.attendanceStatus === 'Present'
+                      ).length;
+                      const shiftBPresentTotal = otherStaffList.filter(
+                        (emp) => attendanceRecords[`${emp.id}_Shift B`]?.attendanceStatus === 'Present'
+                      ).length;
+                      const shiftCPresentTotal = otherStaffList.filter(
+                        (emp) => attendanceRecords[`${emp.id}_Shift C`]?.attendanceStatus === 'Present'
+                      ).length;
+
+                      return (
+                        <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
+                          <tr>
+                            <td colSpan={2} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
+                              SHIFT WISE TOTAL (ALL STAFF PRESENT COUNT)
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-bold text-emerald-800 text-sm">
+                              Shift A: {shiftAPresentTotal} Present
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-bold text-emerald-800 text-sm">
+                              Shift B: {shiftBPresentTotal} Present
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-bold text-emerald-800 text-sm">
+                              Shift C: {shiftCPresentTotal} Present
+                            </td>
+                          </tr>
+                        </tfoot>
+                      );
+                    })()}
                   </table>
                 </div>
               </div>

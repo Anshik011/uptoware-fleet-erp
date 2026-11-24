@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Fuel,
   TrendingUp,
@@ -16,6 +16,7 @@ import {
   Printer,
   ChevronRight,
   FileText,
+  Save,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -105,6 +106,12 @@ export function HsdAverageMenu() {
             licensePlate: v.licensePlate || v.name,
           }));
           if (list.length > 0) {
+            list.sort((a: any, b: any) =>
+              String(a.licensePlate || '').localeCompare(String(b.licensePlate || ''), undefined, {
+                numeric: true,
+                sensitivity: 'base',
+              })
+            );
             setVehicles(list);
             if (!list.some((v: any) => v.licensePlate === selectedVehicle)) {
               setSelectedVehicle(list[0].licensePlate);
@@ -133,31 +140,94 @@ export function HsdAverageMenu() {
     fetchOptions();
   }, []);
 
-  // Fetch actual trips for this vehicle if user wants to sync live
-  const syncFromTrips = async () => {
+  // Auto-fetch actual trips & fuel for this vehicle
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  const syncFromTrips = useCallback(async (targetVeh?: string) => {
+    const veh = targetVeh || selectedVehicle;
+    if (!veh) return;
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/trips?vehicle=${encodeURIComponent(selectedVehicle)}&limit=10`);
-      const json = await res.json();
-      if (res.ok && json.success && json.trips?.length > 0) {
-        const mapped: ShiftTripItem[] = json.trips.slice(0, 3).map((t: any, idx: number) => {
+      const [tripsRes, fuelRes] = await Promise.all([
+        fetch(`/api/trips?vehicle=${encodeURIComponent(veh)}&limit=50`),
+        fetch(`/api/fuel?vehicle=${encodeURIComponent(veh)}`),
+      ]);
+      const [tripsJson, fuelJson] = await Promise.all([tripsRes.json(), fuelRes.json()]);
+
+      // Check trips
+      const rawTrips = tripsJson.success && Array.isArray(tripsJson.data)
+        ? tripsJson.data
+        : (tripsJson.success && Array.isArray(tripsJson.trips) ? tripsJson.trips : []);
+
+      if (rawTrips.length > 0) {
+        const mapped: ShiftTripItem[] = rawTrips.map((t: any, idx: number) => {
           const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(' ')[0] : '2026-11-23';
           const leadKmVal = parseFloat(String(t.leadKm || 0)) || 3.0;
           return {
             id: t.id || `trip-${idx}`,
             date: rawDate,
             shift: t.shift || (idx === 0 ? 'Shift A' : idx === 1 ? 'Shift C' : 'Shift B'),
-            leadName: t.lead || 'CHP',
+            leadName: t.lead || t.destination || 'CHP',
             leadKm: leadKmVal,
-            tripCount: Number(t.tripCount) || 1,
+            tripCount: Number(t.tripCount || 1),
           };
         });
-        if (mapped.length > 0) {
-          setCycleTrips(mapped);
-        }
+        setCycleTrips(mapped);
+      }
+
+      // Check fuel
+      const rawFuel = fuelJson.success && Array.isArray(fuelJson.logs)
+        ? fuelJson.logs
+        : (fuelJson.success && Array.isArray(fuelJson.data) ? fuelJson.data : []);
+      if (rawFuel.length > 0) {
+        const latest = rawFuel[0];
+        if (latest.quantityLitres) setFuelFilledLitres(Number(latest.quantityLitres));
+        if (latest.fuelDate) setFillingDate(latest.fuelDate);
+        if (latest.isFullTank !== undefined) setIsFullTank(Boolean(latest.isFullTank));
       }
     } catch (err) {
-      console.warn('Failed to sync trips:', err);
+      console.warn('Failed to auto-sync trips/fuel:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedVehicle]);
+
+  // Auto-sync when selectedVehicle changes
+  useEffect(() => {
+    if (selectedVehicle) {
+      syncFromTrips(selectedVehicle);
+    }
+  }, [selectedVehicle, syncFromTrips]);
+
+  const saveHsdLogToLedger = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/fuel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicle: selectedVehicle,
+          fuelDate: fillingDate,
+          fuelSource: 'Site Bowser',
+          odometerReading: 12500,
+          quantityLitres: fuelFilledLitres,
+          ratePerLitre: 94.98,
+          totalCost: fuelFilledLitres * 94.98,
+          isFullTank: isFullTank,
+          mineSite: 'JBR Eastern — Talcher Site',
+          paymentMethod: 'Company Card',
+          remarks: `Auto-recorded from HSD Average Menu calculation (${fillingShift})`,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setSaveSuccessMsg(`HSD Fuel Log (${fuelFilledLitres.toFixed(1)} LT) recorded for ${selectedVehicle}! Reflected in Vehicle Income.`);
+        setTimeout(() => setSaveSuccessMsg(null), 6000);
+      } else {
+        alert(json.error || 'Failed to save fuel log to vehicle ledger.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error saving fuel log.');
     } finally {
       setIsLoading(false);
     }
@@ -213,6 +283,21 @@ export function HsdAverageMenu() {
 
   return (
     <div className="space-y-6">
+      {saveSuccessMsg && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{saveSuccessMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSaveSuccessMsg(null)}
+            className="text-emerald-700 hover:text-emerald-900 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {/* Top Banner / Navigation */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
@@ -416,7 +501,7 @@ export function HsdAverageMenu() {
             </p>
           </div>
           <div className="flex items-center gap-2 print:hidden">
-            <Button variant="outline" size="sm" icon={RefreshCw} onClick={syncFromTrips} disabled={isLoading}>
+            <Button variant="outline" size="sm" icon={RefreshCw} onClick={() => syncFromTrips()} disabled={isLoading}>
               Sync from Trips
             </Button>
             <Button variant="outline" size="sm" onClick={addTripRow}>
@@ -598,6 +683,16 @@ export function HsdAverageMenu() {
             Certified against ground fuel dispensations and supervisor trip manifests.
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Save}
+              onClick={saveHsdLogToLedger}
+              disabled={isLoading}
+              className="bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+            >
+              Save to Vehicle Ledger
+            </Button>
             <Button
               variant="outline"
               size="sm"

@@ -49,6 +49,18 @@ function PurchasesContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedSupplier, setSelectedSupplier] = useState('ALL');
+  const viewParam = searchParams.get('view');
+  const [viewMode, setViewMode] = useState<'home' | 'report'>(
+    viewParam === 'report' ? 'report' : 'home'
+  );
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+
+  useEffect(() => {
+    if (viewParam === 'report') {
+      setViewMode('report');
+    }
+  }, [viewParam]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(actionParam === 'new');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -246,6 +258,12 @@ function PurchasesContent() {
           onStatusChange={setSelectedStatus}
           selectedSupplier={selectedSupplier}
           onSupplierChange={setSelectedSupplier}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          fromDate={fromDate}
+          onFromDateChange={setFromDate}
+          toDate={toDate}
+          onToDateChange={setToDate}
         />
 
         {/* Create PO Modal */}

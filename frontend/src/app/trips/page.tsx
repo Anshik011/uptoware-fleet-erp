@@ -36,7 +36,7 @@ function TripsTableSection() {
   // Filters and Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>(
-    searchParams.get('status') || 'ALL'
+    searchParams.get('status') || 'Delivered'
   );
   const [selectedMineSite, setSelectedMineSite] = useState<string>(
     searchParams.get('mine_site') || 'ALL'
@@ -206,14 +206,14 @@ function TripsTableSection() {
           </div>
         </div>
 
-        {/* Active In-Transit */}
+        {/* Active In-Transit -> Site Supervisor Trip */}
         <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0">
             <Truck className="w-6 h-6" />
           </div>
           <div>
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              In Transit
+              Site Supervisor Trip
             </span>
             <div
               className="text-2xl font-bold text-blue-600 font-mono"
@@ -227,14 +227,14 @@ function TripsTableSection() {
           </div>
         </div>
 
-        {/* Weighbridge Pending */}
+        {/* Weighbridge Pending -> Reconcile Trip */}
         <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
             <Scale className="w-6 h-6" />
           </div>
           <div>
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Scale Pending
+              Reconcile Trip
             </span>
             <div
               className="text-2xl font-bold text-amber-600 font-mono"

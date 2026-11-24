@@ -25,6 +25,8 @@ import {
   Truck,
   ArrowRight,
   TrendingUp,
+  Printer,
+  Pencil,
 } from 'lucide-react';
 
 interface FleetLeadRecord {
@@ -421,41 +423,36 @@ function LeadsContent() {
             ) : (
               <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
+                  <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4">Lead Corridor Name</th>
-                        <th className="py-3 px-4">Stationed Mine</th>
-                        <th className="py-3 px-4 text-right">Distance (KM)</th>
-                        <th className="py-3 px-4 text-right">Freight Rate (₹/MT)</th>
-                        <th className="py-3 px-4">Validity Period</th>
-                        <th className="py-3 px-4 text-right">Trips Logged</th>
-                        <th className="py-3 px-4 text-right">Status</th>
+                        <th className="py-3 px-4">Lead Name</th>
+                        <th className="py-3 px-4 text-right">Distance</th>
+                        <th className="py-3 px-4 text-right">Trip Logged</th>
+                        <th className="py-3 px-4 text-right">Qnt Logged</th>
+                        <th className="py-3 px-4">Validity</th>
+                        <th className="py-3 px-4 text-right">Edit</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredLeads.map((lead) => {
                         const stats = tripStats[lead.leadName] || tripStats[lead.id];
+                        const tripsLogged = stats?.tripCount || 0;
+                        const qntLogged = (stats?.totalTonnage || 0).toFixed(2);
+
                         return (
                           <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3 px-4">
                               <div className="font-semibold text-slate-900 flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-center font-bold text-xs">
+                                <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-center font-bold text-xs shrink-0">
                                   <Compass className="w-3.5 h-3.5" />
                                 </div>
                                 <div>
                                   <div>{lead.leadName}</div>
-                                  {lead.description && (
-                                    <div className="text-[10px] text-slate-400 mt-0.5">{lead.description}</div>
-                                  )}
+                                  <div className="text-[10px] text-slate-400">
+                                    {formatMineSiteDisplay(lead.mineSite)}
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-
-                            <td className="py-3 px-4">
-                              <div className="font-medium text-slate-800 flex items-center gap-1.5">
-                                <MapPin className="w-3.5 h-3.5 text-blue-600" />
-                                <span>{formatMineSiteDisplay(lead.mineSite)}</span>
                               </div>
                             </td>
 
@@ -463,8 +460,12 @@ function LeadsContent() {
                               {parseLeadDistance(lead.leadKm).display}
                             </td>
 
-                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                              ₹{(parseFloat(String(lead.leadRate || 0)) || 0).toFixed(2)}
+                            <td className="py-3 px-4 text-right font-mono text-slate-900 font-bold">
+                              {tripsLogged > 0 ? `${tripsLogged} trips` : '0'}
+                            </td>
+
+                            <td className="py-3 px-4 text-right font-mono font-bold text-blue-900">
+                              {qntLogged} MT
                             </td>
 
                             <td className="py-3 px-4 text-slate-600">
@@ -477,18 +478,24 @@ function LeadsContent() {
                               )}
                             </td>
 
-                            <td className="py-3 px-4 text-right font-mono text-slate-700">
-                              {stats?.tripCount ? (
-                                <span className="font-semibold text-blue-900">{stats.tripCount} trips</span>
-                              ) : (
-                                <span className="text-slate-400">0</span>
-                              )}
-                            </td>
-
                             <td className="py-3 px-4 text-right">
-                              <Badge variant="positive" size="sm">
-                                Active Tariff
-                              </Badge>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewLeadName(lead.leadName);
+                                  setNewMineSite(lead.mineSite);
+                                  setNewLeadKm(String(lead.leadKm || ''));
+                                  setNewLeadRate(String(lead.leadRate || ''));
+                                  setNewValidFrom(lead.validFrom || '');
+                                  setNewValidTo(lead.validTo || '');
+                                  setNewDescription(lead.description || '');
+                                  setIsModalOpen(true);
+                                }}
+                                className="p-1.5 text-slate-600 hover:text-blue-900 hover:bg-slate-100 rounded transition-colors"
+                                title="Edit Lead"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
                             </td>
                           </tr>
                         );
@@ -504,33 +511,43 @@ function LeadsContent() {
         {/* TAB 2: Haulage Performance Report */}
         {activeTab === 'report' && (
           <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Lead Haulage Volume & Revenue Summary</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Consolidated haulage reconciliation calculated from verified Mining Trips ($AMOUNT = QNT \times RATE$)
                 </p>
               </div>
-              <Badge variant="neutral" size="sm">
-                Live Trip Ledgers
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={Printer}
+                  onClick={() => window.print()}
+                  className="text-xs"
+                >
+                  Print Report
+                </Button>
+                <Badge variant="neutral" size="sm">
+                  Live Trip Ledgers
+                </Badge>
+              </div>
             </div>
 
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
+                <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3 px-4">Haulage Corridor</th>
-                      <th className="py-3 px-4">Mine Site</th>
-                      <th className="py-3 px-4 text-right">Contracted Rate</th>
-                      <th className="py-3 px-4 text-right">Completed Trips</th>
-                      <th className="py-3 px-4 text-right">Total Quantity (MT)</th>
-                      <th className="py-3 px-4 text-right">Billed Haulage Revenue (₹)</th>
+                      <th className="py-3 px-4">Lead Name</th>
+                      <th className="py-3 px-4 text-right">Distance</th>
+                      <th className="py-3 px-4 text-right">Total Trip</th>
+                      <th className="py-3 px-4 text-right">Total Qnt</th>
+                      <th className="py-3 px-4 text-right">Total Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {leads.map((lead) => {
+                    {filteredLeads.map((lead) => {
                       const stats =
                         tripStats[lead.leadName] ||
                         tripStats[lead.id] ||
@@ -544,7 +561,7 @@ function LeadsContent() {
 
                       const safeRate = parseFloat(String(lead.leadRate || 0)) || 0;
                       const safeTonnage = !isNaN(stats.totalTonnage) ? stats.totalTonnage : 0;
-                      const safeRevenue = !isNaN(stats.totalRevenue) ? stats.totalRevenue : 0;
+                      const safeRevenue = !isNaN(stats.totalRevenue) ? stats.totalRevenue : (safeTonnage * safeRate);
                       const safeTrips = !isNaN(stats.tripCount) ? stats.tripCount : 0;
 
                       return (
@@ -552,11 +569,8 @@ function LeadsContent() {
                           <td className="py-3 px-4 font-semibold text-slate-900">
                             {lead.leadName}
                           </td>
-                          <td className="py-3 px-4 text-slate-700">
-                            {formatMineSiteDisplay(lead.mineSite)}
-                          </td>
                           <td className="py-3 px-4 text-right font-mono font-semibold text-slate-800">
-                            ₹{safeRate.toFixed(2)}/MT
+                            {parseLeadDistance(lead.leadKm).display}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-semibold text-blue-900">
                             {safeTrips} trips
@@ -573,25 +587,27 @@ function LeadsContent() {
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900 text-xs">
-                      <td colSpan={3} className="py-3 px-4 uppercase tracking-wider text-[11px] text-slate-700">
-                        Total Mining Haulage Performance
+                      <td colSpan={2} className="py-3 px-4 uppercase tracking-wider text-[11px] text-slate-700">
+                        TOTAL {searchQuery ? `FOR "${searchQuery}"` : 'HAULAGE PERFORMANCE'} ({filteredLeads.length} LEADS)
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">
-                        {leads.reduce((acc, l) => {
+                        {filteredLeads.reduce((acc, l) => {
                           const s = tripStats[l.leadName] || tripStats[l.id];
                           return acc + (s?.tripCount || 0);
                         }, 0)} trips
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-black text-slate-900 text-sm">
-                        {leads.reduce((acc, l) => {
+                        {filteredLeads.reduce((acc, l) => {
                           const s = tripStats[l.leadName] || tripStats[l.id];
                           return acc + (s?.totalTonnage || 0);
                         }, 0).toFixed(2)} MT
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-black text-emerald-800 text-sm">
-                        ₹{leads.reduce((acc, l) => {
+                        ₹{filteredLeads.reduce((acc, l) => {
                           const s = tripStats[l.leadName] || tripStats[l.id];
-                          return acc + (s?.totalRevenue || 0);
+                          const r = parseFloat(String(l.leadRate || 0)) || 0;
+                          const rev = s?.totalRevenue && s.totalRevenue > 0 ? s.totalRevenue : ((s?.totalTonnage || 0) * r);
+                          return acc + rev;
                         }, 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     </tr>
