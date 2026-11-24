@@ -118,10 +118,10 @@ export function LinkedField({
         </div>
       </div>
 
-      {/* Input Group with Standardized Select & Action Icons */}
+      {/* Input Group with Standardized Select */}
       <div className="relative flex items-center">
         {FieldIcon && (
-          <div className="absolute left-3.5 pointer-events-none text-slate-400">
+          <div className="absolute left-3 pointer-events-none text-slate-400">
             <FieldIcon className="w-4 h-4" />
           </div>
         )}
@@ -134,8 +134,8 @@ export function LinkedField({
           disabled={disabled}
           required={required}
           className={`w-full rounded-lg border bg-white text-xs sm:text-sm text-slate-900 shadow-sm transition-colors focus:outline-none focus:ring-1 ${
-            FieldIcon ? 'pl-10' : 'pl-3.5'
-          } ${canView || onCreateNew ? 'pr-20' : 'pr-3.5'} py-2.5 ${
+            FieldIcon ? 'pl-9' : 'pl-3'
+          } pr-7 py-2 ${
             error
               ? 'border-rose-300 focus:border-rose-600 focus:ring-rose-600'
               : 'border-slate-300 focus:border-blue-600 focus:ring-blue-600'
@@ -157,33 +157,6 @@ export function LinkedField({
             </option>
           )}
         </select>
-
-        {/* Action buttons inside right edge of control */}
-        <div className="absolute right-2 flex items-center gap-1">
-          {canView && (
-            <button
-              type="button"
-              onClick={handleView}
-              title={`View ${entityName} details`}
-              className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors"
-              aria-label={`View ${entityName}`}
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {onCreateNew && !disabled && (
-            <button
-              type="button"
-              onClick={onCreateNew}
-              title={`Create new ${entityName}`}
-              className="p-1 rounded text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
-              aria-label={`Create new ${entityName}`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Validation and Helper Text */}

@@ -2080,11 +2080,9 @@ export async function updateMiningTrip(
     }
   }
 
-  if (updates.finalize) {
-    payload.trip_status = 'Approved';
-    payload.workflow_state = 'Approved';
-  }
-
+  // 1. Save data fields via PUT WITHOUT modifying trip_status or workflow_state directly
+  // This updates payload quantity, amounts, average tonnage, and lead info without triggering
+  // Frappe Server Script's direct trip_status editing guard
   const res = await frappeFetch<{ data: any }>(
     `/api/resource/Mining%20Trip/${encodeURIComponent(id)}`,
     {
@@ -2095,29 +2093,89 @@ export async function updateMiningTrip(
     }
   );
 
-  let finalData = res.data;
+  let currentDoc = res.data;
 
-  if (updates.finalize && res.data?.workflow_state !== 'Approved' && res.data?.trip_status !== 'Approved') {
-    try {
-      const wfRes = await frappeFetch<{ message?: any }>(
-        '/api/method/frappe.model.workflow.apply_workflow',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            doc: res.data,
-            action: 'Approve',
-          }),
-          sessionCookie,
+  // 2. If finalize is requested, advance through authorized Frappe workflow transitions to 'Approved'
+  if (updates.finalize && currentDoc) {
+    let currentState = currentDoc.workflow_state || currentDoc.trip_status || 'Draft';
+
+    // Step A: If Draft, Dispatch the trip
+    if (currentState === 'Draft') {
+      try {
+        const wf1 = await frappeFetch<{ message?: any }>(
+          '/api/method/frappe.model.workflow.apply_workflow',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ doc: currentDoc, action: 'Dispatch' }),
+            sessionCookie,
+          }
+        );
+        if (wf1.message) {
+          currentDoc = wf1.message;
+          currentState = currentDoc.workflow_state || currentDoc.trip_status;
         }
+      } catch (err: any) {
+        console.warn('Dispatch workflow transition error:', err?.message || err);
+      }
+    }
+
+    // Step B: If Dispatched, Confirm Weighbridge
+    if (currentState === 'Dispatched') {
+      try {
+        const wf2 = await frappeFetch<{ message?: any }>(
+          '/api/method/frappe.model.workflow.apply_workflow',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ doc: currentDoc, action: 'Confirm Weighbridge' }),
+            sessionCookie,
+          }
+        );
+        if (wf2.message) {
+          currentDoc = wf2.message;
+          currentState = currentDoc.workflow_state || currentDoc.trip_status;
+        }
+      } catch (err: any) {
+        console.warn('Confirm Weighbridge workflow transition error:', err?.message || err);
+      }
+    }
+
+    // Step C: If Weighbridge Confirmed (or not yet Approved), Approve
+    if (currentState === 'Weighbridge Confirmed' || currentState !== 'Approved') {
+      try {
+        const wf3 = await frappeFetch<{ message?: any }>(
+          '/api/method/frappe.model.workflow.apply_workflow',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ doc: currentDoc, action: 'Approve' }),
+            sessionCookie,
+          }
+        );
+        if (wf3.message) {
+          currentDoc = wf3.message;
+        }
+      } catch (err: any) {
+        console.warn('Approve workflow transition error:', err?.message || err);
+      }
+    }
+
+    // Re-fetch fresh trip document from server to ensure complete synchronized attributes
+    try {
+      const freshRes = await frappeFetch<{ data: any }>(
+        `/api/resource/Mining%20Trip/${encodeURIComponent(id)}`,
+        { sessionCookie }
       );
-      if (wfRes.message) finalData = wfRes.message;
-    } catch (wfErr: any) {
-      console.warn('Trip finalize workflow transition:', wfErr?.message || wfErr);
+      if (freshRes.data) {
+        currentDoc = freshRes.data;
+      }
+    } catch {
+      // Keep currentDoc
     }
   }
 
-  return mapMiningTrip(finalData);
+  return mapMiningTrip(currentDoc);
 }
 
 export async function applyTripTransition(

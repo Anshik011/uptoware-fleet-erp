@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Vehicle, Driver, MineSite, CreateMiningTripInput, FleetLead } from '@/types/fleet';
 import { toLocalDateTimeInput } from '@/lib/datetime';
+import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import { useMine } from '@/context/MineContext';
 import {
   X,
@@ -436,7 +437,7 @@ export function CreateTripModal({
         leadKm: leadKm !== '' ? leadKm : undefined,
         leadRate: leadRate !== '' ? Number(leadRate) : undefined,
         tripCount: Number(tripCount || 1),
-        averageTonnage: effectiveTonnage,
+        averageTonnage: tripEntryMode === 'reconcile' ? effectiveTonnage : undefined,
         shift: shift || 'Shift A',
       };
 
@@ -794,7 +795,14 @@ export function CreateTripModal({
                     <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
                       {supervisorTrips.map((t) => {
                         const isReconciled = t.workflowState === 'Approved' || t.tripStatus === 'Approved';
-                        const hasAverage = t.averageTonnage && t.averageTonnage > 0;
+                        const hasAverage = t.averageTonnage != null && Number(t.averageTonnage) > 0;
+                        const rawDate = t.dispatchDateTime
+                          ? (t.dispatchDateTime.includes('T') ? t.dispatchDateTime.split('T')[0] : t.dispatchDateTime.split(' ')[0])
+                          : '';
+                        const dateFormatted = rawDate && rawDate.includes('-')
+                          ? rawDate.split('-').reverse().join('.')
+                          : (rawDate || 'Today');
+
                         return (
                           <div
                             key={t.id}
@@ -803,11 +811,14 @@ export function CreateTripModal({
                             <div className="flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-mono font-bold text-xs text-slate-900">{t.id}</span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 font-mono">
+                                  {dateFormatted}
+                                </span>
                                 <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
                                   {t.shift || 'Shift A'}
                                 </span>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                                  {t.vehicle}
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-900">
+                                  {formatVehicleDisplay(t.vehicle)}
                                 </span>
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
                                   isReconciled
@@ -818,18 +829,17 @@ export function CreateTripModal({
                                 </span>
                               </div>
                               <div className="text-xs text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-                                <span>Route: <strong>{t.lead || t.destination || 'Direct Route'}</strong></span>
-                                <span>Trips: <strong className="text-slate-900">{t.tripCount || 1}</strong></span>
-                                <span>
-                                  Avg:{' '}
-                                  {hasAverage ? (
-                                    <strong className="text-emerald-700 font-mono">{t.averageTonnage} T</strong>
-                                  ) : (
-                                    <span className="text-amber-600 font-medium">Pending Average</span>
-                                  )}
-                                </span>
-                                {t.calculatedQuantity ? (
-                                  <span>Total: <strong className="font-mono text-blue-900">{t.calculatedQuantity} T</strong></span>
+                                <span>Route: <strong className="text-slate-900">{t.lead || t.destination || 'Direct Route'}</strong></span>
+                                <span>Trips: <strong className="text-blue-900 font-bold">{t.tripCount || 1}</strong></span>
+                                {isReconciled && hasAverage ? (
+                                  <>
+                                    <span>
+                                      Avg: <strong className="text-emerald-700 font-mono">{t.averageTonnage} T</strong>
+                                    </span>
+                                    {t.calculatedQuantity ? (
+                                      <span>Total: <strong className="font-mono text-blue-900">{t.calculatedQuantity} T</strong></span>
+                                    ) : null}
+                                  </>
                                 ) : null}
                               </div>
                             </div>
@@ -882,8 +892,8 @@ export function CreateTripModal({
                   </div>
 
                   {/* Auto-shown Supervisor Fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 sm:gap-4">
-                    <div className="sm:col-span-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+                    <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                         Date & Time <span className="text-rose-500">*</span>
                       </label>

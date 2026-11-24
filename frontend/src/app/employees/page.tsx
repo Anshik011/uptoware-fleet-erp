@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmployeeProfile, EmployeeAttendance, EmployeeAttendanceSummary } from '@/types/fleet';
 import { formatVehicleDisplay, formatMineSiteDisplay } from '@/lib/displayFormatters';
+import { toLocalDateString } from '@/lib/datetime';
 import {
   Users,
   UserCheck,
@@ -115,7 +116,7 @@ function EmployeesContent() {
   };
 
   // Add Employee Modal
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => toLocalDateString(), []);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
@@ -1335,6 +1336,44 @@ function EmployeesContent() {
                         });
                       })()}
                     </tbody>
+                    {(() => {
+                      const transportVehicles = vehicles.filter((v) => {
+                        const t = (v.customTransportType || v.custom_transport_type || v.transportType || 'Transport').trim().toLowerCase();
+                        return t !== 'non transport' && !t.includes('non');
+                      });
+                      if (transportVehicles.length === 0) return null;
+
+                      const countPresent = (shift: string) => {
+                        return transportVehicles.filter((veh) => {
+                          const vPlate = veh.licensePlate || veh.name;
+                          const att = attendanceRecords[`${vPlate}_${shift}`] || attendanceRecords[`${veh.id}_${shift}`];
+                          return att?.attendanceStatus === 'Present';
+                        }).length;
+                      };
+
+                      const shiftAPresent = countPresent('Shift A');
+                      const shiftBPresent = countPresent('Shift B');
+                      const shiftCPresent = countPresent('Shift C');
+
+                      return (
+                        <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
+                          <tr>
+                            <td colSpan={2} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
+                              SHIFT WISE TOTAL (DRIVER / OPERATOR PRESENT COUNT)
+                            </td>
+                            <td className="py-3 px-4 text-left font-mono font-bold text-emerald-800 text-sm">
+                              Shift A: {shiftAPresent} Present
+                            </td>
+                            <td className="py-3 px-4 text-left font-mono font-bold text-emerald-800 text-sm">
+                              Shift B: {shiftBPresent} Present
+                            </td>
+                            <td className="py-3 px-4 text-left font-mono font-bold text-emerald-800 text-sm">
+                              Shift C: {shiftCPresent} Present
+                            </td>
+                          </tr>
+                        </tfoot>
+                      );
+                    })()}
                   </table>
                 </div>
               </div>
