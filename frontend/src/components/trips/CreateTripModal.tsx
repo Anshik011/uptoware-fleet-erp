@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Vehicle, Driver, MineSite, CreateMiningTripInput, FleetLead } from '@/types/fleet';
-import { toLocalDateTimeInput } from '@/lib/datetime';
+import { toLocalDateString, toLocalDateTimeInput } from '@/lib/datetime';
 import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import { useMine } from '@/context/MineContext';
 import {
@@ -471,7 +471,7 @@ export function CreateTripModal({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-4 sm:my-8">
+      <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden my-4 sm:my-8">
         {/* Modal Header */}
         <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50/75 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -837,16 +837,6 @@ export function CreateTripModal({
                               <div className="text-xs text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                                 <span>Route: <strong className="text-slate-900">{t.lead || t.destination || 'Direct Route'}</strong></span>
                                 <span>Trips: <strong className="text-blue-900 font-bold">{t.tripCount || 1}</strong></span>
-                                {isReconciled && hasAverage ? (
-                                  <>
-                                    <span>
-                                      Avg: <strong className="text-emerald-700 font-mono">{t.averageTonnage} T</strong>
-                                    </span>
-                                    {t.calculatedQuantity ? (
-                                      <span>Total: <strong className="font-mono text-blue-900">{t.calculatedQuantity} T</strong></span>
-                                    ) : null}
-                                  </>
-                                ) : null}
                               </div>
                             </div>
                             <button

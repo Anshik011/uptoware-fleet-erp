@@ -925,15 +925,20 @@ export function HsdAverageMenu() {
               icon={Save}
               onClick={saveHsdLogToLedger}
               disabled={isLoading}
-              className="bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+              className="bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 font-bold"
             >
-              Save to Vehicle Ledger
+              Save to Vehicle Ledger & Income
             </Button>
             <Button
               variant="outline"
               size="sm"
               icon={FileText}
-              onClick={() => setIsPreviewOpen(true)}
+              onClick={() => {
+                if (fuelFilledLitres > 0) {
+                  saveHsdLogToLedger();
+                }
+                setIsPreviewOpen(true);
+              }}
             >
               View Official Sheet
             </Button>
@@ -941,7 +946,12 @@ export function HsdAverageMenu() {
               variant="primary"
               size="sm"
               icon={Printer}
-              onClick={handlePrint}
+              onClick={() => {
+                if (fuelFilledLitres > 0) {
+                  saveHsdLogToLedger();
+                }
+                handlePrint();
+              }}
             >
               Print 1-Page Official Sheet
             </Button>

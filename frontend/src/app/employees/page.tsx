@@ -1346,7 +1346,14 @@ function EmployeesContent() {
                       const countPresent = (shift: string) => {
                         return transportVehicles.filter((veh) => {
                           const vPlate = veh.licensePlate || veh.name;
-                          const att = attendanceRecords[`${vPlate}_${shift}`] || attendanceRecords[`${veh.id}_${shift}`];
+                          const assignedDriverId = veh.assignedDriverId || veh.assignedDriver;
+                          const assignedDriverObj = employees.find(
+                            (e) => e.id === assignedDriverId || e.assignedVehicle === vPlate
+                          );
+                          const att =
+                            attendanceRecords[`${vPlate}_${shift}`] ||
+                            attendanceRecords[`${veh.id}_${shift}`] ||
+                            (assignedDriverObj ? attendanceRecords[`${assignedDriverObj.id}_${shift}`] : undefined);
                           return att?.attendanceStatus === 'Present';
                         }).length;
                       };
@@ -1361,13 +1368,13 @@ function EmployeesContent() {
                             <td colSpan={2} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
                               SHIFT WISE TOTAL (DRIVER / OPERATOR PRESENT COUNT)
                             </td>
-                            <td className="py-3 px-4 text-left font-mono font-bold text-emerald-800 text-sm">
+                            <td className="py-3 px-4 text-center font-mono font-bold text-emerald-800 text-sm">
                               Shift A: {shiftAPresent} Present
                             </td>
-                            <td className="py-3 px-4 text-left font-mono font-bold text-emerald-800 text-sm">
+                            <td className="py-3 px-4 text-center font-mono font-bold text-emerald-800 text-sm">
                               Shift B: {shiftBPresent} Present
                             </td>
-                            <td className="py-3 px-4 text-left font-mono font-bold text-emerald-800 text-sm">
+                            <td className="py-3 px-4 text-center font-mono font-bold text-emerald-800 text-sm">
                               Shift C: {shiftCPresent} Present
                             </td>
                           </tr>
