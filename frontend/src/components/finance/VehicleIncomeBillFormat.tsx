@@ -363,7 +363,7 @@ export function VehicleIncomeBillFormat({
   return (
     <div className="space-y-4">
       {/* Top Action Ribbon */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-xl shadow-xs print:hidden">
         <div className="flex items-center space-x-3">
           <div className="p-2 bg-blue-50 text-blue-700 rounded-lg">
             <FileSpreadsheet className="w-5 h-5" />
@@ -443,7 +443,7 @@ export function VehicleIncomeBillFormat({
 
       {/* Dynamic Data Notification Banner */}
       {isLiveTrips ? (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 flex-wrap gap-2">
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 flex-wrap gap-2 print:hidden">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>
@@ -455,7 +455,7 @@ export function VehicleIncomeBillFormat({
           </div>
         </div>
       ) : (
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-xs text-slate-600">
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-xs text-slate-600 print:hidden">
           <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
           <span>
             No reconciled mining trips recorded yet for <strong>{selectedVehicle}</strong> in this billing period. Showing the standard baseline format below. When trips are finalized in <em>Site Supervisor Reconcile Trip Entry</em>, their lead-wise amounts, HSD diesel, and deductions will automatically calculate here.
@@ -464,7 +464,7 @@ export function VehicleIncomeBillFormat({
       )}
 
       {/* Official Bill Card */}
-      <div className="bg-white border-2 border-slate-900 rounded-xl p-6 sm:p-8 shadow-xs space-y-6 text-slate-900">
+      <div className="official-bill-document bg-white border-2 border-slate-900 rounded-xl p-6 sm:p-8 shadow-xs space-y-6 text-slate-900 print:border print:p-4 print:space-y-4">
         {/* Bill Top Bar */}
         <div className="text-center border-b-2 border-slate-900 pb-3">
           <h1 className="text-xl sm:text-2xl font-black uppercase tracking-widest">BILL</h1>

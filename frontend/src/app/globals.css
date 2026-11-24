@@ -19,8 +19,13 @@ body {
   box-sizing: border-box;
 }
 
-/* Global Print Styles to prevent blank pages */
+/* Global Print Styles for 1-Page Official Bills & Invoices */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+
   /* Reset body and container heights/overflows so print engines don't truncate scrollable viewports */
   html, body {
     height: auto !important;
@@ -28,36 +33,71 @@ body {
     overflow: visible !important;
     background: #ffffff !important;
     color: #000000 !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
   }
 
-  /* Hide app navigation sidebar, headers, and UI chrome */
+  /* Hide app navigation sidebar, headers, backdrop overlays, and UI buttons */
   aside,
   header,
   nav,
+  button,
   .print\:hidden {
     display: none !important;
+  }
+
+  /* If printing from a modal, remove the fixed dark overlay and backdrop blur */
+  .fixed,
+  .backdrop-blur-xs,
+  .bg-black\/60 {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   /* Reset layout flex/overflow constraints */
   .min-h-screen,
   .h-screen,
   .overflow-hidden,
-  .overflow-y-auto {
+  .overflow-y-auto,
+  .overflow-x-auto {
     height: auto !important;
     min-height: auto !important;
     overflow: visible !important;
     max-height: none !important;
   }
 
-  /* Clean up cards, borders, and shadows for clean A4 printing */
+  /* Enforce clean official document borders and zero shadow */
   .shadow-sm,
   .shadow-xs,
   .shadow-md,
-  .shadow-lg {
+  .shadow-lg,
+  .shadow-2xl {
     box-shadow: none !important;
   }
 
-  .border {
-    border-color: #cbd5e1 !important;
+  .border,
+  .border-2 {
+    border-color: #000000 !important;
+  }
+
+  /* Prevent page breaks inside critical financial blocks to guarantee 1-page fit */
+  .official-bill-document,
+  .hsd-calc-sheet {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  tr, td, th {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
