@@ -15,10 +15,12 @@ import {
   CheckCircle2,
   Printer,
   ChevronRight,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatVehicleDisplay } from '@/lib/displayFormatters';
+import { OfficialHsdAverageSheet, ShiftTripAuditItem } from './OfficialHsdAverageSheet';
 
 interface LeadOption {
   name: string;
@@ -45,6 +47,13 @@ export function HsdAverageMenu() {
   const [fuelFilledLitres, setFuelFilledLitres] = useState<number>(200.0);
   const [isFullTank, setIsFullTank] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
+
+  const handlePrint = () => {
+    const encodedTrips = encodeURIComponent(JSON.stringify(cycleTrips));
+    const url = `/fuel/average/print?vehicle=${encodeURIComponent(selectedVehicle)}&date=${encodeURIComponent(fillingDate)}&shift=${encodeURIComponent(fillingShift)}&litres=${fuelFilledLitres}&fulltank=${isFullTank}&autoprint=true&trips=${encodedTrips}`;
+    window.open(url, '_blank', 'width=1000,height=900,scrollbars=yes');
+  };
 
   // Pre-configured shift breakdown items (initialized with exact client scenario)
   const [cycleTrips, setCycleTrips] = useState<ShiftTripItem[]>([
@@ -584,20 +593,48 @@ export function HsdAverageMenu() {
         </div>
 
         {/* Print & Action Footer */}
-        <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between print:hidden">
+        <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
           <div className="text-xs text-slate-500">
             Certified against ground fuel dispensations and supervisor trip manifests.
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={Printer}
-            onClick={() => window.print()}
-          >
-            Print Calculation Sheet
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={FileText}
+              onClick={() => setIsPreviewOpen(true)}
+            >
+              View Official Sheet
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Printer}
+              onClick={handlePrint}
+            >
+              Print 1-Page Official Sheet
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Official Assessment Sheet Modal Preview */}
+      {isPreviewOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <OfficialHsdAverageSheet
+              vehicleNo={selectedVehicle}
+              fillingDate={fillingDate}
+              fillingShift={fillingShift}
+              fuelFilledLitres={fuelFilledLitres}
+              isFullTank={isFullTank}
+              cycleTrips={cycleTrips}
+              onClose={() => setIsPreviewOpen(false)}
+              onPrint={handlePrint}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
