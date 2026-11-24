@@ -31,6 +31,7 @@ import {
   formatDriverDisplay,
   formatMineSiteDisplay,
 } from '@/lib/displayFormatters';
+import { toLocalDateString } from '@/lib/datetime';
 
 interface TripTableProps {
   trips: MiningTrip[];
@@ -75,28 +76,29 @@ export function TripTable({
   );
   const totalQuantitySum = useMemo(
     () =>
-      trips.reduce(
-        (acc, t) =>
-          acc +
-          Number(
-            t.calculatedQuantity ??
-              t.netWeightTons ??
-              Number(t.tripCount || 1) * 35
-          ),
-        0
-      ),
+      trips.reduce((acc, t) => {
+        const tripCnt = Number(t.tripCount || 1);
+        const q = Number(
+          t.calculatedQuantity ??
+            t.netWeightTons ??
+            (t.averageTonnage ? tripCnt * Number(t.averageTonnage) : 0)
+        );
+        return acc + (isNaN(q) ? 0 : q);
+      }, 0),
     [trips]
   );
   const totalAmountSum = useMemo(
     () =>
       trips.reduce((acc, t) => {
+        const tripCnt = Number(t.tripCount || 1);
         const q = Number(
           t.calculatedQuantity ??
             t.netWeightTons ??
-            Number(t.tripCount || 1) * 35
+            (t.averageTonnage ? tripCnt * Number(t.averageTonnage) : 0)
         );
-        const r = Number(t.leadRate ?? t.ratePerTon ?? 120);
-        return acc + Number(t.calculatedAmount ?? t.grossRevenue ?? q * r);
+        const r = Number(t.leadRate ?? t.ratePerTon ?? 0);
+        const a = Number(t.calculatedAmount ?? t.grossRevenue ?? (q * r));
+        return acc + (isNaN(a) ? 0 : a);
       }, 0),
     [trips]
   );
@@ -113,28 +115,30 @@ export function TripTable({
       'Amount (INR)',
     ];
     const rows = trips.map((t) => {
-      const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(' ')[0] : '2026-11-23';
+      const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(/[ T]/)[0] : toLocalDateString();
       const veh = t.vehicle || '';
       const lead = t.lead || t.destination || '';
       const tripCnt = Number(t.tripCount || 1);
       const avgTons = Number(
         t.averageTonnage ||
           (t.calculatedQuantity && tripCnt > 0 ? Number(t.calculatedQuantity) / tripCnt : 0) ||
-          (t.netWeightTons && tripCnt > 0 ? Number(t.netWeightTons) / tripCnt : 0) ||
-          35
+          (t.netWeightTons && tripCnt > 0 ? Number(t.netWeightTons) / tripCnt : 0)
       );
-      const avg = `${avgTons} T`;
-      const qnt = Number(
+      const avg = avgTons > 0 ? `${avgTons} T` : '—';
+      const qntVal = Number(
         t.calculatedQuantity ??
           t.netWeightTons ??
-          tripCnt * 35
-      ).toFixed(2);
-      const rate = Number(t.leadRate ?? t.ratePerTon ?? 120).toFixed(2);
-      const amt = Number(
+          (avgTons > 0 ? tripCnt * avgTons : 0)
+      );
+      const qnt = qntVal > 0 ? qntVal.toFixed(2) : '—';
+      const rateVal = Number(t.leadRate ?? t.ratePerTon ?? 0);
+      const rate = rateVal > 0 ? rateVal.toFixed(2) : '—';
+      const amtVal = Number(
         t.calculatedAmount ??
           t.grossRevenue ??
-          parseFloat(qnt) * parseFloat(rate)
-      ).toFixed(2);
+          (qntVal > 0 && rateVal > 0 ? qntVal * rateVal : 0)
+      );
+      const amt = amtVal > 0 ? amtVal.toFixed(2) : '—';
       return [
         rawDate,
         veh,
@@ -153,7 +157,7 @@ export function TripTable({
     link.setAttribute('href', encodedUri);
     link.setAttribute(
       'download',
-      `Mining_Trips_${new Date().toISOString().split('T')[0]}.csv`
+      `Mining_Trips_${toLocalDateString()}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -382,20 +386,39 @@ export function TripTable({
               </tr>
             ) : (
               trips.map((trip) => {
-                const rawDate = trip.dispatchDateTime ? trip.dispatchDateTime.split(' ')[0] : '2026-11-23';
+                const rawDate = trip.dispatchDateTime ? trip.dispatchDateTime.split(/[ T]/)[0] : toLocalDateString();
                 const formattedDate = rawDate.includes('-') ? rawDate.split('-').reverse().join('.') : rawDate;
                 const tripCountVal = Number(trip.tripCount || 1);
-                const leadName = trip.lead || trip.destination || 'CHP';
-                const qntVal = Number(trip.calculatedQuantity ?? trip.netWeightTons ?? (tripCountVal * 35));
-                const rateVal = Number(trip.leadRate ?? trip.ratePerTon ?? 120);
-                const amountVal = Number(trip.calculatedAmount ?? trip.grossRevenue ?? (qntVal * rateVal));
+                const leadName = trip.lead || trip.destination || '—';
+
+                // Real average payload tonnage
+                const hasAvg = trip.averageTonnage != null || (trip.calculatedQuantity && tripCountVal > 0) || (trip.netWeightTons && tripCountVal > 0);
                 const avgTons = Number(
                   trip.averageTonnage ||
                     (trip.calculatedQuantity && tripCountVal > 0 ? Number(trip.calculatedQuantity) / tripCountVal : 0) ||
-                    (trip.netWeightTons && tripCountVal > 0 ? Number(trip.netWeightTons) / tripCountVal : 0) ||
-                    35
+                    (trip.netWeightTons && tripCountVal > 0 ? Number(trip.netWeightTons) / tripCountVal : 0)
                 );
-                const avgDisplay = `${avgTons} T`;
+                const avgDisplay = hasAvg && avgTons > 0 ? `${avgTons} T` : '—';
+
+                // Real calculated quantity
+                const hasQuantity = trip.calculatedQuantity != null || trip.netWeightTons != null || (hasAvg && avgTons > 0);
+                const qntVal = Number(
+                  trip.calculatedQuantity ??
+                    trip.netWeightTons ??
+                    (hasAvg && avgTons > 0 ? tripCountVal * avgTons : 0)
+                );
+
+                // Real contracted rate
+                const hasRate = (trip.leadRate != null && Number(trip.leadRate) > 0) || (trip.ratePerTon != null && Number(trip.ratePerTon) > 0);
+                const rateVal = Number(trip.leadRate ?? trip.ratePerTon ?? 0);
+
+                // Real valuation amount
+                const hasAmount = trip.calculatedAmount != null || trip.grossRevenue != null || (hasQuantity && hasRate);
+                const amountVal = Number(
+                  trip.calculatedAmount ??
+                    trip.grossRevenue ??
+                    (qntVal > 0 && rateVal > 0 ? qntVal * rateVal : 0)
+                );
 
                 return (
                   <tr
@@ -432,17 +455,19 @@ export function TripTable({
 
                     {/* Qnt */}
                     <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 text-xs">
-                      {qntVal.toFixed(2)} MT
+                      {hasQuantity && qntVal > 0 ? `${qntVal.toFixed(2)} MT` : '—'}
                     </td>
 
                     {/* Rate */}
                     <td className="py-3 px-4 text-right font-mono text-xs text-slate-700">
-                      ₹{rateVal.toFixed(2)}
+                      {hasRate && rateVal > 0 ? `₹${rateVal.toFixed(2)}` : '—'}
                     </td>
 
                     {/* Amount */}
                     <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700 text-xs">
-                      ₹{amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {hasAmount && amountVal > 0
+                        ? `₹${amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : '—'}
                     </td>
 
                     {/* Edit / Action */}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { toLocalDateString } from '@/lib/datetime';
 import {
   FileSpreadsheet,
   Printer,
@@ -269,20 +270,37 @@ export function VehicleIncomeBillFormat({
           : (fuelJson.success && Array.isArray(fuelJson.entries) ? fuelJson.entries : []);
 
       const cleanStr = (v: string) => String(v || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      const targetClean = cleanStr(selectedVehicle);
-      const targetDigits = targetClean.replace(/[^0-9]/g, '');
-      const targetOd = targetClean.replace(/^00/, 'od');
-      const target00 = targetClean.replace(/^od/, '00');
+      const selectedVehObj = vehicleList.find(
+        (v) => v.id === selectedVehicle || v.licensePlate === selectedVehicle
+      );
+
+      const targetIdentifiers = new Set<string>();
+      if (selectedVehicle) {
+        targetIdentifiers.add(cleanStr(selectedVehicle));
+        targetIdentifiers.add(cleanStr(selectedVehicle).replace(/^00/, 'od'));
+        targetIdentifiers.add(cleanStr(selectedVehicle).replace(/^od/, '00'));
+      }
+      if (selectedVehObj) {
+        targetIdentifiers.add(cleanStr(selectedVehObj.id));
+        targetIdentifiers.add(cleanStr(selectedVehObj.licensePlate));
+        targetIdentifiers.add(cleanStr(selectedVehObj.licensePlate).replace(/^00/, 'od'));
+        targetIdentifiers.add(cleanStr(selectedVehObj.licensePlate).replace(/^od/, '00'));
+      }
 
       const vehicleFuel = rawFuel.filter((f) => {
-        const fClean = cleanStr(f.vehicle || f.licensePlate || '');
-        if (!fClean) return false;
-        return (
-          fClean === targetClean ||
-          fClean === targetOd ||
-          fClean === target00 ||
-          (targetDigits.length >= 4 && fClean.includes(targetDigits))
-        );
+        const fVeh = cleanStr(f.vehicle || '');
+        const fPlate = cleanStr(f.licensePlate || '');
+        if (!fVeh && !fPlate) return false;
+
+        for (const target of targetIdentifiers) {
+          if (!target) continue;
+          if (fVeh === target || fPlate === target) return true;
+          const targetDigits = target.replace(/[^0-9]/g, '');
+          if (targetDigits.length >= 4 && (fVeh.includes(targetDigits) || fPlate.includes(targetDigits))) {
+            return true;
+          }
+        }
+        return false;
       });
 
       if (vehicleFuel.length > 0) {
@@ -290,13 +308,13 @@ export function VehicleIncomeBillFormat({
         const fuelDateMap = new Map<string, { date: string; qty: number; rates: number[]; amounts: number[] }>();
 
         vehicleFuel.forEach((f) => {
-          const rawDate = f.fuelDate || f.date || f.postingDate || '2026-11-23';
+          const rawDate = f.fuelDate || f.date || f.postingDate || toLocalDateString();
           const dateStr = rawDate.includes('-')
             ? rawDate.split('-').reverse().join('.')
             : rawDate;
 
           const qtyLtr = Number(f.quantityLitres || f.quantityLiters || f.fuelLiters || 0);
-          const rateLtr = Number(f.ratePerLitre || f.costPerLiter || f.rate || 94.98);
+          const rateLtr = Number(f.ratePerLitre || f.costPerLiter || f.rate || 0);
           const amt = Number(f.totalFuelCost || f.totalCost || f.amount || (qtyLtr * rateLtr));
 
           if (!fuelDateMap.has(dateStr)) {
@@ -324,14 +342,8 @@ export function VehicleIncomeBillFormat({
         setHsdEntries(computedHsd);
         setIsLiveFuel(true);
       } else {
-        // Guaranteed fallback for OD19D1199 / 0019D1199 from HSD Average Menu calculation
-        if (targetClean.includes('1199') || targetDigits.includes('1199')) {
-          setHsdEntries([{ date: '23.11.2026', qty: 200, rate: 94.98, amount: 18996.00 }]);
-          setIsLiveFuel(true);
-        } else {
-          setHsdEntries([]);
-          setIsLiveFuel(true);
-        }
+        setHsdEntries([]);
+        setIsLiveFuel(false);
       }
 
       // Process Spare Parts Sales (linked vehicle deduction)

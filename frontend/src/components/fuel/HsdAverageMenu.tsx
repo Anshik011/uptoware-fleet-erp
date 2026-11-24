@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatVehicleDisplay } from '@/lib/displayFormatters';
+import { toLocalDateString } from '@/lib/datetime';
 import { OfficialHsdAverageSheet, ShiftTripAuditItem } from './OfficialHsdAverageSheet';
 
 interface LeadOption {
@@ -55,10 +56,10 @@ export function HsdAverageMenu() {
 
   // Filters & Selected State
   const [vehicles, setVehicles] = useState<Array<{ id: string; licensePlate: string }>>([]);
-  const [selectedVehicle, setSelectedVehicle] = useState<string>('OD19D1199');
-  const [fillingDate, setFillingDate] = useState<string>('2026-11-23');
+  const [selectedVehicle, setSelectedVehicle] = useState<string>('');
+  const [fillingDate, setFillingDate] = useState<string>(toLocalDateString());
   const [fillingShift, setFillingShift] = useState<string>('Shift A');
-  const [fuelFilledLitres, setFuelFilledLitres] = useState<number>(200.0);
+  const [fuelFilledLitres, setFuelFilledLitres] = useState<number>(0);
   const [isFullTank, setIsFullTank] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
@@ -71,33 +72,8 @@ export function HsdAverageMenu() {
     window.open(url, '_blank', 'width=1000,height=900,scrollbars=yes');
   };
 
-  // Pre-configured shift breakdown items (initialized with exact client scenario)
-  const [cycleTrips, setCycleTrips] = useState<ShiftTripItem[]>([
-    {
-      id: 'item-1',
-      date: '2026-11-22',
-      shift: 'Shift B',
-      leadName: 'CHP (3 KM)',
-      leadKm: 3.0,
-      tripCount: 3,
-    },
-    {
-      id: 'item-2',
-      date: '2026-11-22',
-      shift: 'Shift C',
-      leadName: 'Siding (5 KM)',
-      leadKm: 5.0,
-      tripCount: 3,
-    },
-    {
-      id: 'item-3',
-      date: '2026-11-23',
-      shift: 'Shift A',
-      leadName: 'S/M TO CHP (6 KM)',
-      leadKm: 6.0,
-      tripCount: 2,
-    },
-  ]);
+  // Shift breakdown items populated directly from live trips
+  const [cycleTrips, setCycleTrips] = useState<ShiftTripItem[]>([]);
 
   // Lead options loaded from database or predefined
   const [availableLeads, setAvailableLeads] = useState<LeadOption[]>([
@@ -144,26 +120,21 @@ export function HsdAverageMenu() {
           return fClean === vTargetClean || (vTargetDigits.length >= 4 && fClean.includes(vTargetDigits));
         });
 
-        const totalTrips = matchedTrips.reduce((acc: number, t: any) => acc + (Number(t.tripCount) || 1), 0) || (vTargetClean.includes('1199') ? 8 : 0);
+        const totalTrips = matchedTrips.reduce((acc: number, t: any) => acc + (Number(t.tripCount) || 1), 0);
 
         const totalRoundTripKm = matchedTrips.reduce((acc: number, t: any) => {
-          const leadKm = parseFloat(t.leadKm) || (t.lead?.includes('CHP') ? 3.0 : 5.0);
+          const leadKm = parseFloat(t.leadKm) || 0;
           const count = Number(t.tripCount) || 1;
           return acc + (leadKm * count * 2);
-        }, 0) || (vTargetClean.includes('1199') ? 72.0 : 0);
+        }, 0);
 
         const leadsSet = new Set<string>();
         matchedTrips.forEach((t: any) => {
           if (t.lead) leadsSet.add(t.lead);
           else if (t.destination) leadsSet.add(t.destination);
         });
-        if (leadsSet.size === 0 && vTargetClean.includes('1199')) {
-          leadsSet.add('CHP (3 KM)');
-          leadsSet.add('Siding (5 KM)');
-          leadsSet.add('S/M to CHP (6 KM)');
-        }
 
-        const hsdLitres = matchedFuel.reduce((acc: number, f: any) => acc + (Number(f.quantityLitres) || 0), 0) || (vTargetClean.includes('1199') ? 200.0 : 0);
+        const hsdLitres = matchedFuel.reduce((acc: number, f: any) => acc + (Number(f.quantityLitres) || 0), 0);
 
         const tripWiseAvg = totalTrips > 0 && hsdLitres > 0 ? Number((hsdLitres / totalTrips).toFixed(2)) : 0;
         const kmWiseAvg = totalRoundTripKm > 0 && hsdLitres > 0 ? Number((hsdLitres / totalRoundTripKm).toFixed(2)) : 0;
@@ -260,12 +231,12 @@ export function HsdAverageMenu() {
         // Group by date + shift + lead
         const cycleMap = new Map<string, ShiftTripItem>();
         rawTrips.forEach((t: any, idx: number) => {
-          const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(' ')[0] : '2026-11-23';
-          const shift = t.shift || (idx % 3 === 0 ? 'Shift A' : idx % 3 === 1 ? 'Shift B' : 'Shift C');
-          const leadName = t.lead || t.destination || 'CHP';
+          const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(/[ T]/)[0] : toLocalDateString();
+          const shift = t.shift || 'Shift A';
+          const leadName = t.lead || t.destination || 'Mining Route';
           const key = `${rawDate}__${shift}__${leadName}`;
           const tripCount = Number(t.tripCount || 1);
-          const leadKmVal = parseFloat(String(t.leadKm || 0)) || (leadName.includes('CHP') ? 3.0 : 5.0);
+          const leadKmVal = parseFloat(String(t.leadKm || 0)) || 0;
 
           if (!cycleMap.has(key)) {
             cycleMap.set(key, {
@@ -599,7 +570,7 @@ export function HsdAverageMenu() {
                   </option>
                 ))
               ) : (
-                <option value="OD19D1199">OD19D1199</option>
+                <option value="">-- No Vehicles Loaded --</option>
               )}
             </select>
           </div>

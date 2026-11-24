@@ -4,57 +4,32 @@ import React, { useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { OfficialHsdAverageSheet, ShiftTripAuditItem } from '@/components/fuel/OfficialHsdAverageSheet';
 import { Loader2, Printer, X } from 'lucide-react';
+import { toLocalDateString } from '@/lib/datetime';
 
 function PrintHsdAverageContent() {
   const searchParams = useSearchParams();
 
-  const vehicle = searchParams.get('vehicle') || 'OD19D1199';
-  const date = searchParams.get('date') || '2026-11-23';
+  const vehicle = searchParams.get('vehicle') || '';
+  const date = searchParams.get('date') || toLocalDateString();
   const shift = searchParams.get('shift') || 'Shift A';
-  const litres = parseFloat(searchParams.get('litres') || '200.00') || 200.0;
+  const litres = parseFloat(searchParams.get('litres') || '0') || 0;
   const isFullTank = searchParams.get('fulltank') !== 'false';
   const autoPrint = searchParams.get('autoprint') === 'true';
 
-  // Decode cycleTrips from URL or use standard client default scenario
+  // Decode cycleTrips from URL
   const cycleTrips: ShiftTripAuditItem[] = useMemo(() => {
     const rawTrips = searchParams.get('trips');
     if (rawTrips) {
       try {
         const parsed = JSON.parse(decodeURIComponent(rawTrips));
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       } catch (err) {
         console.warn('Failed to parse trips from search params:', err);
       }
     }
-    // Default client benchmark scenario
-    return [
-      {
-        id: 'shift-1',
-        date: '2026-11-22',
-        shift: 'Shift B',
-        leadName: 'CHP (3 KM)',
-        leadKm: 3.0,
-        tripCount: 3,
-      },
-      {
-        id: 'shift-2',
-        date: '2026-11-22',
-        shift: 'Shift C',
-        leadName: 'Siding (5 KM)',
-        leadKm: 5.0,
-        tripCount: 3,
-      },
-      {
-        id: 'shift-3',
-        date: '2026-11-23',
-        shift: 'Shift A',
-        leadName: 'S/M TO CHP (6 KM)',
-        leadKm: 6.0,
-        tripCount: 2,
-      },
-    ];
+    return [];
   }, [searchParams]);
 
   useEffect(() => {

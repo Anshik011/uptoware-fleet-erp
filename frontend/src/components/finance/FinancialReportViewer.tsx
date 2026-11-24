@@ -338,7 +338,7 @@ export function FinancialReportViewer() {
       )}
 
       {selectedReport === 'Vehicle Earning Summary Report' && billViewMode === 'bill' ? (
-        <VehicleIncomeBillFormat vehicleNo={vehicleFilter || 'OD19D1199'} periodFrom="01.01.2026" periodTo="15.01.2026" />
+        <VehicleIncomeBillFormat vehicleNo={vehicleFilter} periodFrom="01.01.2026" periodTo="15.01.2026" />
       ) : (
         /* Report Results */
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">

@@ -29,14 +29,17 @@ function TripsTableSection() {
   const { hasRole } = useAuth();
   const canManage = hasRole(['Fleet Manager', 'Dispatcher', 'Administrator']);
 
+  const isReportView = searchParams.get('view') === 'report';
+
   const [trips, setTrips] = useState<MiningTrip[]>([]);
+  const [allTripsForMetrics, setAllTripsForMetrics] = useState<MiningTrip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filters and Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>(
-    searchParams.get('status') || 'Delivered'
+    searchParams.get('status') || (isReportView ? 'ALL' : 'Delivered')
   );
   const [selectedMineSite, setSelectedMineSite] = useState<string>(
     searchParams.get('mine_site') || 'ALL'
@@ -76,9 +79,18 @@ function TripsTableSection() {
       if (selectedStatus !== 'ALL') params.set('status', selectedStatus);
       if (selectedMineSite !== 'ALL') params.set('mine_site', selectedMineSite);
 
-      const res = await fetch(`/api/trips?${params.toString()}`);
-      const json = await res.json();
+      // Concurrently fetch filtered trips for the table and all trips for the mine site metrics
+      const metricParams = new URLSearchParams();
+      metricParams.set('status', 'ALL');
+      metricParams.set('limit', '500');
+      if (selectedMineSite !== 'ALL') metricParams.set('mine_site', selectedMineSite);
 
+      const [res, metricRes] = await Promise.all([
+        fetch(`/api/trips?${params.toString()}`),
+        fetch(`/api/trips?${metricParams.toString()}`).catch(() => null),
+      ]);
+
+      const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Failed to fetch mining trips directory');
       }
@@ -99,6 +111,17 @@ function TripsTableSection() {
       }
 
       setTrips(data);
+
+      if (metricRes && metricRes.ok) {
+        const metricJson = await metricRes.json().catch(() => null);
+        if (metricJson?.success && Array.isArray(metricJson.data)) {
+          setAllTripsForMetrics(metricJson.data);
+        } else {
+          setAllTripsForMetrics(data);
+        }
+      } else {
+        setAllTripsForMetrics(data);
+      }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred while fetching trips');
     } finally {
@@ -110,21 +133,22 @@ function TripsTableSection() {
     fetchTrips();
   }, [fetchTrips]);
 
-  // Derived metric values - 100% computed from live data
-  const totalTrips = trips.length;
-  const inTransitTrips = trips.filter(
-    (t) => t.tripStatus === 'Dispatched' || t.tripStatus === 'Weighbridge Confirmed'
+  // Derived metric values - 100% computed from live records across the site
+  const metricsSource = allTripsForMetrics.length > 0 ? allTripsForMetrics : trips;
+  const totalTrips = metricsSource.length;
+  const inTransitTrips = metricsSource.filter(
+    (t) => t.tripStatus === 'Dispatched' || t.tripStatus === 'Draft'
   ).length;
-  const weighbridgePendingTrips = trips.filter(
-    (t) => t.tripStatus === 'Dispatched'
+  const weighbridgePendingTrips = metricsSource.filter(
+    (t) => t.tripStatus === 'Weighbridge Confirmed' || (t.tripStatus === 'Dispatched' && !t.averageTonnage)
   ).length;
-  const completedTrips = trips.filter(
-    (t) => t.tripStatus === 'Delivered'
+  const completedTrips = metricsSource.filter(
+    (t) => t.tripStatus === 'Delivered' || t.tripStatus === 'Approved'
   ).length;
 
   // Extract unique mine site options for filtering
   const mineSiteOptions = Array.from(
-    new Set(trips.map((t) => t.mineSite).filter(Boolean))
+    new Set(metricsSource.map((t) => t.mineSite).filter(Boolean))
   );
 
   const handleOpenActionModal = (trip: MiningTrip, action: string) => {
@@ -164,11 +188,15 @@ function TripsTableSection() {
   return (
     <>
       <PageHeader
-        title="Mining Trips & Haulage Dispatch"
-        subtitle="Manage dispatch operations, weighbridge tickets, and ore haulage logistics across active pits"
+        title={isReportView ? 'Mining Trips & Haulage Analytics Report' : 'Mining Trips & Haulage Dispatch'}
+        subtitle={
+          isReportView
+            ? 'Comprehensive vehicle-wise haulage log, weight reconciliation records, and dispatch analytics'
+            : 'Manage dispatch operations, weighbridge tickets, and ore haulage logistics across active pits'
+        }
         breadcrumbs={[
           { label: 'Fleet Operations', href: '/vehicles' },
-          { label: 'Mining Trips', href: '/trips' },
+          { label: isReportView ? 'Trip Report' : 'Mining Trips', href: '/trips' },
         ]}
         actions={
           canManage ? (
@@ -185,10 +213,18 @@ function TripsTableSection() {
         }
       />
 
-      {/* Dynamic KPI Cards Strip - 100% Dynamic from live records */}
+      {/* Dynamic KPI Cards Strip - 100% Dynamic from live records, clickable for instant filtering */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {/* Total Trips */}
-        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+        <div
+          onClick={() => setSelectedStatus('ALL')}
+          className={`p-4 sm:p-5 rounded-xl border transition-all cursor-pointer ${
+            selectedStatus === 'ALL'
+              ? 'bg-blue-50/60 border-blue-400 shadow-sm ring-1 ring-blue-500'
+              : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
+          } flex items-center gap-4`}
+          title="Click to view all trips"
+        >
           <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-center shrink-0">
             <Compass className="w-6 h-6" />
           </div>
@@ -202,12 +238,20 @@ function TripsTableSection() {
             >
               {isLoading ? '—' : totalTrips}
             </div>
-            <span className="text-[11px] text-slate-400">Haulage Log</span>
+            <span className="text-[11px] text-slate-400">All Haulage Logs</span>
           </div>
         </div>
 
         {/* Active In-Transit -> Site Supervisor Trip */}
-        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+        <div
+          onClick={() => setSelectedStatus('Dispatched')}
+          className={`p-4 sm:p-5 rounded-xl border transition-all cursor-pointer ${
+            selectedStatus === 'Dispatched'
+              ? 'bg-blue-50/60 border-blue-400 shadow-sm ring-1 ring-blue-500'
+              : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
+          } flex items-center gap-4`}
+          title="Click to view site supervisor dispatched trips"
+        >
           <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0">
             <Truck className="w-6 h-6" />
           </div>
@@ -228,7 +272,15 @@ function TripsTableSection() {
         </div>
 
         {/* Weighbridge Pending -> Reconcile Trip */}
-        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+        <div
+          onClick={() => setSelectedStatus('Weighbridge Confirmed')}
+          className={`p-4 sm:p-5 rounded-xl border transition-all cursor-pointer ${
+            selectedStatus === 'Weighbridge Confirmed'
+              ? 'bg-amber-50/60 border-amber-400 shadow-sm ring-1 ring-amber-500'
+              : 'bg-white border-slate-200 hover:border-amber-300 shadow-xs'
+          } flex items-center gap-4`}
+          title="Click to view trips pending reconcile"
+        >
           <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
             <Scale className="w-6 h-6" />
           </div>
@@ -243,13 +295,21 @@ function TripsTableSection() {
               {isLoading ? '—' : weighbridgePendingTrips}
             </div>
             <span className="text-[11px] text-amber-600 font-medium">
-              Awaiting Weighment
+              Awaiting Reconcile
             </span>
           </div>
         </div>
 
         {/* Completed Deliveries */}
-        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-4">
+        <div
+          onClick={() => setSelectedStatus('Delivered')}
+          className={`p-4 sm:p-5 rounded-xl border transition-all cursor-pointer ${
+            selectedStatus === 'Delivered'
+              ? 'bg-teal-50/60 border-teal-400 shadow-sm ring-1 ring-teal-500'
+              : 'bg-white border-slate-200 hover:border-teal-300 shadow-xs'
+          } flex items-center gap-4`}
+          title="Click to view completed trips"
+        >
           <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-6 h-6" />
           </div>

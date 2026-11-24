@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react';
 
 function PrintBillContent() {
   const searchParams = useSearchParams();
-  const vehicle = searchParams.get('vehicle') || 'OD19D1199';
+  const vehicle = searchParams.get('vehicle') || '';
   const periodFrom = searchParams.get('from') || '01.01.2026';
   const periodTo = searchParams.get('to') || '15.01.2026';
   const autoPrint = searchParams.get('autoprint') === 'true';

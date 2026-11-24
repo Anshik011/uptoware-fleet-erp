@@ -314,7 +314,13 @@ export function CreateTripModal({
     setRatePerTon(resolvedRate);
 
     setTripCount(t.tripCount || 1);
-    setAverageTonnage(t.averageTonnage || t.payloadCapacityTons || (t.netWeightTons ? (t.netWeightTons / (t.tripCount || 1)) : 35));
+    setAverageTonnage(
+      t.averageTonnage
+        ? Number(t.averageTonnage)
+        : t.netWeightTons && t.tripCount
+        ? Number((t.netWeightTons / t.tripCount).toFixed(2))
+        : ''
+    );
     setChallanNumber(t.challanNumber || '');
     setError(null);
     setReconcileActionSuccess(null);
