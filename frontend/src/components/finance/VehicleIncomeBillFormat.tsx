@@ -41,12 +41,36 @@ interface HsdRow {
   amount: number;
 }
 
+interface CustomerParty {
+  name: string;
+  address?: string;
+  gstin?: string;
+}
+
 interface VehicleIncomeBillFormatProps {
   vehicleNo?: string;
   periodFrom?: string;
   periodTo?: string;
   isPrintView?: boolean;
 }
+
+const DEFAULT_CUSTOMERS: Record<string, CustomerParty> = {
+  'Om Maa Coal Transport Firm': {
+    name: 'Om Maa Coal Transport Firm',
+    address: 'At/Po- Kandhal, PS- Talcher, Dist- Angul, Odisha',
+    gstin: '21AAEFO2835K1ZE',
+  },
+  'JBR Eastern Pvt Ltd': {
+    name: 'JBR Eastern Pvt Ltd',
+    address: 'Talcher Colliery, Angul, Odisha',
+    gstin: '21AAACJ1234F1Z8',
+  },
+  'MCL (Mahanadi Coalfields)': {
+    name: 'Mahanadi Coalfields Limited',
+    address: 'Jagriti Vihar, Burla, Sambalpur, Odisha',
+    gstin: '21AACCM0923L1ZM',
+  },
+};
 
 // Client standard baseline template from official invoice (01.01_TO_15.01-9425-1.pdf)
 // Used ONLY when previewing the baseline demo layout when 0 live records exist
@@ -99,6 +123,25 @@ export function VehicleIncomeBillFormat({
   const [isLiveTrips, setIsLiveTrips] = useState(false);
   const [isLiveFuel, setIsLiveFuel] = useState(false);
   const [isLiveParts, setIsLiveParts] = useState(false);
+
+  // Dynamic Bill Parties
+  const [billNo, setBillNo] = useState(`BILL/${new Date().getFullYear()}/${String(Math.floor(Math.random() * 900) + 100)}`);
+  const [billDate, setBillDate] = useState(() => {
+    const d = new Date();
+    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+  });
+
+  const [billFromName, setBillFromName] = useState('M/S JAGANNATH TRADING AND TRANSPORTING');
+  const [billFromAddress, setBillFromAddress] = useState('At- BHAJANIPUR, PS - Talcher, Odisha, PIN- 759103, Dist- Angul');
+  const [billFromGstin, setBillFromGstin] = useState('21AKVPP2788B3ZV');
+
+  const [billToName, setBillToName] = useState('Om Maa Coal Transport Firm');
+  const [billToAddress, setBillToAddress] = useState('At/Po- Kandhal, PS- Talcher, Dist- Angul, Odisha');
+  const [billToGstin, setBillToGstin] = useState('21AAEFO2835K1ZE');
+  const [workDescription, setWorkDescription] = useState('Transportation of coal at Lingaraj OCP.');
+  const [sacCode, setSacCode] = useState('998622');
+
+  const [customerOptions, setCustomerOptions] = useState<CustomerParty[]>(Object.values(DEFAULT_CUSTOMERS));
 
   const [leadsData, setLeadsData] = useState<LeadRow[]>([]);
   const [hsdEntries, setHsdEntries] = useState<HsdRow[]>([]);
@@ -482,39 +525,130 @@ export function VehicleIncomeBillFormat({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-b border-slate-300 pb-4 text-xs">
           {/* Bill From */}
           <div className="space-y-1">
-            <div className="flex justify-between">
-              <span className="font-bold">Bill No: <span className="font-mono">BILL/2026/011</span></span>
+            <div className="flex justify-between items-center">
+              <span className="font-bold">
+                Bill No:{' '}
+                <input
+                  type="text"
+                  value={billNo}
+                  onChange={(e) => setBillNo(e.target.value)}
+                  className="font-mono font-bold bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+                />
+              </span>
             </div>
             <div className="font-bold text-slate-700 uppercase mt-2">Bill From:</div>
-            <div className="text-sm font-black text-slate-900">M/S JAGANNATH TRADING AND TRANSPORTING</div>
-            <div className="text-slate-600">At- BHAJANIPUR, PS - Talcher</div>
-            <div className="text-slate-600">Odisha, PIN- 759103, Dist- Angul</div>
-            <div className="font-semibold text-slate-900 mt-1">GSTIN: <span className="font-mono font-bold">21AKVPP2788B3ZV</span></div>
-            <div className="font-bold text-blue-900 mt-1">V. No- <span className="font-mono text-sm">{selectedVehicle}</span></div>
+            <input
+              type="text"
+              value={billFromName}
+              onChange={(e) => setBillFromName(e.target.value)}
+              className="text-sm font-black text-slate-900 w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+            />
+            <input
+              type="text"
+              value={billFromAddress}
+              onChange={(e) => setBillFromAddress(e.target.value)}
+              className="text-slate-600 w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none text-[11px]"
+            />
+            <div className="font-semibold text-slate-900 mt-1 flex items-center gap-1">
+              <span>GSTIN:</span>
+              <input
+                type="text"
+                value={billFromGstin}
+                onChange={(e) => setBillFromGstin(e.target.value)}
+                className="font-mono font-bold bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+              />
+            </div>
+            <div className="font-bold text-blue-900 mt-1">
+              V. No- <span className="font-mono text-sm">{selectedVehicle}</span>
+            </div>
           </div>
 
           {/* Bill To */}
           <div className="space-y-1 sm:text-right">
             <div>
-              <span className="font-bold">Date: <span className="font-mono font-normal">30.01.2026</span></span>
+              <span className="font-bold">
+                Date:{' '}
+                <input
+                  type="text"
+                  value={billDate}
+                  onChange={(e) => setBillDate(e.target.value)}
+                  className="font-mono font-normal text-right bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+                />
+              </span>
             </div>
-            <div className="font-bold text-slate-700 uppercase mt-2">Bill To:</div>
-            <div className="text-sm font-black text-slate-900">Om Maa Coal Transport Firm</div>
-            <div className="text-slate-600">At/Po- Kandhal, PS- Talcher</div>
-            <div className="text-slate-600">Dist- Angul, Odisha</div>
-            <div className="font-semibold text-slate-900 mt-1">GSTIN: <span className="font-mono font-bold">21AAEFO2835K1ZE</span></div>
+            <div className="flex items-center justify-end gap-2 mt-2">
+              <span className="font-bold text-slate-700 uppercase">Bill To:</span>
+              {/* Customer Selector Dropdown for easy switching */}
+              <select
+                onChange={(e) => {
+                  const found = customerOptions.find((c) => c.name === e.target.value);
+                  if (found) {
+                    setBillToName(found.name);
+                    if (found.address) setBillToAddress(found.address);
+                    if (found.gstin) setBillToGstin(found.gstin);
+                  } else {
+                    setBillToName(e.target.value);
+                  }
+                }}
+                className="text-[10px] bg-slate-100 border border-slate-300 rounded px-1.5 py-0.5 print:hidden"
+              >
+                <option value="">-- Choose Client --</option>
+                {customerOptions.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <input
+              type="text"
+              value={billToName}
+              onChange={(e) => setBillToName(e.target.value)}
+              className="text-sm font-black text-slate-900 sm:text-right w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+            />
+            <input
+              type="text"
+              value={billToAddress}
+              onChange={(e) => setBillToAddress(e.target.value)}
+              className="text-slate-600 sm:text-right w-full bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none text-[11px]"
+            />
+            <div className="font-semibold text-slate-900 mt-1 flex items-center sm:justify-end gap-1">
+              <span>GSTIN:</span>
+              <input
+                type="text"
+                value={billToGstin}
+                onChange={(e) => setBillToGstin(e.target.value)}
+                className="font-mono font-bold bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+              />
+            </div>
           </div>
         </div>
 
         {/* Operational Context Strip */}
         <div className="flex flex-wrap items-center justify-between text-xs py-2 px-3 bg-slate-100 rounded-lg border border-slate-200">
-          <div>
-            <span className="font-bold text-slate-700">Description of Work:</span>{' '}
-            <span className="font-semibold text-slate-900">Transportation of coal at Lingaraj OCP.</span>
+          <div className="flex-1 flex items-center gap-1.5">
+            <span className="font-bold text-slate-700 whitespace-nowrap">Description of Work:</span>
+            <input
+              type="text"
+              value={workDescription}
+              onChange={(e) => setWorkDescription(e.target.value)}
+              className="font-semibold text-slate-900 bg-transparent border-b border-dotted border-slate-400 w-full focus:outline-none print:border-none"
+            />
           </div>
-          <div className="flex items-center space-x-4">
-            <div><span className="font-bold text-slate-700">SAC:</span> <span className="font-mono font-bold">998622</span></div>
-            <div><span className="font-bold text-slate-700">Period:</span> <span className="font-mono font-bold">{periodFrom} to {periodTo}</span></div>
+          <div className="flex items-center space-x-4 shrink-0 pl-3">
+            <div className="flex items-center gap-1">
+              <span className="font-bold text-slate-700">SAC:</span>
+              <input
+                type="text"
+                value={sacCode}
+                onChange={(e) => setSacCode(e.target.value)}
+                className="font-mono font-bold w-16 bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:border-none"
+              />
+            </div>
+            <div>
+              <span className="font-bold text-slate-700">Period:</span>{' '}
+              <span className="font-mono font-bold">{periodFrom} to {periodTo}</span>
+            </div>
           </div>
         </div>
 
