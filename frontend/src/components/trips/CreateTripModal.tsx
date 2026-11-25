@@ -96,7 +96,7 @@ export function CreateTripModal({
   // Tab 1 (Site Supervisor Today-only My vs Others) & Tab 2 (Reconcile Filters)
   const [supervisorEntryScope, setSupervisorEntryScope] = useState<'mine' | 'others'>('mine');
   const [reconcileStatusFilter, setReconcileStatusFilter] = useState<'ALL' | 'PENDING' | 'COMPLETED'>('ALL');
-  const [reconcileDateFilter, setReconcileDateFilter] = useState<string>('');
+  const [reconcileDateFilter, setReconcileDateFilter] = useState<string>(() => toLocalDateString());
   const [reconcileVehicleFilter, setReconcileVehicleFilter] = useState<string>('ALL');
   const [reconcileShiftFilter, setReconcileShiftFilter] = useState<string>('ALL');
   const [reconcileSearch, setReconcileSearch] = useState<string>('');
@@ -959,7 +959,7 @@ export function CreateTripModal({
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => setReconcileDateFilter(reconcileDateFilter === todayIso ? '' : todayIso)}
+                                onClick={() => setReconcileDateFilter(todayIso)}
                                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
                                   reconcileDateFilter === todayIso
                                     ? 'bg-blue-900 text-white border-blue-900'
@@ -968,8 +968,19 @@ export function CreateTripModal({
                               >
                                 Today Only
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => setReconcileDateFilter('')}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                  reconcileDateFilter === ''
+                                    ? 'bg-blue-900 text-white border-blue-900'
+                                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                                }`}
+                              >
+                                All Dates
+                              </button>
                               {(reconcileStatusFilter !== 'ALL' ||
-                                reconcileDateFilter ||
+                                reconcileDateFilter !== todayIso ||
                                 reconcileVehicleFilter !== 'ALL' ||
                                 reconcileShiftFilter !== 'ALL' ||
                                 reconcileSearch) && (
@@ -977,7 +988,7 @@ export function CreateTripModal({
                                   type="button"
                                   onClick={() => {
                                     setReconcileStatusFilter('ALL');
-                                    setReconcileDateFilter('');
+                                    setReconcileDateFilter(todayIso);
                                     setReconcileVehicleFilter('ALL');
                                     setReconcileShiftFilter('ALL');
                                     setReconcileSearch('');
