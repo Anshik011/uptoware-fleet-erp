@@ -104,6 +104,23 @@ export async function POST(
       }
     }
 
+    // Strict validation for Approve: mandatory photo evidence
+    if (trimmedAction === 'Approve') {
+      const hasExistingPhoto = Boolean(breakdown.breakdownEvidenceImage && breakdown.breakdownEvidenceImage.trim());
+      const hasUploadedPhoto = Boolean(
+        breakdownEvidenceImage && typeof breakdownEvidenceImage === 'string' && breakdownEvidenceImage.trim()
+      );
+      if (!hasExistingPhoto && !hasUploadedPhoto) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Approval without photo evidence is not allowed. Please upload breakdown photo evidence first (Stage 05).',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const updated = await applyBreakdownWorkflow(auth.sid, id, trimmedAction, {
       repairDetails: repairDetails ? String(repairDetails).trim() : undefined,
       laborCost: laborCost != null ? Number(laborCost) : undefined,

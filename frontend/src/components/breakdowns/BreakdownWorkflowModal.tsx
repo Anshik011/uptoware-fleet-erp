@@ -61,15 +61,48 @@ export function BreakdownWorkflowModal({
   const [error, setError] = useState<string | null>(null);
 
   const stageState = useMemo(() => parseBreakdownStageState(breakdown), [breakdown]);
+  const currentStageDef = BREAKDOWN_15_STAGES[stageState.currentStage - 1] || BREAKDOWN_15_STAGES[0];
   const nextStageDef =
     stageState.currentStage < 15 ? BREAKDOWN_15_STAGES[stageState.currentStage] : null;
   const [stageNote, setStageNote] = useState('');
+  const [evidencePhotoUrl, setEvidencePhotoUrl] = useState(breakdown.breakdownEvidenceImage || '');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   if (!isOpen) return null;
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/documents/upload', { method: 'POST', body: formData });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.data?.fileUrl) {
+        throw new Error(json.error || 'Failed to upload breakdown photo.');
+      }
+      setEvidencePhotoUrl(json.data.fileUrl);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Photo upload error.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
 
   async function handleAdvanceSingleStage() {
     if (!nextStageDef) return;
     setError(null);
+    const effectivePhoto = (evidencePhotoUrl || breakdown.breakdownEvidenceImage || '').trim();
+    if ((nextStageDef.stage === 5 || nextStageDef.stage === 7) && !effectivePhoto) {
+      setError(
+        nextStageDef.stage === 7
+          ? 'Approval without photo evidence is not allowed. Please upload breakdown photo evidence first.'
+          : 'Photo evidence is mandatory for Stage 05 (Breakdown Reason).'
+      );
+      return;
+    }
     setIsSubmitting(true);
     try {
       const now = new Date();
@@ -100,7 +133,10 @@ export function BreakdownWorkflowModal({
       const patchRes = await fetch(`/api/breakdowns/${encodeURIComponent(breakdown.id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inspectionNotes: serializedNotes }),
+        body: JSON.stringify({
+          inspectionNotes: serializedNotes,
+          breakdownEvidenceImage: effectivePhoto || undefined,
+        }),
       });
       const patchJson = await patchRes.json();
       if (!patchRes.ok || !patchJson.success) {
@@ -168,6 +204,11 @@ export function BreakdownWorkflowModal({
 
     if (currentAction === 'Reject' && !rejectionReason.trim()) {
       setError('A rejection reason is strictly required when rejecting a breakdown incident.');
+      return;
+    }
+
+    if (currentAction === 'Approve' && !(evidencePhotoUrl || breakdown.breakdownEvidenceImage || '').trim()) {
+      setError('Approval without photo evidence is not allowed. Please upload breakdown photo evidence first (Stage 05).');
       return;
     }
 
@@ -243,14 +284,30 @@ export function BreakdownWorkflowModal({
         <div className="p-6 space-y-4">
           {nextStageDef && (
             <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-lg space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-blue-900">
-                  15-Stage Progression: Stage {stageState.currentStage} / 15
-                </span>
-                <span className="font-semibold text-blue-700">
-                  Next: {nextStageDef.num}. {nextStageDef.title}
+              <div className="flex flex-col gap-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-900">
+                    Current Stage: {currentStageDef.num}. {currentStageDef.title}
+                  </span>
+                  <span className="text-[11px] font-mono text-blue-700">
+                    {stageState.currentStage} / 15
+                  </span>
+                </div>
+                <span className="font-semibold text-amber-800">
+                  Next Stage: {nextStageDef.num}. {nextStageDef.title}
                 </span>
               </div>
+              {(nextStageDef.stage === 5 || nextStageDef.stage === 7 || !(evidencePhotoUrl || breakdown.breakdownEvidenceImage)) && (
+                <div className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded border border-blue-200 text-xs">
+                  <span className="text-slate-600 font-medium">
+                    Photo Evidence {(nextStageDef.stage === 5 || nextStageDef.stage === 7) ? '(Required)' : ''}:
+                  </span>
+                  <label className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-900 rounded font-semibold cursor-pointer text-[11px]">
+                    {isUploadingPhoto ? 'Uploading...' : (evidencePhotoUrl || breakdown.breakdownEvidenceImage) ? 'Photo Attached' : 'Upload Photo'}
+                    <input type="file" accept="image/*,.pdf" onChange={handlePhotoUpload} className="hidden" />
+                  </label>
+                </div>
+              )}
               <input
                 type="text"
                 value={stageNote}
@@ -260,7 +317,7 @@ export function BreakdownWorkflowModal({
               />
               <button
                 type="button"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploadingPhoto}
                 onClick={handleAdvanceSingleStage}
                 className="w-full px-3 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
               >

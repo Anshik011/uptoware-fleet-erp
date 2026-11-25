@@ -5,6 +5,7 @@ import { VehicleBreakdown, BreakdownSeverity, RepairStatus } from '@/types/fleet
 import { Badge, BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatVehicleDisplay, formatDriverDisplay } from '@/lib/displayFormatters';
+import { BREAKDOWN_15_STAGES, parseBreakdownStageState } from '@/lib/breakdownStages';
 import {
   Wrench,
   Search,
@@ -368,9 +369,24 @@ export function BreakdownTable({
 
                     {/* Status */}
                     <td className="py-3.5 px-4 text-right">
-                      <Badge variant={getStatusBadgeVariant(b.repairStatus)}>
-                        {b.repairStatus}
-                      </Badge>
+                      {(() => {
+                        const st = parseBreakdownStageState(b);
+                        const cur = BREAKDOWN_15_STAGES[st.currentStage - 1];
+                        const nxt = st.currentStage < 15 ? BREAKDOWN_15_STAGES[st.currentStage] : null;
+                        return (
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant={getStatusBadgeVariant(b.repairStatus)}>
+                              {b.repairStatus}
+                            </Badge>
+                            <span className="text-[10px] font-semibold text-blue-900">
+                              Current: {cur?.num}. {cur?.title}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              {nxt ? `Next: ${nxt.num}. ${nxt.title}` : 'Completed (15/15)'}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Actions */}
