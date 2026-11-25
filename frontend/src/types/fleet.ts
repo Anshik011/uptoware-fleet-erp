@@ -115,6 +115,7 @@ export interface MiningTrip {
   modified?: string;
   approvedBy?: string | null;
   approvedOn?: string | null;
+  owner?: string | null;
   cancelledBy?: string | null;
   cancelledOn?: string | null;
   cancellationReason?: string | null;
@@ -519,6 +520,7 @@ export interface VehicleBreakdown {
   partsTable?: VehicleBreakdownPart[];
   approvedBy?: string | null;
   approvedOn?: string | null;
+  owner?: string | null;
   closedBy?: string | null;
   closedOn?: string | null;
   resolutionType?: 'Repaired' | 'Rejected' | null;
@@ -1059,6 +1061,7 @@ export interface VehicleInsurancePolicy {
   previousPolicyNo?: string | null;
   approvedBy?: string | null;
   approvedOn?: string | null;
+  owner?: string | null;
   cancelledBy?: string | null;
   cancelledOn?: string | null;
   cancellationReason?: string | null;

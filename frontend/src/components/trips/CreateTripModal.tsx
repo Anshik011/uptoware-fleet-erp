@@ -5,6 +5,7 @@ import { Vehicle, Driver, MineSite, CreateMiningTripInput, FleetLead } from '@/t
 import { toLocalDateString, toLocalDateTimeInput } from '@/lib/datetime';
 import { formatVehicleDisplay } from '@/lib/displayFormatters';
 import { useMine } from '@/context/MineContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   X,
   Compass,
@@ -24,6 +25,8 @@ import {
   RefreshCw,
   Plus,
   Check,
+  Search,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { LinkedField } from '@/components/ui/LinkedField';
@@ -46,6 +49,7 @@ export function CreateTripModal({
   onSuccess,
 }: CreateTripModalProps) {
   const { currentMine, allowedMines, isSingleMine, isAllMines, isUnassigned, activeMineLabel } = useMine();
+  const { user } = useAuth();
 
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -88,6 +92,14 @@ export function CreateTripModal({
   const [loadingSupervisorTrips, setLoadingSupervisorTrips] = useState(false);
   const [selectedTripToReconcile, setSelectedTripToReconcile] = useState<any | null>(null);
   const [isManualReconcileEntry, setIsManualReconcileEntry] = useState(false);
+
+  // Tab 1 (Site Supervisor Today-only My vs Others) & Tab 2 (Reconcile Filters)
+  const [supervisorEntryScope, setSupervisorEntryScope] = useState<'mine' | 'others'>('mine');
+  const [reconcileStatusFilter, setReconcileStatusFilter] = useState<'ALL' | 'PENDING' | 'COMPLETED'>('ALL');
+  const [reconcileDateFilter, setReconcileDateFilter] = useState<string>('');
+  const [reconcileVehicleFilter, setReconcileVehicleFilter] = useState<string>('ALL');
+  const [reconcileShiftFilter, setReconcileShiftFilter] = useState<string>('ALL');
+  const [reconcileSearch, setReconcileSearch] = useState<string>('');
   const [reconcileActionSuccess, setReconcileActionSuccess] = useState<string | null>(null);
 
   // Lock status for single-mine / restricted users
@@ -724,6 +736,101 @@ export function CreateTripModal({
                   </span>
                 </div>
               </div>
+
+              {/* Today's Site Supervisor Entries (Strictly Today Only — My Entries vs Others' Entries) */}
+              {(() => {
+                const todayIso = toLocalDateString();
+                const todaysTrips = supervisorTrips.filter((t) => {
+                  const d = t.dispatchDateTime
+                    ? (t.dispatchDateTime.includes('T') ? t.dispatchDateTime.split('T')[0] : t.dispatchDateTime.split(' ')[0])
+                    : '';
+                  return d === todayIso;
+                });
+                const currentUserEmail = (user?.email || '').toLowerCase().trim();
+                const currentUserName = (user?.name || '').toLowerCase().trim();
+
+                const isMyEntry = (t: any) => {
+                  const owner = (t.owner || '').toLowerCase().trim();
+                  const confirmedBy = (t.confirmedBy || '').toLowerCase().trim();
+                  if (!owner && !confirmedBy) return true;
+                  return (
+                    (currentUserEmail && (owner === currentUserEmail || confirmedBy === currentUserEmail)) ||
+                    (currentUserName && (owner === currentUserName || confirmedBy === currentUserName))
+                  );
+                };
+
+                const myTodaysTrips = todaysTrips.filter(isMyEntry);
+                const otherTodaysTrips = todaysTrips.filter((t) => !isMyEntry(t));
+                const displayedTodaysTrips =
+                  supervisorEntryScope === 'mine' ? myTodaysTrips : otherTodaysTrips;
+
+                return (
+                  <div className="pt-3 border-t border-slate-200 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Today&apos;s Dispatch Log ({todayIso.split('-').reverse().join('.')})
+                      </span>
+                      <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-[11px] font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setSupervisorEntryScope('mine')}
+                          className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                            supervisorEntryScope === 'mine'
+                              ? 'bg-blue-900 text-white'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          My Entries ({myTodaysTrips.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSupervisorEntryScope('others')}
+                          className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                            supervisorEntryScope === 'others'
+                              ? 'bg-blue-900 text-white'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Others&apos; Entries ({otherTodaysTrips.length})
+                        </button>
+                      </div>
+                    </div>
+
+                    {displayedTodaysTrips.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-slate-500 bg-slate-50 border border-dashed border-slate-200 rounded-lg">
+                        {supervisorEntryScope === 'mine'
+                          ? 'No entries logged by you today.'
+                          : 'No entries logged by other supervisors today.'}
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {displayedTodaysTrips.map((t) => (
+                          <div
+                            key={t.id}
+                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs"
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-bold text-slate-900">{t.id}</span>
+                              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 text-[10px] font-semibold">
+                                {t.shift || 'Shift A'}
+                              </span>
+                              <span className="font-semibold text-slate-800">
+                                {formatVehicleDisplay(t.vehicle)}
+                              </span>
+                              <span className="text-slate-500">
+                                {t.lead || t.destination || 'Direct Route'}
+                              </span>
+                            </div>
+                            <span className="font-bold text-blue-900 shrink-0">
+                              {t.tripCount || 1} Trips
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </>
           ) : (
             /* ======================================================== */
@@ -777,81 +884,248 @@ export function CreateTripModal({
                     </div>
                   )}
 
-                  {loadingSupervisorTrips ? (
-                    <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
-                      <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
-                      <span className="text-xs">Loading supervisor trip logs...</span>
-                    </div>
-                  ) : supervisorTrips.length === 0 ? (
-                    <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
-                      <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                      <p className="text-sm font-semibold text-slate-700">No trips recorded by site supervisor</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Switch to tab 1 to log trips or click Direct Entry to record a trip with average tonnage.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setIsManualReconcileEntry(true)}
-                        className="mt-4 px-3 py-1.5 text-xs font-semibold bg-blue-900 text-white rounded-lg hover:bg-blue-800"
-                      >
-                        Create Direct Reconciled Entry
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                      {supervisorTrips.map((t) => {
-                        const isReconciled = t.workflowState === 'Approved' || t.tripStatus === 'Approved';
-                        const hasAverage = t.averageTonnage != null && Number(t.averageTonnage) > 0;
-                        const rawDate = t.dispatchDateTime
-                          ? (t.dispatchDateTime.includes('T') ? t.dispatchDateTime.split('T')[0] : t.dispatchDateTime.split(' ')[0])
-                          : '';
-                        const dateFormatted = rawDate && rawDate.includes('-')
-                          ? rawDate.split('-').reverse().join('.')
-                          : (rawDate || 'Today');
+                  {/* Reconcile Filter Bar (All / Pending / Completed + Date, Vehicle, Shift, Search) */}
+                  {(() => {
+                    const todayIso = toLocalDateString();
+                    const reconcileVehicles = Array.from(
+                      new Set(supervisorTrips.map((t) => t.vehicle).filter(Boolean))
+                    ).sort();
 
-                        return (
-                          <div
-                            key={t.id}
-                            className="p-3.5 border border-slate-200 rounded-xl bg-white hover:border-emerald-500 hover:shadow-xs transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-mono font-bold text-xs text-slate-900">{t.id}</span>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 font-mono">
-                                  {dateFormatted}
-                                </span>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
-                                  {t.shift || 'Shift A'}
-                                </span>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-900">
-                                  {formatVehicleDisplay(t.vehicle)}
-                                </span>
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                  isReconciled
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {isReconciled ? 'Reconciled / Approved' : 'Pending Reconcile'}
-                                </span>
-                              </div>
-                              <div className="text-xs text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-                                <span>Route: <strong className="text-slate-900">{t.lead || t.destination || 'Direct Route'}</strong></span>
-                                <span>Trips: <strong className="text-blue-900 font-bold">{t.tripCount || 1}</strong></span>
-                              </div>
+                    const filteredReconcileTrips = supervisorTrips.filter((t) => {
+                      const isReconciled = t.workflowState === 'Approved' || t.tripStatus === 'Approved';
+                      if (reconcileStatusFilter === 'PENDING' && isReconciled) return false;
+                      if (reconcileStatusFilter === 'COMPLETED' && !isReconciled) return false;
+
+                      const rawDate = t.dispatchDateTime
+                        ? (t.dispatchDateTime.includes('T') ? t.dispatchDateTime.split('T')[0] : t.dispatchDateTime.split(' ')[0])
+                        : '';
+                      if (reconcileDateFilter && rawDate !== reconcileDateFilter) return false;
+                      if (reconcileVehicleFilter !== 'ALL' && t.vehicle !== reconcileVehicleFilter) return false;
+                      if (reconcileShiftFilter !== 'ALL' && (t.shift || 'Shift A') !== reconcileShiftFilter) return false;
+
+                      if (reconcileSearch.trim()) {
+                        const q = reconcileSearch.trim().toLowerCase();
+                        const hay = `${t.id} ${t.vehicle} ${t.lead || ''} ${t.destination || ''} ${t.driverName || ''}`.toLowerCase();
+                        if (!hay.includes(q)) return false;
+                      }
+                      return true;
+                    });
+
+                    const pendingCount = supervisorTrips.filter(
+                      (t) => !(t.workflowState === 'Approved' || t.tripStatus === 'Approved')
+                    ).length;
+                    const completedCount = supervisorTrips.length - pendingCount;
+
+                    return (
+                      <>
+                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs font-semibold">
+                              <button
+                                type="button"
+                                onClick={() => setReconcileStatusFilter('ALL')}
+                                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                                  reconcileStatusFilter === 'ALL'
+                                    ? 'bg-blue-900 text-white'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                All ({supervisorTrips.length})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setReconcileStatusFilter('PENDING')}
+                                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                                  reconcileStatusFilter === 'PENDING'
+                                    ? 'bg-amber-600 text-white'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                Pending ({pendingCount})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setReconcileStatusFilter('COMPLETED')}
+                                className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
+                                  reconcileStatusFilter === 'COMPLETED'
+                                    ? 'bg-emerald-700 text-white'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                Completed ({completedCount})
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleSelectTripForReconciliation(t)}
-                              className="shrink-0 px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-2xs"
-                            >
-                              <span>{isReconciled ? 'Edit / View' : 'Reconcile & Enter Avg'}</span>
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setReconcileDateFilter(reconcileDateFilter === todayIso ? '' : todayIso)}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                  reconcileDateFilter === todayIso
+                                    ? 'bg-blue-900 text-white border-blue-900'
+                                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                                }`}
+                              >
+                                Today Only
+                              </button>
+                              {(reconcileStatusFilter !== 'ALL' ||
+                                reconcileDateFilter ||
+                                reconcileVehicleFilter !== 'ALL' ||
+                                reconcileShiftFilter !== 'ALL' ||
+                                reconcileSearch) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReconcileStatusFilter('ALL');
+                                    setReconcileDateFilter('');
+                                    setReconcileVehicleFilter('ALL');
+                                    setReconcileShiftFilter('ALL');
+                                    setReconcileSearch('');
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>Reset</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                            <div className="relative">
+                              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="text"
+                                value={reconcileSearch}
+                                onChange={(e) => setReconcileSearch(e.target.value)}
+                                placeholder="Search ID, route..."
+                                className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600"
+                              />
+                            </div>
+                            <input
+                              type="date"
+                              value={reconcileDateFilter}
+                              onChange={(e) => setReconcileDateFilter(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600"
+                            />
+                            <select
+                              value={reconcileVehicleFilter}
+                              onChange={(e) => setReconcileVehicleFilter(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600"
+                            >
+                              <option value="ALL">All Vehicles</option>
+                              {reconcileVehicles.map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              value={reconcileShiftFilter}
+                              onChange={(e) => setReconcileShiftFilter(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600"
+                            >
+                              <option value="ALL">All Shifts</option>
+                              <option value="Shift A">Shift A</option>
+                              <option value="Shift B">Shift B</option>
+                              <option value="Shift C">Shift C</option>
+                              <option value="Day">Day</option>
+                              <option value="Night">Night</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {loadingSupervisorTrips ? (
+                          <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
+                            <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
+                            <span className="text-xs">Loading supervisor trip logs...</span>
+                          </div>
+                        ) : filteredReconcileTrips.length === 0 ? (
+                          <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                            <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                            <p className="text-sm font-semibold text-slate-700">
+                              {supervisorTrips.length === 0
+                                ? 'No trips recorded by site supervisor'
+                                : 'No trips match the selected reconcile filters'}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                              {supervisorTrips.length === 0
+                                ? 'Switch to tab 1 to log trips or click Direct Entry to record a trip with average tonnage.'
+                                : 'Try clearing or adjusting the status, date, vehicle, or shift filters.'}
+                            </p>
+                            {supervisorTrips.length === 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setIsManualReconcileEntry(true)}
+                                className="mt-4 px-3 py-1.5 text-xs font-semibold bg-blue-900 text-white rounded-lg hover:bg-blue-800"
+                              >
+                                Create Direct Reconciled Entry
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                            {filteredReconcileTrips.map((t) => {
+                              const isReconciled = t.workflowState === 'Approved' || t.tripStatus === 'Approved';
+                              const rawDate = t.dispatchDateTime
+                                ? (t.dispatchDateTime.includes('T') ? t.dispatchDateTime.split('T')[0] : t.dispatchDateTime.split(' ')[0])
+                                : '';
+                              const dateFormatted = rawDate && rawDate.includes('-')
+                                ? rawDate.split('-').reverse().join('.')
+                                : (rawDate || 'Today');
+
+                              return (
+                                <div
+                                  key={t.id}
+                                  className="p-3.5 border border-slate-200 rounded-xl bg-white hover:border-emerald-500 hover:shadow-xs transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                                >
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-mono font-bold text-xs text-slate-900">{t.id}</span>
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 font-mono">
+                                        {dateFormatted}
+                                      </span>
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                                        {t.shift || 'Shift A'}
+                                      </span>
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-900">
+                                        {formatVehicleDisplay(t.vehicle)}
+                                      </span>
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                        isReconciled
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : 'bg-amber-100 text-amber-800'
+                                      }`}>
+                                        {isReconciled ? 'Reconciled / Approved' : 'Pending Reconcile'}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                      <span>Route: <strong className="text-slate-900">{t.lead || t.destination || 'Direct Route'}</strong></span>
+                                      <span>Trips: <strong className="text-blue-900 font-bold">{t.tripCount || 1}</strong></span>
+                                      {isReconciled && Number(t.averageTonnage || 0) > 0 && (
+                                        <>
+                                          <span>Avg: <strong className="text-slate-900">{Number(t.averageTonnage).toFixed(2)} T</strong></span>
+                                          <span>Qty: <strong className="text-emerald-800">{Number(t.calculatedQuantity || t.netWeightTons || 0).toFixed(2)} T</strong></span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectTripForReconciliation(t)}
+                                    className="shrink-0 px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-2xs"
+                                  >
+                                    <span>{isReconciled ? 'Edit / View' : 'Reconcile & Enter Avg'}</span>
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               ) : (
                 /* ---------------------------------------------------- */
