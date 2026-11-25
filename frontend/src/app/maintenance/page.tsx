@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { VehicleBreakdown, BreakdownMetrics } from '@/types/fleet';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
@@ -11,12 +12,17 @@ import { BreakdownTable } from '@/components/breakdowns/BreakdownTable';
 import { AddBreakdownModal } from '@/components/breakdowns/AddBreakdownModal';
 import { BreakdownDrawer } from '@/components/breakdowns/BreakdownDrawer';
 import { BreakdownWorkflowModal } from '@/components/breakdowns/BreakdownWorkflowModal';
+import { VehicleBreakdownTracker } from '@/components/breakdowns/VehicleBreakdownTracker';
 import { Button } from '@/components/ui/Button';
-import { Wrench, PlusCircle, RefreshCw, AlertCircle } from 'lucide-react';
+import { Wrench, PlusCircle, RefreshCw, AlertCircle, AlertTriangle, ListChecks, Loader2 } from 'lucide-react';
 
-export default function MaintenancePage() {
+function MaintenancePageContent() {
+  const searchParams = useSearchParams();
   const { hasRole } = useAuth();
   const canManage = hasRole(['Fleet Manager', 'Workshop Supervisor', 'Administrator']);
+
+  const statusParam = searchParams.get('status') || 'ALL';
+  const actionParam = searchParams.get('action');
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,16 +45,20 @@ export default function MaintenancePage() {
   const [selectedVehicle, setSelectedVehicle] = useState('ALL');
   const [selectedSeverity, setSelectedSeverity] = useState('ALL');
   const [selectedType, setSelectedType] = useState('ALL');
-  // Default to In Workshop for the workshop maintenance view
-  const [selectedStatus, setSelectedStatus] = useState('In Workshop');
+  const [selectedStatus, setSelectedStatus] = useState(statusParam);
 
-  // Modals & Drawers
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Modals, Drawers & Tracked View
+  const [isAddModalOpen, setIsAddModalOpen] = useState(actionParam === 'new');
   const [selectedBreakdownId, setSelectedBreakdownId] = useState<string | null>(null);
+  const [trackedBreakdown, setTrackedBreakdown] = useState<VehicleBreakdown | null>(null);
   const [workflowModalState, setWorkflowModalState] = useState<{
     breakdown: VehicleBreakdown;
     defaultAction?: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (actionParam === 'new') setIsAddModalOpen(true);
+  }, [actionParam]);
 
   // Load filter options
   useEffect(() => {
@@ -70,164 +80,190 @@ export default function MaintenancePage() {
 
   const [refreshIndex, setRefreshIndex] = useState(0);
 
-  useEffect(() => {
-    let ignore = false;
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams();
+      if (selectedStatus !== 'ALL') params.set('status', selectedStatus);
+      if (selectedVehicle !== 'ALL') params.set('vehicle', selectedVehicle);
+      if (selectedSeverity !== 'ALL') params.set('severity', selectedSeverity);
+      if (selectedType !== 'ALL') params.set('breakdown_type', selectedType);
+      if (searchQuery.trim()) params.set('q', searchQuery.trim());
 
-    async function loadData() {
-      try {
-        const params = new URLSearchParams();
-        if (selectedStatus !== 'ALL') params.set('status', selectedStatus);
-        if (selectedVehicle !== 'ALL') params.set('vehicle', selectedVehicle);
-        if (selectedSeverity !== 'ALL') params.set('severity', selectedSeverity);
-        if (selectedType !== 'ALL') params.set('breakdown_type', selectedType);
-        if (searchQuery.trim()) params.set('q', searchQuery.trim());
+      const res = await fetch(`/api/breakdowns?${params.toString()}`);
+      const json = await res.json();
 
-        const res = await fetch(`/api/breakdowns?${params.toString()}`);
-        const json = await res.json();
-        if (ignore) return;
-
-        if (!res.ok || !json.success) {
-          throw new Error(json.error || 'Failed to fetch maintenance records.');
-        }
-
-        setError(null);
-        setMetrics(json.metrics);
-        setBreakdowns(json.breakdowns || []);
-      } catch (err: unknown) {
-        if (ignore) return;
-        const msg = err instanceof Error ? err.message : 'Network error fetching maintenance records.';
-        setError(msg);
-      } finally {
-        if (!ignore) setIsLoading(false);
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to fetch maintenance records.');
       }
-    }
 
+      setError(null);
+      setMetrics(json.metrics);
+      setBreakdowns(json.breakdowns || []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error fetching maintenance records.';
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedStatus, selectedVehicle, selectedSeverity, selectedType, searchQuery]);
+
+  useEffect(() => {
     loadData();
-    return () => {
-      ignore = true;
-    };
-  }, [selectedStatus, selectedVehicle, selectedSeverity, selectedType, searchQuery, refreshIndex]);
+  }, [loadData, refreshIndex]);
 
   const fetchMaintenanceData = useCallback(() => {
-    setIsLoading(true);
     setRefreshIndex((prev) => prev + 1);
   }, []);
 
   return (
-    <AppShell
-      headerTitle="Workshop Maintenance & Repair Operations"
-      headerSubtitle="Active workshop queue, repair diagnostics, parts consumption, and technician job tracking"
-    >
-      <PageContainer className="space-y-6">
-        <PageHeader
-          title="Workshop Maintenance Register"
-          subtitle="Work orders in progress, parts requisitions, technician diagnosis, and downtime logs"
-          breadcrumbs={[
-            { label: 'Dashboard', href: '/' },
-            { label: 'Workshop Maintenance' },
-          ]}
-          actions={
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="md"
-                icon={RefreshCw}
-                onClick={fetchMaintenanceData}
-                disabled={isLoading}
-                data-testid="btn-refresh-maintenance"
-              >
-                Refresh
-              </Button>
-              {canManage && (
-                <Button
-                  variant="primary"
-                  size="md"
-                  icon={PlusCircle}
-                  onClick={() => setIsAddModalOpen(true)}
-                  data-testid="btn-add-maintenance-header"
-                >
-                  Log Maintenance Job
-                </Button>
-              )}
-            </div>
-          }
-        />
-
-        {/* Error Alert Box */}
-        {error && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-sm text-rose-800">
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="font-semibold text-rose-900">Maintenance Data Retrieval Failed</h4>
-              <p className="mt-0.5">{error}</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={fetchMaintenanceData}>
-              Retry
-            </Button>
-          </div>
-        )}
-
-        {/* Live Operational Metrics Dashboard */}
-        <BreakdownDashboard metrics={metrics} isLoading={isLoading} />
-
-        {/* Main Table */}
-        <BreakdownTable
-          breakdowns={breakdowns}
-          vehicles={vehicles}
-          breakdownTypes={breakdownTypes}
-          severities={severities}
-          searchQuery={searchQuery}
-          selectedVehicle={selectedVehicle}
-          selectedSeverity={selectedSeverity}
-          selectedType={selectedType}
-          selectedStatus={selectedStatus}
-          onSearchChange={setSearchQuery}
-          onVehicleChange={setSelectedVehicle}
-          onSeverityChange={setSelectedSeverity}
-          onTypeChange={setSelectedType}
-          onStatusChange={setSelectedStatus}
-          onSelectBreakdown={(b) => setSelectedBreakdownId(b.id)}
-          onOpenAddBreakdown={() => setIsAddModalOpen(true)}
-          onOpenWorkflowModal={(b, act) => setWorkflowModalState({ breakdown: b, defaultAction: act })}
-          canManage={canManage}
-        />
-
-        {/* Log Maintenance Modal */}
-        <AddBreakdownModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onSuccess={() => {
-            setIsAddModalOpen(false);
+    <>
+      {trackedBreakdown ? (
+        <VehicleBreakdownTracker
+          breakdown={trackedBreakdown}
+          onBack={() => {
+            setTrackedBreakdown(null);
+            fetchMaintenanceData();
+          }}
+          onRefresh={(updated) => {
+            if (updated) setTrackedBreakdown(updated);
             fetchMaintenanceData();
           }}
         />
+      ) : (
+        <>
+          <PageHeader
+            title="10. Workshop Maintenance & Repair Center"
+            subtitle="Central maintenance coordination: 17-stage vehicle breakdown tracker, workshop repairs, and spares tracking"
+            breadcrumbs={[
+              { label: 'Dashboard', href: '/' },
+              { label: 'Maintenance & Repairs' },
+            ]}
+            actions={
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="md"
+                  icon={RefreshCw}
+                  onClick={fetchMaintenanceData}
+                  disabled={isLoading}
+                  data-testid="btn-refresh-maintenance"
+                >
+                  Refresh
+                </Button>
+                {canManage && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    icon={PlusCircle}
+                    onClick={() => setIsAddModalOpen(true)}
+                    data-testid="btn-add-maintenance-header"
+                  >
+                    + Report Breakdown / Job
+                  </Button>
+                )}
+              </div>
+            }
+          />
 
-        {/* Details Drawer */}
-        <BreakdownDrawer
-          breakdownId={selectedBreakdownId}
-          onClose={() => setSelectedBreakdownId(null)}
-          onOpenWorkflowModal={(b, act) => {
-            setSelectedBreakdownId(null);
-            setWorkflowModalState({ breakdown: b, defaultAction: act });
-          }}
-          canManage={canManage}
-        />
+          {/* Error Alert Box */}
+          {error && (
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-sm text-rose-800">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-semibold text-rose-900">Maintenance Data Retrieval Failed</h4>
+                <p className="mt-0.5">{error}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={fetchMaintenanceData}>
+                Retry
+              </Button>
+            </div>
+          )}
 
-        {/* Workflow Transition Modal */}
-        {workflowModalState && (
-          <BreakdownWorkflowModal
-            isOpen={Boolean(workflowModalState)}
-            breakdown={workflowModalState.breakdown}
-            defaultAction={workflowModalState.defaultAction}
-            onClose={() => setWorkflowModalState(null)}
+          {/* Live Operational Metrics Dashboard */}
+          <BreakdownDashboard metrics={metrics} isLoading={isLoading} />
+
+          {/* Main Table with Track Support */}
+          <BreakdownTable
+            breakdowns={breakdowns}
+            vehicles={vehicles}
+            breakdownTypes={breakdownTypes}
+            severities={severities}
+            searchQuery={searchQuery}
+            selectedVehicle={selectedVehicle}
+            selectedSeverity={selectedSeverity}
+            selectedType={selectedType}
+            selectedStatus={selectedStatus}
+            onSearchChange={setSearchQuery}
+            onVehicleChange={setSelectedVehicle}
+            onSeverityChange={setSelectedSeverity}
+            onTypeChange={setSelectedType}
+            onStatusChange={setSelectedStatus}
+            onSelectBreakdown={(b) => setSelectedBreakdownId(b.id)}
+            onOpenAddBreakdown={() => setIsAddModalOpen(true)}
+            onOpenWorkflowModal={(b, act) => setWorkflowModalState({ breakdown: b, defaultAction: act })}
+            onTrackBreakdown={(b) => setTrackedBreakdown(b)}
+            canManage={canManage}
+          />
+
+          {/* Log Maintenance Modal */}
+          <AddBreakdownModal
+            isOpen={isAddModalOpen}
+            onClose={() => setIsAddModalOpen(false)}
             onSuccess={() => {
-              setWorkflowModalState(null);
+              setIsAddModalOpen(false);
               fetchMaintenanceData();
             }}
           />
-        )}
+
+          {/* Details Drawer */}
+          <BreakdownDrawer
+            breakdownId={selectedBreakdownId}
+            onClose={() => setSelectedBreakdownId(null)}
+            onOpenWorkflowModal={(b, act) => {
+              setSelectedBreakdownId(null);
+              setWorkflowModalState({ breakdown: b, defaultAction: act });
+            }}
+            canManage={canManage}
+          />
+
+          {/* Workflow Transition Modal */}
+          {workflowModalState && (
+            <BreakdownWorkflowModal
+              isOpen={Boolean(workflowModalState)}
+              breakdown={workflowModalState.breakdown}
+              defaultAction={workflowModalState.defaultAction}
+              onClose={() => setWorkflowModalState(null)}
+              onSuccess={() => {
+                setWorkflowModalState(null);
+                fetchMaintenanceData();
+              }}
+            />
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+export default function MaintenancePage() {
+  return (
+    <AppShell
+      headerTitle="Workshop Maintenance & Repair Operations"
+      headerSubtitle="Active workshop queue, 17-stage breakdown progression, repair diagnostics, parts consumption, and technician job tracking"
+    >
+      <PageContainer className="space-y-6">
+        <Suspense
+          fallback={
+            <div className="py-24 flex flex-col items-center justify-center gap-3 text-slate-400">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
+              <span className="text-xs font-medium">Loading maintenance & repair center...</span>
+            </div>
+          }
+        >
+          <MaintenancePageContent />
+        </Suspense>
       </PageContainer>
     </AppShell>
   );
 }
-
