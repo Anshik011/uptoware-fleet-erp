@@ -884,22 +884,34 @@ export function CreateTripModal({
                     </div>
                   )}
 
-                  {/* Reconcile Filter Bar (All / Pending / Completed + Date, Vehicle, Shift, Search) */}
+                  {/* Reconcile Filter Bar (All / Pending / Closed + Date, Vehicle, Shift, Search) */}
                   {(() => {
                     const todayIso = toLocalDateString();
                     const reconcileVehicles = Array.from(
                       new Set(supervisorTrips.map((t) => t.vehicle).filter(Boolean))
                     ).sort();
 
-                    const filteredReconcileTrips = supervisorTrips.filter((t) => {
-                      const isReconciled = t.workflowState === 'Approved' || t.tripStatus === 'Approved';
-                      if (reconcileStatusFilter === 'PENDING' && isReconciled) return false;
-                      if (reconcileStatusFilter === 'COMPLETED' && !isReconciled) return false;
+                    const isTripClosed = (t: any) =>
+                      t.workflowState === 'Approved' ||
+                      t.workflowState === 'Delivered' ||
+                      t.workflowState === 'Closed' ||
+                      t.tripStatus === 'Approved' ||
+                      t.tripStatus === 'Delivered' ||
+                      t.tripStatus === 'Closed';
 
+                    const dateScopedTrips = supervisorTrips.filter((t) => {
+                      if (!reconcileDateFilter) return true;
                       const rawDate = t.dispatchDateTime
                         ? (t.dispatchDateTime.includes('T') ? t.dispatchDateTime.split('T')[0] : t.dispatchDateTime.split(' ')[0])
                         : '';
-                      if (reconcileDateFilter && rawDate !== reconcileDateFilter) return false;
+                      return rawDate === reconcileDateFilter;
+                    });
+
+                    const filteredReconcileTrips = dateScopedTrips.filter((t) => {
+                      const closed = isTripClosed(t);
+                      if (reconcileStatusFilter === 'PENDING' && closed) return false;
+                      if (reconcileStatusFilter === 'COMPLETED' && !closed) return false;
+
                       if (reconcileVehicleFilter !== 'ALL' && t.vehicle !== reconcileVehicleFilter) return false;
                       if (reconcileShiftFilter !== 'ALL' && (t.shift || 'Shift A') !== reconcileShiftFilter) return false;
 
@@ -911,10 +923,8 @@ export function CreateTripModal({
                       return true;
                     });
 
-                    const pendingCount = supervisorTrips.filter(
-                      (t) => !(t.workflowState === 'Approved' || t.tripStatus === 'Approved')
-                    ).length;
-                    const completedCount = supervisorTrips.length - pendingCount;
+                    const pendingCount = dateScopedTrips.filter((t) => !isTripClosed(t)).length;
+                    const closedCount = dateScopedTrips.length - pendingCount;
 
                     return (
                       <>
@@ -930,7 +940,7 @@ export function CreateTripModal({
                                     : 'text-slate-600 hover:text-slate-900'
                                 }`}
                               >
-                                All ({supervisorTrips.length})
+                                All ({dateScopedTrips.length})
                               </button>
                               <button
                                 type="button"
@@ -952,7 +962,7 @@ export function CreateTripModal({
                                     : 'text-slate-600 hover:text-slate-900'
                                 }`}
                               >
-                                Completed ({completedCount})
+                                Closed ({closedCount})
                               </button>
                             </div>
 
@@ -1077,7 +1087,7 @@ export function CreateTripModal({
                         ) : (
                           <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
                             {filteredReconcileTrips.map((t) => {
-                              const isReconciled = t.workflowState === 'Approved' || t.tripStatus === 'Approved';
+                              const isReconciled = isTripClosed(t);
                               const rawDate = t.dispatchDateTime
                                 ? (t.dispatchDateTime.includes('T') ? t.dispatchDateTime.split('T')[0] : t.dispatchDateTime.split(' ')[0])
                                 : '';
@@ -1107,7 +1117,7 @@ export function CreateTripModal({
                                           ? 'bg-emerald-100 text-emerald-800'
                                           : 'bg-amber-100 text-amber-800'
                                       }`}>
-                                        {isReconciled ? 'Reconciled / Approved' : 'Pending Reconcile'}
+                                        {isReconciled ? 'Closed / Reconciled' : 'Pending'}
                                       </span>
                                     </div>
                                     <div className="text-xs text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
