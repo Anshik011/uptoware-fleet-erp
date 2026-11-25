@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 100" width="320" height="100">
+  <!-- Stylized Authority Signature -->
+  <path d="M 30,55 C 50,20 65,30 75,50 C 85,70 100,25 120,40 C 140,55 130,75 155,45 C 170,25 185,60 210,40 C 230,25 240,50 270,35" 
+        fill="none" stroke="#1e3a8a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 40,65 Q 140,78 280,50" 
+        fill="none" stroke="#1e3a8a" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M 230,45 L 260,65 M 245,40 L 275,60" 
+        fill="none" stroke="#1e3a8a" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Subtext Stamp -->
+  <text x="160" y="85" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="8.5" font-weight="800" fill="#1e3a8a" letter-spacing="1.2">
+    COMMERCIAL AUTHORITY APPROVED
+  </text>
+  <text x="160" y="96" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="7" font-weight="600" fill="#475569" letter-spacing="0.8">
+    UPTOWARE FLEET OPERATIONS
+  </text>
+</svg>

@@ -69,7 +69,13 @@ export async function POST(
       );
     }
 
-    const updated = await applyPurchaseOrderWorkflow(auth.sid, id, action);
+    const updated = await applyPurchaseOrderWorkflow(auth.sid, id, action, {
+      evidenceMediaUrl: body.evidenceMediaUrl,
+      workshopSignature: body.workshopSignature,
+      mechanicalSignature: body.mechanicalSignature,
+      authoritySignature: body.authoritySignature,
+      approvedBy: auth.user.email || auth.user.name || 'Commercial Authority',
+    });
 
     return NextResponse.json({
       success: true,

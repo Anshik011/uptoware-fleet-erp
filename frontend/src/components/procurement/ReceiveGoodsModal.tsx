@@ -13,6 +13,7 @@ import {
   Layers,
   ArrowRight,
   Info,
+  Lock,
 } from 'lucide-react';
 
 interface ReceiveGoodsModalProps {
@@ -77,7 +78,7 @@ export function ReceiveGoodsModal({
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900">
-                Confirm Goods Receipt (Purchase Receipt)
+                Confirm Goods & Bill Receipt (Purchase Receipt)
               </h3>
               <p className="text-xs text-slate-500 font-mono">
                 Order: {order.name} • {order.supplier}
@@ -131,19 +132,48 @@ export function ReceiveGoodsModal({
             </div>
           </div>
 
+          {/* Commercial Lock Notice */}
+          <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-lg flex items-start gap-2.5 text-xs text-blue-900">
+            <Lock className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold mb-0.5">Commercial Integrity & Read-Only Bill Quantities</p>
+              <p className="text-blue-800 text-[11px] leading-relaxed">
+                Line item quantities and unit rates are strictly locked and synchronized from Approved Purchase Order <span className="font-mono font-bold">{order.name}</span>. Quantity and rate modifications are permanently disabled during bill receipt.
+              </p>
+            </div>
+          </div>
+
           {/* Items Summary Table */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Items to Inward into Inventory
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-700">
+                Items to Inward into Inventory
+              </label>
+              <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-400" />
+                Quantities & Rates Locked
+              </span>
+            </div>
             <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-medium">
                   <tr>
                     <th className="py-2 px-3 text-left">Item Code & Name</th>
-                    <th className="py-2 px-3 text-right">Qty</th>
-                    <th className="py-2 px-3 text-right">Rate</th>
-                    <th className="py-2 px-3 text-right">Amount</th>
+                    <th className="py-2 px-3 text-right">
+                      <span className="inline-flex items-center gap-1">
+                        Qty <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      </span>
+                    </th>
+                    <th className="py-2 px-3 text-right">
+                      <span className="inline-flex items-center gap-1">
+                        Rate <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      </span>
+                    </th>
+                    <th className="py-2 px-3 text-right">
+                      <span className="inline-flex items-center gap-1">
+                        Amount <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -153,10 +183,10 @@ export function ReceiveGoodsModal({
                         <div className="font-medium text-slate-900">{item.itemName}</div>
                         <div className="text-[11px] text-slate-400 font-mono">{item.itemCode}</div>
                       </td>
-                      <td className="py-2 px-3 text-right font-semibold text-slate-900 font-mono">
+                      <td className="py-2 px-3 text-right font-semibold text-slate-900 font-mono bg-slate-50/30">
                         {item.qty} {item.uom || 'Nos'}
                       </td>
-                      <td className="py-2 px-3 text-right text-slate-700 font-mono">
+                      <td className="py-2 px-3 text-right text-slate-700 font-mono bg-slate-50/30">
                         ₹{(item.rate || 0).toLocaleString()}
                       </td>
                       <td className="py-2 px-3 text-right font-medium text-slate-900 font-mono">

@@ -5522,6 +5522,54 @@ export async function createSupplier(
   };
 }
 
+function parsePOMetadata(remarks?: string) {
+  let evidenceMediaUrl = '';
+  let workshopSignature = '';
+  let mechanicalSignature = '';
+  let authoritySignature = '';
+  if (!remarks) return { evidenceMediaUrl, workshopSignature, mechanicalSignature, authoritySignature };
+
+  const mediaMatch = remarks.match(/\[MEDIA:([^\]]+)\]/);
+  if (mediaMatch) evidenceMediaUrl = mediaMatch[1];
+  const wsMatch = remarks.match(/\[SIGN_WS:([^\]]+)\]/);
+  if (wsMatch) workshopSignature = wsMatch[1];
+  const mechMatch = remarks.match(/\[SIGN_MECH:([^\]]+)\]/);
+  if (mechMatch) mechanicalSignature = mechMatch[1];
+  const authMatch = remarks.match(/\[SIGN_AUTH:([^\]]+)\]/);
+  if (authMatch) authoritySignature = authMatch[1];
+
+  return { evidenceMediaUrl, workshopSignature, mechanicalSignature, authoritySignature };
+}
+
+function buildPOMetadataRemarks(
+  existingRemarks: string | undefined,
+  input: {
+    evidenceMediaUrl?: string;
+    workshopSignature?: string;
+    mechanicalSignature?: string;
+    authoritySignature?: string;
+  }
+) {
+  let base = (existingRemarks || '')
+    .replace(/\[MEDIA:[^\]]+\]/g, '')
+    .replace(/\[SIGN_WS:[^\]]+\]/g, '')
+    .replace(/\[SIGN_MECH:[^\]]+\]/g, '')
+    .replace(/\[SIGN_AUTH:[^\]]+\]/g, '')
+    .trim();
+
+  const tags = [
+    input.evidenceMediaUrl ? `[MEDIA:${input.evidenceMediaUrl}]` : '',
+    input.workshopSignature ? `[SIGN_WS:${input.workshopSignature}]` : '',
+    input.mechanicalSignature ? `[SIGN_MECH:${input.mechanicalSignature}]` : '',
+    input.authoritySignature ? `[SIGN_AUTH:${input.authoritySignature}]` : '',
+  ].filter(Boolean);
+
+  if (tags.length > 0) {
+    base = base ? `${base} ${tags.join(' ')}` : tags.join(' ');
+  }
+  return base;
+}
+
 export async function getPurchaseOrders(
   sessionCookie: string,
   filters?: {
@@ -5565,6 +5613,7 @@ export async function getPurchaseOrders(
         'custom_approved_by',
         'custom_approved_on',
         'custom_is_test_record',
+        'remarks',
       ])
     )}&limit_page_length=200&order_by=transaction_date desc, creation desc`,
     { sessionCookie }
@@ -5604,24 +5653,32 @@ export async function getPurchaseOrders(
     }
   }
 
-  const orders: PurchaseOrder[] = rawOrders.map((p) => ({
-    id: p.name,
-    name: p.name,
-    supplier: p.supplier,
-    transactionDate: p.transaction_date,
-    scheduleDate: p.schedule_date,
-    grandTotal: Number(p.grand_total || 0),
-    status: p.status,
-    docstatus: p.docstatus,
-    procurementType: p.custom_procurement_type,
-    vehicle: p.custom_vehicle,
-    vehicleBreakdown: p.custom_vehicle_breakdown,
-    mineSite: p.custom_mine_site,
-    approvedBy: p.custom_approved_by,
-    approvedOn: p.custom_approved_on,
-    isTestRecord: Boolean(p.custom_is_test_record),
-    items: itemsByPO[p.name] || [],
-  }));
+  const orders: PurchaseOrder[] = rawOrders.map((p) => {
+    const meta = parsePOMetadata(p.remarks);
+    return {
+      id: p.name,
+      name: p.name,
+      supplier: p.supplier,
+      transactionDate: p.transaction_date,
+      scheduleDate: p.schedule_date,
+      grandTotal: Number(p.grand_total || 0),
+      status: p.status,
+      docstatus: p.docstatus,
+      procurementType: p.custom_procurement_type,
+      vehicle: p.custom_vehicle,
+      vehicleBreakdown: p.custom_vehicle_breakdown,
+      mineSite: p.custom_mine_site,
+      approvedBy: p.custom_approved_by,
+      approvedOn: p.custom_approved_on,
+      isTestRecord: Boolean(p.custom_is_test_record),
+      remarks: p.remarks,
+      evidenceMediaUrl: meta.evidenceMediaUrl,
+      workshopSignature: meta.workshopSignature,
+      mechanicalSignature: meta.mechanicalSignature,
+      authoritySignature: meta.authoritySignature,
+      items: itemsByPO[p.name] || [],
+    };
+  });
 
   const metrics: ProcurementMetrics = {
     totalSpend: orders.reduce((sum, o) => sum + o.grandTotal, 0),
@@ -5643,6 +5700,7 @@ export async function getPurchaseOrderDetails(
     { sessionCookie }
   );
   const p = poRes.data;
+  const meta = parsePOMetadata(p.remarks);
 
   return {
     id: p.name,
@@ -5660,6 +5718,11 @@ export async function getPurchaseOrderDetails(
     approvedBy: p.custom_approved_by,
     approvedOn: p.custom_approved_on,
     isTestRecord: Boolean(p.custom_is_test_record),
+    remarks: p.remarks,
+    evidenceMediaUrl: meta.evidenceMediaUrl,
+    workshopSignature: meta.workshopSignature,
+    mechanicalSignature: meta.mechanicalSignature,
+    authoritySignature: meta.authoritySignature,
     items: (p.items || []).map((i: any) => ({
       itemCode: i.item_code,
       itemName: i.item_name || i.item_code,
@@ -5698,6 +5761,16 @@ export async function createPurchaseOrder(
     })),
   };
 
+  const metadataRemarks = buildPOMetadataRemarks(input.remarks, {
+    evidenceMediaUrl: input.evidenceMediaUrl,
+    workshopSignature: input.workshopSignature,
+    mechanicalSignature: input.mechanicalSignature,
+    authoritySignature: input.authoritySignature,
+  });
+  if (metadataRemarks) {
+    payload.remarks = metadataRemarks;
+  }
+
   const res = await frappeFetch<{ data: any }>('/api/resource/Purchase%20Order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -5711,14 +5784,46 @@ export async function createPurchaseOrder(
 export async function applyPurchaseOrderWorkflow(
   sessionCookie: string,
   poId: string,
-  action: 'submit' | 'cancel'
+  action: 'submit' | 'cancel',
+  metadata?: {
+    evidenceMediaUrl?: string;
+    workshopSignature?: string;
+    mechanicalSignature?: string;
+    authoritySignature?: string;
+    approvedBy?: string;
+  }
 ): Promise<PurchaseOrder> {
   const targetDocstatus = action === 'submit' ? 1 : 2;
+
+  const currentPo = await getPurchaseOrderDetails(sessionCookie, poId);
+
+  // If submitting / approving, enforce mandatory photo/video evidence!
+  const finalMediaUrl = metadata?.evidenceMediaUrl || currentPo.evidenceMediaUrl;
+  if (action === 'submit' && !finalMediaUrl) {
+    throw new Error('Mandatory photo or video evidence is required before approving Purchase Order.');
+  }
+
+  const updatePayload: any = { docstatus: targetDocstatus };
+
+  if (action === 'submit') {
+    updatePayload.custom_approved_by = metadata?.approvedBy || 'Commercial Authority';
+    updatePayload.custom_approved_on = toLocalDateString();
+  }
+
+  const updatedRemarks = buildPOMetadataRemarks(currentPo.remarks, {
+    evidenceMediaUrl: finalMediaUrl,
+    workshopSignature: metadata?.workshopSignature || currentPo.workshopSignature,
+    mechanicalSignature: metadata?.mechanicalSignature || currentPo.mechanicalSignature,
+    authoritySignature: metadata?.authoritySignature || currentPo.authoritySignature,
+  });
+  if (updatedRemarks) {
+    updatePayload.remarks = updatedRemarks;
+  }
 
   await frappeFetch(`/api/resource/Purchase%20Order/${encodeURIComponent(poId)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ docstatus: targetDocstatus }),
+    body: JSON.stringify(updatePayload),
     sessionCookie,
   });
 

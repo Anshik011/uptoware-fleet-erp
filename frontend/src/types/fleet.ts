@@ -903,6 +903,11 @@ export interface PurchaseOrder {
   approvedBy?: string;
   approvedOn?: string;
   isTestRecord?: boolean;
+  remarks?: string;
+  evidenceMediaUrl?: string;
+  workshopSignature?: string;
+  mechanicalSignature?: string;
+  authoritySignature?: string;
   items: PurchaseOrderItem[];
 }
 
@@ -915,6 +920,11 @@ export interface CreatePurchaseOrderInput {
   vehicleBreakdown?: string;
   mineSite?: string;
   isTestRecord?: boolean;
+  remarks?: string;
+  evidenceMediaUrl?: string;
+  workshopSignature?: string;
+  mechanicalSignature?: string;
+  authoritySignature?: string;
   items: Array<{
     itemCode: string;
     qty: number;

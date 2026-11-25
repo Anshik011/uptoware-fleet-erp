@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { CreatePurchaseOrderInput } from '@/types/fleet';
 import { toLocalDateString } from '@/lib/datetime';
-import { X, ShoppingCart, Plus, Trash2, AlertCircle } from 'lucide-react';
+import {
+  X,
+  ShoppingCart,
+  Plus,
+  Trash2,
+  AlertCircle,
+  Camera,
+  Upload,
+  CheckCircle2,
+  Video,
+  Eye,
+  Loader2,
+  FileCheck,
+} from 'lucide-react';
 import { LinkedField } from '@/components/ui/LinkedField';
 import { AddSupplierModal } from '@/components/procurement/AddSupplierModal';
 import { SupplierDetailDrawer } from '@/components/procurement/SupplierDetailDrawer';
@@ -85,6 +98,34 @@ export function CreatePurchaseOrderModal({
       rate: number;
     }>
   >([{ itemCode: items[0]?.itemCode || '', qty: 10, rate: items[0]?.rate || 100 }]);
+
+  const [evidenceMediaUrl, setEvidenceMediaUrl] = useState('');
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
+
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMediaUploadError(null);
+    setIsUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.data?.fileUrl) {
+        throw new Error(json.error || 'Failed to upload photo or video file.');
+      }
+      setEvidenceMediaUrl(json.data.fileUrl);
+    } catch (err: any) {
+      setMediaUploadError(err.message || 'Error uploading file.');
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -286,6 +327,7 @@ export function CreatePurchaseOrderModal({
         procurementType,
         vehicle: selectedVehicle || undefined,
         vehicleBreakdown: selectedBreakdown || undefined,
+        evidenceMediaUrl: evidenceMediaUrl || undefined,
         items: sanitizedRows.map((r) => ({
           itemCode: r.itemCode,
           qty: r.qty,
@@ -587,6 +629,89 @@ export function CreatePurchaseOrderModal({
                   </tfoot>
                 </table>
               </div>
+            </div>
+
+            {/* Photo / Video Proof Section (Mandatory for Approval) */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Camera className="w-4 h-4 text-blue-900" />
+                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                    Part Verification Proof (Photo / Video Evidence)
+                  </span>
+                </div>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                  Mandatory For PO Approval
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Upload photo or video of requisition slip, quotation, or damaged/replacement parts. Mandatory prior to final approval.
+              </p>
+
+              {evidenceMediaUrl ? (
+                <div className="flex items-center justify-between p-3 bg-white border border-emerald-200 rounded-md">
+                  <div className="flex items-center space-x-3">
+                    {evidenceMediaUrl.match(/\.(mp4|mov|webm)$/i) ? (
+                      <div className="w-12 h-12 bg-slate-900 rounded flex items-center justify-center text-white">
+                        <Video className="w-6 h-6 text-emerald-400" />
+                      </div>
+                    ) : (
+                      <img
+                        src={evidenceMediaUrl}
+                        alt="Evidence Proof"
+                        className="w-12 h-12 object-cover rounded border border-slate-200"
+                      />
+                    )}
+                    <div>
+                      <div className="text-xs font-semibold text-emerald-800 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Evidence Uploaded
+                      </div>
+                      <a
+                        href={evidenceMediaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 mt-0.5 font-mono"
+                      >
+                        <Eye className="w-3 h-3" /> View Full File
+                      </a>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEvidenceMediaUrl('')}
+                    className="text-xs text-rose-600 hover:text-rose-700 font-medium px-2 py-1 hover:bg-rose-50 rounded"
+                  >
+                    Remove & Replace
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <label className="cursor-pointer inline-flex items-center justify-center px-4 py-2 border border-slate-300 rounded-md shadow-xs text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors gap-2">
+                    {isUploadingMedia ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-900" />
+                        <span>Uploading Media...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 text-slate-500" />
+                        <span>Upload Photo / Video Proof</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      capture="environment"
+                      disabled={isUploadingMedia}
+                      onChange={handleMediaUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {mediaUploadError && (
+                    <p className="text-xs text-rose-600 font-medium mt-1.5">{mediaUploadError}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Modal Actions */}

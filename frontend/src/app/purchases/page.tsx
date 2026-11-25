@@ -122,6 +122,14 @@ function PurchasesContent() {
 
   // Submit / Approve PO
   const handleSubmitOrder = async (order: PurchaseOrder) => {
+    if (!order.evidenceMediaUrl) {
+      alert(
+        `Approval Blocked: Mandatory photo or video proof is required before approving Purchase Order '${order.name}'. Please review and attach evidence in the order view.`
+      );
+      setSelectedOrderId(order.name);
+      return;
+    }
+
     if (!confirm(`Are you sure you want to approve and submit Purchase Order '${order.name}'?`)) {
       return;
     }
@@ -131,7 +139,13 @@ function PurchasesContent() {
       const res = await fetch(`/api/procurement/orders/${encodeURIComponent(order.name)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'submit' }),
+        body: JSON.stringify({
+          action: 'submit',
+          evidenceMediaUrl: order.evidenceMediaUrl,
+          workshopSignature: order.workshopSignature,
+          mechanicalSignature: order.mechanicalSignature,
+          authoritySignature: '/branding/authority_signature.svg',
+        }),
       });
 
       const data = await res.json();
