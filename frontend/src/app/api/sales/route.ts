@@ -63,20 +63,23 @@ export async function GET(request: NextRequest) {
 
     const invoices = res.data || [];
 
-    // Fetch line items for these invoices
+    // Fetch line items for these invoices via whitelisted child query
     const invoiceNames = invoices.map((i) => i.name);
     let itemsByInvoice: Record<string, any[]> = {};
     if (invoiceNames.length > 0) {
       try {
-        const itemRes = await frappeFetch<{ data: any[] }>(
-          `/api/resource/Sales%20Invoice%20Item?fields=${encodeURIComponent(
-            JSON.stringify(['parent', 'item_code', 'item_name', 'qty', 'rate', 'amount'])
-          )}&filters=${encodeURIComponent(
-            JSON.stringify([['parent', 'in', invoiceNames]])
-          )}&limit_page_length=500`,
+        const queryParams = new URLSearchParams({
+          doctype: 'Sales Invoice Item',
+          parent: 'Sales Invoice',
+          fields: JSON.stringify(['name', 'parent', 'item_code', 'item_name', 'qty', 'rate', 'amount']),
+          filters: JSON.stringify([['parent', 'in', invoiceNames]]),
+          limit_page_length: '500',
+        });
+        const itemRes = await frappeFetch<{ message: any[] }>(
+          `/api/method/frappe.client.get_list?${queryParams.toString()}`,
           { sessionCookie: auth.sid }
         );
-        for (const it of itemRes.data || []) {
+        for (const it of itemRes.message || []) {
           if (!itemsByInvoice[it.parent]) itemsByInvoice[it.parent] = [];
           itemsByInvoice[it.parent].push({
             itemCode: it.item_code,
@@ -87,7 +90,7 @@ export async function GET(request: NextRequest) {
           });
         }
       } catch (err) {
-        console.warn('Could not fetch sales invoice items:', err);
+        console.warn('Could not fetch sales invoice items via get_list:', err);
       }
     }
 

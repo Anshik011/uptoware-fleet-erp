@@ -882,7 +882,7 @@ export interface PurchaseOrderItem {
   rate: number;
   amount: number;
   uom: string;
-  warehouse: string;
+  warehouse?: string;
   scheduleDate?: string;
 }
 

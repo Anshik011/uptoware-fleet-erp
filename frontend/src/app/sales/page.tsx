@@ -26,6 +26,7 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   Printer,
+  Clock,
 } from 'lucide-react';
 
 interface PartSaleRecord {
@@ -80,6 +81,7 @@ function SalesContent() {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED'>('ALL');
   const [vehicleFilter, setVehicleFilter] = useState('ALL');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -271,6 +273,10 @@ function SalesContent() {
       setModalQty('1');
       setModalRate('0');
       setModalRemarks('');
+      setActionMessage(`Sales Invoice ${json.data?.id || ''} created in Pending. Click "Approve & Submit" to finalize.`);
+      if (statusFilter === 'APPROVED') {
+        setStatusFilter('PENDING');
+      }
       await loadSales();
     } catch (err: any) {
       setModalError(err.message || 'Error creating sale invoice.');
@@ -279,22 +285,52 @@ function SalesContent() {
     }
   };
 
+  // Status Counts
+  const counts = useMemo(() => {
+    let pending = 0;
+    let approved = 0;
+    for (const s of sales) {
+      if (s.docstatus === 0 || s.status === 'Draft') pending++;
+      else if (s.docstatus === 1 || s.status === 'Submitted' || s.status === 'Paid') approved++;
+    }
+    return { all: sales.length, pending, approved };
+  }, [sales]);
+
   // Filtered Sales
   const filteredSales = useMemo(() => {
     return sales.filter((s) => {
-      const matchSearch =
-        s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (s.vehicle && s.vehicle.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (s.customer && s.customer.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        s.items.some((it) => it.itemName.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchSearch;
+      // Status filter
+      const isPending = s.docstatus === 0 || s.status === 'Draft';
+      const isApproved = s.docstatus === 1 || s.status === 'Submitted' || s.status === 'Paid';
+      if (statusFilter === 'PENDING' && !isPending) return false;
+      if (statusFilter === 'APPROVED' && !isApproved) return false;
+
+      // Vehicle filter
+      if (vehicleFilter && vehicleFilter !== 'ALL' && s.vehicle !== vehicleFilter) return false;
+
+      // Date range filter
+      if (fromDate && s.postingDate && s.postingDate < fromDate) return false;
+      if (toDate && s.postingDate && s.postingDate > toDate) return false;
+
+      // Search filter
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchSearch =
+          s.id.toLowerCase().includes(q) ||
+          (s.vehicle && s.vehicle.toLowerCase().includes(q)) ||
+          (s.customer && s.customer.toLowerCase().includes(q)) ||
+          s.items.some((it) => (it.itemName && it.itemName.toLowerCase().includes(q)) || (it.itemCode && it.itemCode.toLowerCase().includes(q)));
+        if (!matchSearch) return false;
+      }
+
+      return true;
     });
-  }, [sales, searchQuery]);
+  }, [sales, statusFilter, vehicleFilter, fromDate, toDate, searchQuery]);
 
   // Aggregate Metrics
   const totalSalesRevenue = sales.reduce((acc, s) => acc + (s.grandTotal || 0), 0);
   const totalPartsSold = sales.reduce(
-    (acc, s) => acc + s.items.reduce((iAcc, it) => iAcc + it.qty, 0),
+    (acc, s) => acc + (s.items.reduce((iAcc, it) => iAcc + it.qty, 0) || s.totalQty || 0),
     0
   );
   const totalInvoices = sales.length;
@@ -408,9 +444,48 @@ function SalesContent() {
           </div>
         </div>
 
-        {/* Filter Bar with Date and Vehicle filters */}
+        {/* Filter Bar with Status Pills, Search, Date and Vehicle filters */}
         <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+            {/* Status Filter Options: All / Pending / Approved */}
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
+              <button
+                type="button"
+                onClick={() => setStatusFilter('ALL')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  statusFilter === 'ALL'
+                    ? 'bg-blue-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All ({counts.all})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                  statusFilter === 'PENDING'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Pending ({counts.pending})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('APPROVED')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                  statusFilter === 'APPROVED'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Approved ({counts.approved})</span>
+              </button>
+            </div>
+
             <div className="relative flex-1 min-w-[180px]">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -511,9 +586,13 @@ function SalesContent() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredSales.map((sale) => {
-                        const totalQty = sale.items.reduce((sum, it) => sum + it.qty, 0);
+                        const totalQty = sale.items.reduce((sum, it) => sum + it.qty, 0) || sale.totalQty || 0;
                         const primaryItem = sale.items[0];
-                        const rate = primaryItem ? primaryItem.rate : 0;
+                        const itemsText = sale.items.length > 0
+                          ? sale.items.map((it) => it.itemName || it.itemCode).join(', ')
+                          : 'Spare Parts';
+                        const rate = primaryItem ? primaryItem.rate : (totalQty > 0 ? sale.grandTotal / totalQty : 0);
+                        const isPending = sale.docstatus === 0 || sale.status === 'Draft';
 
                         return (
                           <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
@@ -533,39 +612,31 @@ function SalesContent() {
                             </td>
                             <td className="py-3 px-4">
                               <span className="font-semibold text-slate-800">
-                                {primaryItem?.itemName || 'Spare Parts'}
+                                {itemsText}
                               </span>
-                              {sale.items.length > 1 && (
-                                <span className="text-slate-400 ml-1">
-                                  +{sale.items.length - 1} more
-                                </span>
-                              )}
                             </td>
                             <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                               {totalQty}
                             </td>
                             <td className="py-3 px-4 text-right font-mono text-slate-700">
-                              ₹{rate.toFixed(2)}
+                              ₹{rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                             <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
                               ₹{sale.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </td>
                             <td className="py-3 px-4 text-center">
-                              <Badge
-                                variant={
-                                  sale.status === 'Paid' || sale.status === 'Submitted'
-                                    ? 'positive'
-                                    : sale.status === 'Draft'
-                                    ? 'neutral'
-                                    : 'info'
-                                }
-                                size="sm"
-                              >
-                                {sale.status === 'Draft' ? 'Draft' : sale.status === 'Paid' ? 'Paid' : 'Submitted'}
-                              </Badge>
+                              {isPending ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                  <Clock className="w-3 h-3 mr-1" /> Pending Approval
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
+                                </span>
+                              )}
                             </td>
                             <td className="py-3 px-4 text-right">
-                              {sale.status === 'Draft' || sale.docstatus === 0 ? (
+                              {isPending ? (
                                 <Button
                                   type="button"
                                   size="sm"
@@ -596,7 +667,7 @@ function SalesContent() {
                             TOTAL ({filteredSales.length} TRANSACTIONS)
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">
-                            {filteredSales.reduce((acc, s) => acc + s.items.reduce((sum, it) => sum + it.qty, 0), 0)}
+                            {filteredSales.reduce((acc, s) => acc + (s.items.reduce((sum, it) => sum + it.qty, 0) || s.totalQty || 0), 0)}
                           </td>
                           <td className="py-3 px-4 text-right font-mono text-slate-500">
                             —
@@ -658,8 +729,17 @@ function SalesContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredSales.flatMap((sale) =>
-                      sale.items.map((it, idx) => (
+                    {filteredSales.flatMap((sale) => {
+                      const isPending = sale.docstatus === 0 || sale.status === 'Draft';
+                      const rows = sale.items && sale.items.length > 0 ? sale.items : [{
+                        itemCode: 'SP-PARTS',
+                        itemName: 'Spare Parts',
+                        qty: sale.totalQty || 1,
+                        rate: sale.totalQty ? sale.grandTotal / sale.totalQty : sale.grandTotal,
+                        amount: sale.grandTotal,
+                      }];
+
+                      return rows.map((it, idx) => (
                         <tr key={`${sale.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3 px-4 font-mono font-semibold text-blue-900">
                             {sale.id}
@@ -675,27 +755,24 @@ function SalesContent() {
                             {it.qty}
                           </td>
                           <td className="py-3 px-4 text-right font-mono text-slate-700">
-                            ₹{it.rate.toFixed(2)}
+                            ₹{it.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
-                            ₹{it.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            ₹{it.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <Badge
-                              variant={
-                                sale.status === 'Paid' || sale.status === 'Submitted'
-                                  ? 'positive'
-                                  : sale.status === 'Draft'
-                                  ? 'neutral'
-                                  : 'info'
-                              }
-                              size="sm"
-                            >
-                              {sale.status === 'Draft' ? 'Draft' : sale.status === 'Paid' ? 'Paid' : 'Submitted'}
-                            </Badge>
+                            {isPending ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                <Clock className="w-3 h-3 mr-1" /> Pending Approval
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            {sale.status === 'Draft' || sale.docstatus === 0 ? (
+                            {isPending ? (
                               <Button
                                 type="button"
                                 size="sm"
@@ -716,8 +793,8 @@ function SalesContent() {
                             )}
                           </td>
                         </tr>
-                      ))
-                    )}
+                      ));
+                    })}
                     {filteredSales.length === 0 && (
                       <tr>
                         <td colSpan={9} className="py-8 text-center text-slate-400">
@@ -733,7 +810,7 @@ function SalesContent() {
                           TOTAL ({filteredSales.length} TRANSACTIONS)
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">
-                          {filteredSales.reduce((acc, s) => acc + s.items.reduce((sum, it) => sum + it.qty, 0), 0)}
+                          {filteredSales.reduce((acc, s) => acc + (s.items.reduce((sum, it) => sum + it.qty, 0) || s.totalQty || 0), 0)}
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-slate-500">
                           —

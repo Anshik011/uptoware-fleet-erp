@@ -68,7 +68,9 @@ export function PurchaseOrdersTable({
 
   const totalQtySum = useMemo(() => {
     return filteredOrders.reduce((sum, o) => {
-      const q = o.items?.reduce((iSum, it) => iSum + (it.qty || 0), 0) || 1;
+      const q = o.items && o.items.length > 0
+        ? o.items.reduce((iSum, it) => iSum + (it.qty || 0), 0)
+        : 1;
       return sum + q;
     }, 0);
   }, [filteredOrders]);
@@ -296,9 +298,14 @@ export function PurchaseOrdersTable({
               </tr>
             ) : (
               paginatedOrders.map((o) => {
-                const totalQty = o.items?.reduce((sum, it) => sum + (it.qty || 0), 0) || 1;
-                const itemsName = o.items?.map((it) => it.itemName).join(', ') || 'Spare Parts Replenishment';
-                const rate = o.items?.[0]?.rate || (o.grandTotal / totalQty);
+                const hasItems = Boolean(o.items && o.items.length > 0);
+                const totalQty = hasItems
+                  ? o.items.reduce((sum, it) => sum + (it.qty || 0), 0)
+                  : 1;
+                const itemsName = hasItems
+                  ? o.items.map((it) => it.itemName || it.itemCode).join(', ')
+                  : 'Spare Parts';
+                const rate = o.items?.[0]?.rate || (totalQty > 0 ? o.grandTotal / totalQty : 0);
 
                 if (viewMode === 'home') {
                   return (

@@ -5571,6 +5571,39 @@ export async function getPurchaseOrders(
   );
 
   const rawOrders = poRes.data || [];
+  const poNames = rawOrders.map((p) => p.name);
+  let itemsByPO: Record<string, PurchaseOrderItem[]> = {};
+  if (poNames.length > 0) {
+    try {
+      const queryParams = new URLSearchParams({
+        doctype: 'Purchase Order Item',
+        parent: 'Purchase Order',
+        fields: JSON.stringify(['name', 'parent', 'item_code', 'item_name', 'qty', 'rate', 'amount', 'uom', 'warehouse']),
+        filters: JSON.stringify([['parent', 'in', poNames]]),
+        limit_page_length: '500',
+      });
+      const itemRes = await callFrappeApi<{ message: any[] }>(
+        `/api/method/frappe.client.get_list?${queryParams.toString()}`,
+        sessionCookie,
+        { method: 'GET' }
+      );
+      for (const it of itemRes.message || []) {
+        if (!itemsByPO[it.parent]) itemsByPO[it.parent] = [];
+        itemsByPO[it.parent].push({
+          itemCode: it.item_code,
+          itemName: it.item_name || it.item_code,
+          qty: Number(it.qty || 0),
+          rate: Number(it.rate || 0),
+          amount: Number(it.amount || 0),
+          uom: it.uom || 'Nos',
+          warehouse: it.warehouse || '',
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch PO items via get_list:', err);
+    }
+  }
+
   const orders: PurchaseOrder[] = rawOrders.map((p) => ({
     id: p.name,
     name: p.name,
@@ -5587,7 +5620,7 @@ export async function getPurchaseOrders(
     approvedBy: p.custom_approved_by,
     approvedOn: p.custom_approved_on,
     isTestRecord: Boolean(p.custom_is_test_record),
-    items: [],
+    items: itemsByPO[p.name] || [],
   }));
 
   const metrics: ProcurementMetrics = {
