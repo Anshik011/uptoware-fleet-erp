@@ -8,6 +8,8 @@ export interface BreakdownStageDef {
   inputLabel: string;
   inputPlaceholder: string;
   mappedWorkflowAction?: BreakdownWorkflowAction;
+  requiresMedia?: boolean;
+  mediaTypeLabel?: string;
 }
 
 export interface StageHistoryEntry {
@@ -16,15 +18,16 @@ export interface StageHistoryEntry {
   time: string;
   actor: string;
   note: string;
+  mediaUrl?: string;
 }
 
 export interface ParsedStageState {
-  currentStage: number; // 1..15
+  currentStage: number; // 1..17
   history: Record<number, StageHistoryEntry>;
   plainInspectionNotes: string;
 }
 
-export const BREAKDOWN_15_STAGES: BreakdownStageDef[] = [
+export const BREAKDOWN_17_STAGES: BreakdownStageDef[] = [
   {
     stage: 1,
     num: '01',
@@ -63,8 +66,10 @@ export const BREAKDOWN_15_STAGES: BreakdownStageDef[] = [
     num: '05',
     title: 'Breakdown Reason (Photo / Video)',
     actorRole: 'Mechanic',
-    inputLabel: 'Root Cause & Photo/Video Evidence URL',
-    inputPlaceholder: 'Enter root cause summary or photo/video reference...',
+    inputLabel: 'Root Cause Summary',
+    inputPlaceholder: 'Enter root cause summary & upload breakdown photo/video...',
+    requiresMedia: true,
+    mediaTypeLabel: 'Breakdown Cause Photo / Video',
   },
   {
     stage: 6,
@@ -112,14 +117,24 @@ export const BREAKDOWN_15_STAGES: BreakdownStageDef[] = [
   {
     stage: 11,
     num: '11',
+    title: 'Spare Parts Received (Photo / Video Evidence)',
+    actorRole: 'Store Incharge / Workshop Supervisor',
+    inputLabel: 'Parts Physical Verification Note',
+    inputPlaceholder: 'Verify physical parts condition and upload photo/video of received spares...',
+    requiresMedia: true,
+    mediaTypeLabel: 'Received Spares Photo / Video',
+  },
+  {
+    stage: 12,
+    num: '12',
     title: 'Repair Work In Progress',
     actorRole: 'Mechanic',
     inputLabel: 'Repair Work & Labour Details',
     inputPlaceholder: 'Describe ongoing repair work in workshop...',
   },
   {
-    stage: 12,
-    num: '12',
+    stage: 13,
+    num: '13',
     title: 'Repair Completed',
     actorRole: 'Mechanic',
     inputLabel: 'Completion Notes & Evidence',
@@ -127,24 +142,34 @@ export const BREAKDOWN_15_STAGES: BreakdownStageDef[] = [
     mappedWorkflowAction: 'Mark Repaired',
   },
   {
-    stage: 13,
-    num: '13',
+    stage: 14,
+    num: '14',
     title: 'Trial / Testing',
-    actorRole: 'Driver',
+    actorRole: 'Driver / Mechanic',
     inputLabel: 'Road / Load Trial Result',
     inputPlaceholder: 'Record trial run & safety check result...',
   },
   {
-    stage: 14,
-    num: '14',
+    stage: 15,
+    num: '15',
+    title: 'Running Vehicle Test (Photo / Video Evidence)',
+    actorRole: 'Driver / Supervisor',
+    inputLabel: 'Operational Running Verification Note',
+    inputPlaceholder: 'Verify running vehicle performance & upload active running photo/video...',
+    requiresMedia: true,
+    mediaTypeLabel: 'Running Vehicle Photo / Video',
+  },
+  {
+    stage: 16,
+    num: '16',
     title: 'Ready for Operation',
     actorRole: 'Supervisor',
     inputLabel: 'Supervisor Sign-Off / Acknowledgement',
     inputPlaceholder: 'Supervisor clearance & handover sign-off...',
   },
   {
-    stage: 15,
-    num: '15',
+    stage: 17,
+    num: '17',
     title: 'Vehicle Running',
     actorRole: 'Driver',
     inputLabel: 'Final Handover & Active Duty Note',
@@ -152,6 +177,9 @@ export const BREAKDOWN_15_STAGES: BreakdownStageDef[] = [
     mappedWorkflowAction: 'Close Breakdown',
   },
 ];
+
+// Alias for backwards compatibility
+export const BREAKDOWN_15_STAGES = BREAKDOWN_17_STAGES;
 
 const TRACKER_PREFIX = '[STAGE_TRACKER:';
 const TRACKER_SUFFIX = ']';
@@ -167,9 +195,9 @@ export function inferStageFromRepairStatus(repairStatus?: string): number {
     case 'Awaiting Parts':
       return 8;
     case 'Repaired':
-      return 12;
+      return 13;
     case 'Closed':
-      return 15;
+      return 17;
     default:
       return 1;
   }
@@ -189,7 +217,7 @@ export function parseBreakdownStageState(breakdown: VehicleBreakdown): ParsedSta
       plainNotes = (raw.slice(0, startIdx) + raw.slice(endIdx + 1)).trim();
       try {
         const parsed = JSON.parse(jsonStr);
-        if (typeof parsed.currentStage === 'number' && parsed.currentStage >= 1 && parsed.currentStage <= 15) {
+        if (typeof parsed.currentStage === 'number' && parsed.currentStage >= 1 && parsed.currentStage <= 17) {
           currentStage = Math.max(currentStage, parsed.currentStage);
         }
         if (parsed.history && typeof parsed.history === 'object') {
@@ -209,7 +237,15 @@ export function parseBreakdownStageState(breakdown: VehicleBreakdown): ParsedSta
       time: [breakdown.breakdownDate, breakdown.breakdownTime].filter(Boolean).join(' ') || 'Logged',
       actor: breakdown.driverName || breakdown.reportedByName || breakdown.driver || 'Driver / Site Sup',
       note: breakdown.description || breakdown.breakdownType || 'Breakdown reported',
+      mediaUrl: breakdown.breakdownEvidenceImage || undefined,
     };
+  }
+
+  // Ensure stage 5 mediaUrl defaults to breakdownEvidenceImage if recorded
+  if (breakdown.breakdownEvidenceImage) {
+    if (history[5] && !history[5].mediaUrl) {
+      history[5].mediaUrl = breakdown.breakdownEvidenceImage;
+    }
   }
 
   return {

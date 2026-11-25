@@ -51,10 +51,14 @@ function TripsTableSection() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(
     actionParam === 'new' || actionParam === 'site_sup'
   );
+  const [modalMode, setModalMode] = useState<'supervisor' | 'reconcile'>(
+    actionParam === 'site_sup' ? 'supervisor' : 'reconcile'
+  );
 
   useEffect(() => {
     if (actionParam === 'new' || actionParam === 'site_sup') {
       setIsCreateModalOpen(true);
+      setModalMode(actionParam === 'site_sup' ? 'supervisor' : 'reconcile');
     }
   }, [actionParam]);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
@@ -215,15 +219,31 @@ function TripsTableSection() {
         ]}
         actions={
           canManage ? (
-            <Button
-              variant="primary"
-              size="md"
-              icon={PlusCircle}
-              onClick={() => setIsCreateModalOpen(true)}
-              data-testid="btn-create-trip-header"
-            >
-              Trip entry site supervisor
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="md"
+                icon={PlusCircle}
+                onClick={() => {
+                  setModalMode('reconcile');
+                  setIsCreateModalOpen(true);
+                }}
+                data-testid="btn-create-trip-header"
+              >
+                Trip Entry & Reconcile
+              </Button>
+              <Button
+                variant="outline"
+                size="md"
+                icon={Compass}
+                onClick={() => {
+                  setModalMode('supervisor');
+                  setIsCreateModalOpen(true);
+                }}
+              >
+                Site Supervisor Entry
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -386,6 +406,7 @@ function TripsTableSection() {
       {/* Create Trip Modal */}
       <CreateTripModal
         isOpen={isCreateModalOpen}
+        initialMode={modalMode}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={() => {
           fetchTrips();

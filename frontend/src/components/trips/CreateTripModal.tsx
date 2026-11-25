@@ -41,12 +41,14 @@ interface CreateTripModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (newTrip: any) => void;
+  initialMode?: 'supervisor' | 'reconcile';
 }
 
 export function CreateTripModal({
   isOpen,
   onClose,
   onSuccess,
+  initialMode = 'reconcile',
 }: CreateTripModalProps) {
   const { currentMine, allowedMines, isSingleMine, isAllMines, isUnassigned, activeMineLabel } = useMine();
   const { user } = useAuth();
@@ -80,7 +82,13 @@ export function CreateTripModal({
   const [openingOdometer, setOpeningOdometer] = useState<number | ''>('');
   const [dispatchDateTime, setDispatchDateTime] = useState('');
   const [shift, setShift] = useState<'Shift A' | 'Shift B' | 'Shift C' | 'Day' | 'Night' | 'General'>('Shift A');
-  const [tripEntryMode, setTripEntryMode] = useState<'supervisor' | 'reconcile'>('supervisor');
+  const [tripEntryMode, setTripEntryMode] = useState<'supervisor' | 'reconcile'>(initialMode);
+
+  useEffect(() => {
+    if (isOpen && initialMode) {
+      setTripEntryMode(initialMode);
+    }
+  }, [isOpen, initialMode]);
   const [selectedLead, setSelectedLead] = useState<string>('');
   const [leadKm, setLeadKm] = useState<number | string | ''>('');
   const [leadRate, setLeadRate] = useState<number | ''>('');
@@ -491,14 +499,22 @@ export function CreateTripModal({
               <Compass className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">Trip entry site supervisor</h2>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                {tripEntryMode === 'reconcile'
+                  ? isManualReconcileEntry
+                    ? 'Direct Trip Entry & Dispatch'
+                    : 'Trip Entry & Reconciliation'
+                  : 'Site Supervisor Trip Entry'}
+              </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isMineLocked ? (
                   <span className="inline-flex items-center gap-1 font-medium text-slate-700">
                     <Lock className="w-3 h-3 text-slate-400" /> Locked to {activeMineLabel}
                   </span>
+                ) : tripEntryMode === 'reconcile' ? (
+                  'Reconcile haulage trips, enter average payload, or create direct trip entry'
                 ) : (
-                  'Site Supervisor Daily Trip Log & Reconciliation'
+                  'Site Supervisor Daily Trip Log & Pit-Head Dispatch'
                 )}
               </p>
             </div>

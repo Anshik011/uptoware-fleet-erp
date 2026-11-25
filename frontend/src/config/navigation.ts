@@ -194,6 +194,7 @@ export const clientNavigationSections: ClientNavSection[] = [
     href: '/fuel/average',
     icon: Fuel,
     items: [
+      { name: 'FUEL LOG MENU', href: '/fuel' },
       { name: 'HSD AVERAGE MENU', href: '/fuel/average' },
       { name: 'HSD ESCALATION/DE-ESCALATION REPORT', href: '/reports?report=HSD+Fuel+Price+Escalation+Report' },
     ],

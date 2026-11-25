@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { VehicleBreakdown } from '@/types/fleet';
 import {
-  BREAKDOWN_15_STAGES,
+  BREAKDOWN_17_STAGES,
   parseBreakdownStageState,
   serializeBreakdownStageState,
   StageHistoryEntry,
@@ -33,6 +33,10 @@ import {
   AlertCircle,
   Upload,
   ExternalLink,
+  Video,
+  X,
+  Eye,
+  FileText,
 } from 'lucide-react';
 import { formatVehicleDisplay, formatDriverDisplay, formatMineSiteDisplay } from '@/lib/displayFormatters';
 
@@ -43,21 +47,23 @@ interface VehicleBreakdownTrackerProps {
 }
 
 const STAGE_ICONS = [
-  AlertTriangle,
-  Building,
-  UserCheck,
-  Search,
-  Camera,
-  FileCheck,
-  Check,
-  ShoppingCart,
-  CheckCircle2,
-  Package,
-  Wrench,
-  Flag,
-  RotateCcw,
-  ThumbsUp,
-  Truck,
+  AlertTriangle, // 01. Breakdown Reported
+  Building,      // 02. Workshop Entry
+  UserCheck,     // 03. Mechanic Assigned
+  Search,        // 04. Under Inspection
+  Camera,        // 05. Breakdown Reason (Photo / Video)
+  FileCheck,     // 06. Repair Approval Pending
+  Check,         // 07. Repair Approved
+  ShoppingCart,  // 08. Prepared Purchases Order
+  CheckCircle2,  // 09. Purchases Order Approved
+  Package,       // 10. Spare Parts Receive In Workshop
+  Camera,        // 11. Spare Parts Received (Photo / Video Evidence)
+  Wrench,        // 12. Repair Work In Progress
+  Flag,          // 13. Repair Completed
+  RotateCcw,     // 14. Trial / Testing
+  Video,         // 15. Running Vehicle Test (Photo / Video Evidence)
+  ThumbsUp,      // 16. Ready for Operation
+  Truck,         // 17. Vehicle Running
 ];
 
 export function VehicleBreakdownTracker({
@@ -69,38 +75,54 @@ export function VehicleBreakdownTracker({
   const parsed = useMemo(() => parseBreakdownStageState(breakdown), [breakdown]);
 
   const currentStage = parsed.currentStage;
-  const currentStageDef = BREAKDOWN_15_STAGES[currentStage - 1] || BREAKDOWN_15_STAGES[0];
-  const nextStageDef = currentStage < 15 ? BREAKDOWN_15_STAGES[currentStage] : null;
+  const currentStageDef = BREAKDOWN_17_STAGES[currentStage - 1] || BREAKDOWN_17_STAGES[0];
+  const nextStageDef = currentStage < 17 ? BREAKDOWN_17_STAGES[currentStage] : null;
 
   const [stageNote, setStageNote] = useState('');
   const [stageActor, setStageActor] = useState(nextStageDef?.actorRole || '');
   const [laborCostInput, setLaborCostInput] = useState(
     breakdown.laborCost > 0 ? String(breakdown.laborCost) : ''
   );
-  const [evidencePhotoUrl, setEvidencePhotoUrl] = useState(
+  const [evidenceMediaUrl, setEvidenceMediaUrl] = useState(
     breakdown.breakdownEvidenceImage || ''
   );
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [stageError, setStageError] = useState<string | null>(null);
 
+  // Lightbox Media Viewer Modal state
+  const [activeMediaViewer, setActiveMediaViewer] = useState<{
+    isOpen: boolean;
+    url: string;
+    title: string;
+  }>({
+    isOpen: false,
+    url: '',
+    title: '',
+  });
+
   React.useEffect(() => {
-    const next = currentStage < 15 ? BREAKDOWN_15_STAGES[currentStage] : null;
+    const next = currentStage < 17 ? BREAKDOWN_17_STAGES[currentStage] : null;
     if (next) {
       setStageActor(next.actorRole);
       setStageNote('');
+      // If advancing to a stage that has existing media in history, preload it
+      const prevMedia = parsed.history[next.stage]?.mediaUrl || '';
+      setEvidenceMediaUrl(prevMedia);
     }
-  }, [currentStage]);
+  }, [currentStage, parsed.history]);
 
-  React.useEffect(() => {
-    setEvidencePhotoUrl(breakdown.breakdownEvidenceImage || '');
-  }, [breakdown.breakdownEvidenceImage]);
+  const isVideoUrl = (url?: string) => {
+    if (!url) return false;
+    const lower = url.toLowerCase();
+    return lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.includes('video');
+  };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setStageError(null);
-    setIsUploadingPhoto(true);
+    setIsUploadingMedia(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -110,13 +132,13 @@ export function VehicleBreakdownTracker({
       });
       const json = await res.json();
       if (!res.ok || !json.success || !json.data?.fileUrl) {
-        throw new Error(json.error || 'Failed to upload breakdown photo.');
+        throw new Error(json.error || 'Failed to upload media evidence.');
       }
-      setEvidencePhotoUrl(json.data.fileUrl);
+      setEvidenceMediaUrl(json.data.fileUrl);
     } catch (err: any) {
-      setStageError(err.message || 'Error uploading photo evidence.');
+      setStageError(err.message || 'Error uploading media evidence.');
     } finally {
-      setIsUploadingPhoto(false);
+      setIsUploadingMedia(false);
     }
   };
 
@@ -126,16 +148,23 @@ export function VehicleBreakdownTracker({
     setStageError(null);
 
     const newStage = nextStageDef.stage;
-    const effectivePhoto = (evidencePhotoUrl || breakdown.breakdownEvidenceImage || '').trim();
+    const effectiveMedia = (evidenceMediaUrl || '').trim();
 
-    // Enforce mandatory photo on Stage 05 (Breakdown Reason Photo/Video) and Stage 07 (Repair Approved)
-    if ((newStage === 5 || newStage === 7) && !effectivePhoto) {
+    // Enforce mandatory media evidence on Stage 05, Stage 11, and Stage 15
+    if (nextStageDef.requiresMedia && !effectiveMedia) {
       setStageError(
-        newStage === 7
-          ? 'Approval without photo evidence is not allowed. Please upload breakdown photo evidence first.'
-          : 'Photo evidence is mandatory for Stage 05 (Breakdown Reason). Please upload a breakdown photo.'
+        `Media evidence (${nextStageDef.mediaTypeLabel || 'Photo / Video'}) is mandatory for Stage ${nextStageDef.num}: ${nextStageDef.title}. Please upload photo or video before advancing.`
       );
       return;
+    }
+
+    // Stage 07 Repair Approved requires Stage 05 breakdown photo/video
+    if (newStage === 7) {
+      const stage5Media = parsed.history[5]?.mediaUrl || breakdown.breakdownEvidenceImage || effectiveMedia;
+      if (!stage5Media) {
+        setStageError('Approval without breakdown photo/video evidence is not allowed. Please ensure Stage 05 photo is recorded.');
+        return;
+      }
     }
 
     setIsAdvancing(true);
@@ -159,9 +188,10 @@ export function VehicleBreakdownTracker({
           actor: stageActor.trim() || nextStageDef.actorRole,
           note:
             stageNote.trim() ||
-            (newStage === 5 && effectivePhoto
-              ? `Photo uploaded: ${effectivePhoto}`
+            (effectiveMedia
+              ? `${nextStageDef.title} verified with media evidence`
               : `${nextStageDef.title} completed`),
+          mediaUrl: effectiveMedia || undefined,
         },
       };
 
@@ -175,8 +205,8 @@ export function VehicleBreakdownTracker({
         inspectionNotes: serializedNotes,
       };
 
-      if (effectivePhoto) {
-        patchPayload.breakdownEvidenceImage = effectivePhoto;
+      if (effectiveMedia && (newStage === 5 || !breakdown.breakdownEvidenceImage)) {
+        patchPayload.breakdownEvidenceImage = effectiveMedia;
       }
       if (newStage === 2 && stageNote.trim()) {
         patchPayload.assignedWorkshop = stageNote.trim();
@@ -192,15 +222,15 @@ export function VehicleBreakdownTracker({
         patchPayload.deliveryPersonName = stageActor.trim() || nextStageDef.actorRole;
         patchPayload.deliveryChallanNo = stageNote.trim();
       }
-      if (newStage === 11) {
+      if (newStage === 12) {
         if (stageNote.trim()) patchPayload.repairDescription = stageNote.trim();
         if (laborCostInput) patchPayload.labourCost = Number(laborCostInput);
       }
-      if (newStage === 12) {
+      if (newStage === 13) {
         if (stageNote.trim()) patchPayload.repairCompletionEvidence = stageNote.trim();
         if (laborCostInput) patchPayload.labourCost = Number(laborCostInput);
       }
-      if (newStage === 14 && stageNote.trim()) {
+      if (newStage === 16 && stageNote.trim()) {
         patchPayload.acknowledgementSignature = stageNote.trim();
       }
 
@@ -227,9 +257,9 @@ export function VehicleBreakdownTracker({
         workflowActionToRun = 'Request Parts';
       } else if (newStage === 10 && status === 'Awaiting Parts') {
         workflowActionToRun = 'Parts Received';
-      } else if (newStage === 12 && (status === 'In Workshop' || status === 'Awaiting Parts')) {
+      } else if (newStage === 13 && (status === 'In Workshop' || status === 'Awaiting Parts')) {
         workflowActionToRun = 'Mark Repaired';
-      } else if (newStage === 15 && status === 'Repaired') {
+      } else if (newStage === 17 && status === 'Repaired') {
         workflowActionToRun = 'Close Breakdown';
       }
 
@@ -242,7 +272,7 @@ export function VehicleBreakdownTracker({
             body: JSON.stringify({
               action: workflowActionToRun,
               inspectionNotes: serializedNotes,
-              breakdownEvidenceImage: effectivePhoto || undefined,
+              breakdownEvidenceImage: effectiveMedia || undefined,
               repairDetails: stageNote.trim() || undefined,
               laborCost: laborCostInput ? Number(laborCostInput) : undefined,
             }),
@@ -271,7 +301,11 @@ export function VehicleBreakdownTracker({
       ? `${breakdown.downtimeHours} Hours`
       : 'Ongoing';
   const totalCost = breakdown.totalCost && breakdown.totalCost > 0 ? breakdown.totalCost : 0;
-  const effectivePhoto = (evidencePhotoUrl || breakdown.breakdownEvidenceImage || '').trim();
+
+  // Gather all available media across stages
+  const breakdownCauseMedia = parsed.history[5]?.mediaUrl || breakdown.breakdownEvidenceImage || '';
+  const partsReceivedMedia = parsed.history[11]?.mediaUrl || '';
+  const runningVehicleMedia = parsed.history[15]?.mediaUrl || '';
 
   return (
     <div className="space-y-4">
@@ -283,7 +317,7 @@ export function VehicleBreakdownTracker({
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-bold tracking-tight">
-              Vehicle Breakdown Tracking (15-Stage Workflow)
+              Vehicle Breakdown Tracking (17-Stage Workflow)
             </h1>
             <p className="text-[11px] text-blue-200">
               {breakdown.id} • {formatVehicleDisplay(breakdown.vehicle)}
@@ -311,7 +345,7 @@ export function VehicleBreakdownTracker({
               Stage {currentStageDef.num}: {currentStageDef.title}
             </div>
             <span className="text-xs text-slate-500">
-              Completed {currentStage} of 15 stages • Responsible: {currentStageDef.actorRole}
+              Completed {currentStage} of 17 stages • Responsible: {currentStageDef.actorRole}
             </span>
           </div>
           <div className="w-11 h-11 rounded-full bg-blue-900 text-white font-mono font-bold text-sm flex items-center justify-center shrink-0">
@@ -319,36 +353,24 @@ export function VehicleBreakdownTracker({
           </div>
         </div>
 
-        <div className="bg-white border-2 border-slate-300 rounded-xl p-4 shadow-xs flex items-center justify-between">
+        <div className="bg-white border-2 border-amber-400 rounded-xl p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 block">
               Next Stage
             </span>
-            {nextStageDef ? (
-              <>
-                <div className="text-base font-bold text-slate-900 mt-0.5">
-                  Stage {nextStageDef.num}: {nextStageDef.title}
-                </div>
-                <span className="text-xs text-slate-500">
-                  Assigned Role: {nextStageDef.actorRole}
-                  {(nextStageDef.stage === 5 || nextStageDef.stage === 7) && ' • Photo Required'}
-                </span>
-              </>
-            ) : (
-              <>
-                <div className="text-base font-bold text-emerald-700 mt-0.5">
-                  All 15 Stages Completed
-                </div>
-                <span className="text-xs text-emerald-600">Vehicle is back in operation</span>
-              </>
-            )}
+            <div className="text-base font-bold text-slate-900 mt-0.5">
+              {nextStageDef ? `Stage ${nextStageDef.num}: ${nextStageDef.title}` : 'Workflow Complete (17/17)'}
+            </div>
+            <span className="text-xs text-slate-500">
+              {nextStageDef ? `Assigned Role: ${nextStageDef.actorRole}` : 'Vehicle running & operational'}
+            </span>
           </div>
           <div
             className={`w-11 h-11 rounded-full font-mono font-bold text-sm flex items-center justify-center shrink-0 ${
-              nextStageDef ? 'bg-blue-100 text-blue-900' : 'bg-emerald-100 text-emerald-800'
+              nextStageDef ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-100 text-emerald-800'
             }`}
           >
-            {nextStageDef ? nextStageDef.num : '15'}
+            {nextStageDef ? nextStageDef.num : '17'}
           </div>
         </div>
       </div>
@@ -358,8 +380,11 @@ export function VehicleBreakdownTracker({
         {/* Left Column: Breakdown Details & Next Stage Action (4 cols) */}
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Breakdown Details</h2>
+              <span className="text-[10px] font-semibold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                17 Stages
+              </span>
             </div>
             <div className="p-4 space-y-2.5 text-xs">
               <div className="flex justify-between py-1 border-b border-slate-100">
@@ -403,22 +428,90 @@ export function VehicleBreakdownTracker({
                   {breakdown.description || breakdown.breakdownType || '—'}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-slate-500 font-medium">Evidence Photo :</span>
-                {effectivePhoto ? (
-                  <a
-                    href={effectivePhoto}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-emerald-700 font-semibold hover:underline"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>Photo Attached</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                ) : (
-                  <span className="text-rose-600 font-semibold">Not Uploaded</span>
-                )}
+
+              {/* Uploaded Evidence Media Summary (Breakdown, Spares, Running Vehicle) */}
+              <div className="pt-2 space-y-1.5 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                  Uploaded Evidence (Photos & Videos)
+                </span>
+
+                {/* Stage 05 Cause Media */}
+                <div className="flex items-center justify-between py-1 bg-slate-50 px-2.5 rounded border border-slate-200">
+                  <span className="text-slate-600 font-medium flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-blue-700" />
+                    <span>Stage 05 (Cause)</span>
+                  </span>
+                  {breakdownCauseMedia ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveMediaViewer({
+                          isOpen: true,
+                          url: breakdownCauseMedia,
+                          title: 'Stage 05: Breakdown Cause Evidence',
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-900 font-bold hover:underline"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View Media</span>
+                    </button>
+                  ) : (
+                    <span className="text-slate-400 text-[11px]">Pending</span>
+                  )}
+                </div>
+
+                {/* Stage 11 Spares Received Media */}
+                <div className="flex items-center justify-between py-1 bg-slate-50 px-2.5 rounded border border-slate-200">
+                  <span className="text-slate-600 font-medium flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-indigo-700" />
+                    <span>Stage 11 (Spares)</span>
+                  </span>
+                  {partsReceivedMedia ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveMediaViewer({
+                          isOpen: true,
+                          url: partsReceivedMedia,
+                          title: 'Stage 11: Spare Parts Received Evidence',
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-900 font-bold hover:underline"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View Media</span>
+                    </button>
+                  ) : (
+                    <span className="text-slate-400 text-[11px]">Pending</span>
+                  )}
+                </div>
+
+                {/* Stage 15 Running Vehicle Media */}
+                <div className="flex items-center justify-between py-1 bg-slate-50 px-2.5 rounded border border-slate-200">
+                  <span className="text-slate-600 font-medium flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5 text-teal-700" />
+                    <span>Stage 15 (Running)</span>
+                  </span>
+                  {runningVehicleMedia ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveMediaViewer({
+                          isOpen: true,
+                          url: runningVehicleMedia,
+                          title: 'Stage 15: Running Vehicle Evidence',
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-900 font-bold hover:underline"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View Media</span>
+                    </button>
+                  ) : (
+                    <span className="text-slate-400 text-[11px]">Pending</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -445,33 +538,90 @@ export function VehicleBreakdownTracker({
                   </div>
                 )}
 
-                {/* Photo Upload (Always visible on Stage 05, or before Stage 07 Approval if missing) */}
-                {(nextStageDef.stage === 5 || nextStageDef.stage === 7 || !effectivePhoto) && (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase">
-                      Breakdown Photo Evidence{' '}
-                      {(nextStageDef.stage === 5 || nextStageDef.stage === 7) && (
-                        <span className="text-rose-600">* (Required for Approval)</span>
+                {/* Photo / Video Upload Box (Visible when media is required or uploaded) */}
+                {(nextStageDef.requiresMedia || nextStageDef.stage === 5 || nextStageDef.stage === 7 || evidenceMediaUrl) && (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-slate-700 uppercase">
+                        {nextStageDef.mediaTypeLabel || 'Photo / Video Evidence'}
+                        {nextStageDef.requiresMedia && (
+                          <span className="text-rose-600 ml-1">* (Required)</span>
+                        )}
+                      </label>
+                      {evidenceMediaUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveMediaViewer({
+                              isOpen: true,
+                              url: evidenceMediaUrl,
+                              title: `Stage ${nextStageDef.num}: ${nextStageDef.title}`,
+                            })
+                          }
+                          className="text-[11px] text-blue-900 font-bold hover:underline flex items-center gap-1"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Preview</span>
+                        </button>
                       )}
-                    </label>
+                    </div>
+
                     <div className="flex items-center gap-2">
                       <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 rounded text-xs font-semibold text-slate-700 cursor-pointer">
                         <Upload className="w-3.5 h-3.5 text-blue-700" />
-                        <span>{isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}</span>
+                        <span>{isUploadingMedia ? 'Uploading...' : 'Upload Photo / Video'}</span>
                         <input
                           type="file"
-                          accept="image/*,.pdf"
-                          onChange={handlePhotoUpload}
-                          disabled={isUploadingPhoto}
+                          accept="image/*,video/*,.pdf"
+                          onChange={handleMediaUpload}
+                          disabled={isUploadingMedia}
                           className="hidden"
                         />
                       </label>
-                      {effectivePhoto && (
+                      {evidenceMediaUrl ? (
                         <span className="text-[11px] text-emerald-700 font-semibold truncate">
-                          Attached
+                          ✓ Media Attached
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">
+                          Supports PNG, JPG, MP4, MOV
                         </span>
                       )}
                     </div>
+
+                    {/* Instant Media Preview Thumbnail & Player (Upload kn hela jemiti se dekhi pariba) */}
+                    {evidenceMediaUrl && (
+                      <div className="mt-2 border rounded-lg p-2 bg-white">
+                        {isVideoUrl(evidenceMediaUrl) ? (
+                          <video
+                            src={evidenceMediaUrl}
+                            controls
+                            className="w-full max-h-48 rounded object-contain bg-black"
+                          />
+                        ) : (
+                          <div className="relative group">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={evidenceMediaUrl}
+                              alt="Uploaded Evidence"
+                              className="w-full max-h-48 rounded object-contain bg-slate-100 cursor-pointer"
+                              onClick={() =>
+                                setActiveMediaViewer({
+                                  isOpen: true,
+                                  url: evidenceMediaUrl,
+                                  title: `Stage ${nextStageDef.num}: ${nextStageDef.title}`,
+                                })
+                              }
+                            />
+                            <div className="text-center mt-1">
+                              <span className="text-[10px] text-slate-500">
+                                Click image to inspect full size
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -501,7 +651,7 @@ export function VehicleBreakdownTracker({
                   />
                 </div>
 
-                {(nextStageDef.stage === 11 || nextStageDef.stage === 12) && (
+                {(nextStageDef.stage === 12 || nextStageDef.stage === 13) && (
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                       Labor / Repair Cost (₹)
@@ -519,7 +669,7 @@ export function VehicleBreakdownTracker({
 
                 <button
                   type="submit"
-                  disabled={isAdvancing || isUploadingPhoto}
+                  disabled={isAdvancing || isUploadingMedia}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {isAdvancing ? (
@@ -539,7 +689,7 @@ export function VehicleBreakdownTracker({
           ) : (
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2.5 text-xs text-emerald-900 font-semibold">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span>All 15 stages completed — Vehicle is back in active operation!</span>
+              <span>All 17 stages completed — Vehicle is back in active operation!</span>
             </div>
           )}
 
@@ -569,14 +719,14 @@ export function VehicleBreakdownTracker({
           </div>
         </div>
 
-        {/* Right Column: 15 Status Progress Stages (8 cols) */}
+        {/* Right Column: 17 Status Progress Stages (8 cols) */}
         <div className="lg:col-span-8">
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  15-Stage Status Progress ({currentStage} / 15)
+                  17-Stage Status Progress ({currentStage} / 17)
                 </h2>
               </div>
               <span className="text-[11px] font-semibold text-blue-900 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
@@ -585,18 +735,19 @@ export function VehicleBreakdownTracker({
             </div>
 
             <div className="divide-y divide-slate-100">
-              {BREAKDOWN_15_STAGES.map((st, idx) => {
+              {BREAKDOWN_17_STAGES.map((st, idx) => {
                 const isPastCompleted = st.stage < currentStage;
                 const isCurrentStage = st.stage === currentStage;
                 const isNextStage = st.stage === currentStage + 1;
                 const IconComponent = STAGE_ICONS[idx] || Wrench;
                 const logEntry = parsed.history[st.stage];
+                const stageMedia = logEntry?.mediaUrl || (st.stage === 5 ? breakdown.breakdownEvidenceImage : undefined);
 
                 return (
                   <div
                     key={st.num}
                     className={`px-4 py-2.5 flex items-center justify-between text-xs transition-colors ${
-                      st.stage === 15 && isCurrentStage
+                      st.stage === 17 && isCurrentStage
                         ? 'bg-emerald-50/80 font-medium border-l-4 border-emerald-600'
                         : isCurrentStage
                         ? 'bg-blue-50 font-medium border-l-4 border-blue-900'
@@ -610,7 +761,7 @@ export function VehicleBreakdownTracker({
                     <div className="flex items-center space-x-3 min-w-[240px]">
                       <span
                         className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
-                          st.stage === 15 && isCurrentStage
+                          st.stage === 17 && isCurrentStage
                             ? 'bg-emerald-600 text-white'
                             : isPastCompleted || isCurrentStage
                             ? 'bg-blue-900 text-white'
@@ -641,7 +792,27 @@ export function VehicleBreakdownTracker({
                       </span>
                     </div>
 
-                    <div className="hidden sm:flex items-center space-x-6 text-slate-600">
+                    <div className="hidden sm:flex items-center space-x-4 text-slate-600">
+                      {stageMedia && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveMediaViewer({
+                              isOpen: true,
+                              url: stageMedia,
+                              title: `Stage ${st.num}: ${st.title} Evidence`,
+                            })
+                          }
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-100 text-blue-900 font-bold text-[10px] hover:bg-blue-200 transition-colors"
+                        >
+                          {isVideoUrl(stageMedia) ? (
+                            <Video className="w-3 h-3 text-blue-800" />
+                          ) : (
+                            <Camera className="w-3 h-3 text-blue-800" />
+                          )}
+                          <span>View Media</span>
+                        </button>
+                      )}
                       <span className="font-mono text-[11px] text-slate-500">
                         {logEntry?.time || (isPastCompleted || isCurrentStage ? 'Recorded' : '—')}
                       </span>
@@ -654,7 +825,7 @@ export function VehicleBreakdownTracker({
                       {isCurrentStage ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-900 text-white">
                           <Check className="w-3 h-3 mr-1" />
-                          {st.stage === 15 ? 'Current (Final)' : 'Current Stage'}
+                          {st.stage === 17 ? 'Current (Final)' : 'Current Stage'}
                         </span>
                       ) : isPastCompleted ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700">
@@ -679,13 +850,13 @@ export function VehicleBreakdownTracker({
         </div>
       </div>
 
-      {/* 3. Bottom Section: All 15 Stages One-by-One History Table */}
+      {/* 3. Bottom Section: All 17 Stages One-by-One History Table */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
         <div className="bg-blue-900 px-4 py-3 text-white flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <List className="w-4 h-4" />
             <h3 className="text-xs font-bold uppercase tracking-wider">
-              Stage-by-Stage History (Stages 01 to 15)
+              Stage-by-Stage History (Stages 01 to 17)
             </h3>
           </div>
           <button
@@ -705,17 +876,20 @@ export function VehicleBreakdownTracker({
                 <th className="py-2.5 px-4 w-24">Stage</th>
                 <th className="py-2.5 px-4 w-44">Date & Time</th>
                 <th className="py-2.5 px-4 w-56">Stage Name</th>
-                <th className="py-2.5 px-4 w-32">State</th>
-                <th className="py-2.5 px-4">Remarks / Evidence</th>
+                <th className="py-2.5 px-4 w-28">State</th>
+                <th className="py-2.5 px-4 w-36">Evidence Media</th>
+                <th className="py-2.5 px-4">Remarks / Notes</th>
                 <th className="py-2.5 px-4 w-40">Updated By</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-800">
-              {BREAKDOWN_15_STAGES.map((st) => {
+              {BREAKDOWN_17_STAGES.map((st) => {
                 const entry = parsed.history[st.stage];
                 const isCurrent = st.stage === currentStage;
                 const isCompleted = st.stage < currentStage;
                 const isNext = st.stage === currentStage + 1;
+                const media = entry?.mediaUrl || (st.stage === 5 ? breakdown.breakdownEvidenceImage : undefined);
+
                 return (
                   <tr
                     key={st.stage}
@@ -753,6 +927,30 @@ export function VehicleBreakdownTracker({
                         </span>
                       )}
                     </td>
+                    <td className="py-2.5 px-4">
+                      {media ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveMediaViewer({
+                              isOpen: true,
+                              url: media,
+                              title: `Stage ${st.num}: ${st.title}`,
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 font-bold text-[11px] transition-colors"
+                        >
+                          {isVideoUrl(media) ? (
+                            <Video className="w-3.5 h-3.5 text-blue-800" />
+                          ) : (
+                            <Camera className="w-3.5 h-3.5 text-blue-800" />
+                          )}
+                          <span>View {isVideoUrl(media) ? 'Video' : 'Photo'}</span>
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 text-[11px]">—</span>
+                      )}
+                    </td>
                     <td className="py-2.5 px-4 text-slate-600">
                       {entry?.note || (isCompleted ? 'Completed' : 'Awaiting stage completion')}
                     </td>
@@ -766,6 +964,71 @@ export function VehicleBreakdownTracker({
           </table>
         </div>
       </div>
+
+      {/* 4. Fullscreen Interactive Lightbox / Media Viewer Modal (Upload kn hela jemiti se dekhi pariba) */}
+      {activeMediaViewer.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+            {/* Modal Header */}
+            <div className="p-4 bg-blue-900 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Camera className="w-5 h-5 text-white" />
+                <h3 className="font-bold text-sm">{activeMediaViewer.title}</h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                <a
+                  href={activeMediaViewer.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="px-3 py-1 bg-blue-800 hover:bg-blue-700 rounded text-xs font-semibold text-white inline-flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Full Size</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setActiveMediaViewer({ isOpen: false, url: '', title: '' })}
+                  className="p-1 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body / Viewer */}
+            <div className="p-4 flex-1 overflow-auto bg-slate-950 flex items-center justify-center min-h-[300px]">
+              {isVideoUrl(activeMediaViewer.url) ? (
+                <video
+                  src={activeMediaViewer.url}
+                  controls
+                  autoPlay
+                  className="max-h-[70vh] w-auto max-w-full rounded"
+                />
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={activeMediaViewer.url}
+                  alt={activeMediaViewer.title}
+                  className="max-h-[70vh] w-auto max-w-full object-contain rounded"
+                />
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
+              <span className="truncate max-w-md">File URL: {activeMediaViewer.url}</span>
+              <button
+                type="button"
+                onClick={() => setActiveMediaViewer({ isOpen: false, url: '', title: '' })}
+                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 rounded font-semibold text-slate-800 text-xs"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

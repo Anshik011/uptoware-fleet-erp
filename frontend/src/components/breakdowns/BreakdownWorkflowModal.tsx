@@ -63,7 +63,7 @@ export function BreakdownWorkflowModal({
   const stageState = useMemo(() => parseBreakdownStageState(breakdown), [breakdown]);
   const currentStageDef = BREAKDOWN_15_STAGES[stageState.currentStage - 1] || BREAKDOWN_15_STAGES[0];
   const nextStageDef =
-    stageState.currentStage < 15 ? BREAKDOWN_15_STAGES[stageState.currentStage] : null;
+    stageState.currentStage < 17 ? BREAKDOWN_15_STAGES[stageState.currentStage] : null;
   const [stageNote, setStageNote] = useState('');
   const [evidencePhotoUrl, setEvidencePhotoUrl] = useState(breakdown.breakdownEvidenceImage || '');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);

@@ -372,7 +372,7 @@ export function BreakdownTable({
                       {(() => {
                         const st = parseBreakdownStageState(b);
                         const cur = BREAKDOWN_15_STAGES[st.currentStage - 1];
-                        const nxt = st.currentStage < 15 ? BREAKDOWN_15_STAGES[st.currentStage] : null;
+                        const nxt = st.currentStage < 17 ? BREAKDOWN_15_STAGES[st.currentStage] : null;
                         return (
                           <div className="flex flex-col items-end gap-1">
                             <Badge variant={getStatusBadgeVariant(b.repairStatus)}>
@@ -382,7 +382,7 @@ export function BreakdownTable({
                               Current: {cur?.num}. {cur?.title}
                             </span>
                             <span className="text-[10px] text-slate-500">
-                              {nxt ? `Next: ${nxt.num}. ${nxt.title}` : 'Completed (15/15)'}
+                              {nxt ? `Next: ${nxt.num}. ${nxt.title}` : 'Completed (17/17)'}
                             </span>
                           </div>
                         );

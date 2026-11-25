@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { MiningTrip, TripStatus } from '@/types/fleet';
 import {
   Compass,
@@ -23,6 +23,7 @@ import {
   Trash2,
   Printer,
   Download,
+  RotateCcw,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -70,13 +71,60 @@ export function TripTable({
   sortBy,
   onSortChange,
 }: TripTableProps) {
+  // Additional filters: Vehicle wise, Lead wise, Date to Date
+  const [selectedVehicle, setSelectedVehicle] = useState<string>('ALL');
+  const [selectedLead, setSelectedLead] = useState<string>('ALL');
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
+
+  // Extract unique vehicles and leads from trips
+  const vehicleOptions = useMemo(() => {
+    const set = new Set<string>();
+    trips.forEach((t) => {
+      if (t.vehicle) set.add(t.vehicle);
+    });
+    return Array.from(set).sort();
+  }, [trips]);
+
+  const leadOptions = useMemo(() => {
+    const set = new Set<string>();
+    trips.forEach((t) => {
+      const lead = t.lead || t.destination;
+      if (lead) set.add(lead);
+    });
+    return Array.from(set).sort();
+  }, [trips]);
+
+  // Client-side filtering by Vehicle, Lead, and Date Range
+  const filteredTrips = useMemo(() => {
+    return trips.filter((t) => {
+      if (selectedVehicle !== 'ALL' && t.vehicle !== selectedVehicle) {
+        return false;
+      }
+      if (selectedLead !== 'ALL') {
+        const leadVal = t.lead || t.destination || '';
+        if (leadVal !== selectedLead) {
+          return false;
+        }
+      }
+      const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(/[ T]/)[0] : '';
+      if (fromDate && rawDate && rawDate < fromDate) {
+        return false;
+      }
+      if (toDate && rawDate && rawDate > toDate) {
+        return false;
+      }
+      return true;
+    });
+  }, [trips, selectedVehicle, selectedLead, fromDate, toDate]);
+
   const totalTripsCount = useMemo(
-    () => trips.reduce((acc, t) => acc + Number(t.tripCount || 1), 0),
-    [trips]
+    () => filteredTrips.reduce((acc, t) => acc + Number(t.tripCount || 1), 0),
+    [filteredTrips]
   );
   const totalQuantitySum = useMemo(
     () =>
-      trips.reduce((acc, t) => {
+      filteredTrips.reduce((acc, t) => {
         const tripCnt = Number(t.tripCount || 1);
         const q = Number(
           t.calculatedQuantity ??
@@ -85,11 +133,11 @@ export function TripTable({
         );
         return acc + (isNaN(q) ? 0 : q);
       }, 0),
-    [trips]
+    [filteredTrips]
   );
   const totalAmountSum = useMemo(
     () =>
-      trips.reduce((acc, t) => {
+      filteredTrips.reduce((acc, t) => {
         const tripCnt = Number(t.tripCount || 1);
         const q = Number(
           t.calculatedQuantity ??
@@ -100,7 +148,7 @@ export function TripTable({
         const a = Number(t.calculatedAmount ?? t.grossRevenue ?? (q * r));
         return acc + (isNaN(a) ? 0 : a);
       }, 0),
-    [trips]
+    [filteredTrips]
   );
 
   const handleDownloadCsv = () => {
@@ -113,8 +161,9 @@ export function TripTable({
       'Qnt (MT)',
       'Rate (INR)',
       'Amount (INR)',
+      'Status',
     ];
-    const rows = trips.map((t) => {
+    const rows = filteredTrips.map((t) => {
       const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(/[ T]/)[0] : toLocalDateString();
       const veh = t.vehicle || '';
       const lead = t.lead || t.destination || '';
@@ -139,15 +188,17 @@ export function TripTable({
           (qntVal > 0 && rateVal > 0 ? qntVal * rateVal : 0)
       );
       const amt = amtVal > 0 ? amtVal.toFixed(2) : '—';
+      const status = t.tripStatus || 'Draft';
       return [
         rawDate,
         veh,
-        `"${lead}"`,
+        `"${lead.replace(/"/g, '""')}"`,
         tripCnt,
         `"${avg}"`,
         qnt,
         rate,
         amt,
+        `"${status}"`,
       ].join(',');
     });
     const csvContent =
@@ -157,78 +208,32 @@ export function TripTable({
     link.setAttribute('href', encodedUri);
     link.setAttribute(
       'download',
-      `Mining_Trips_${toLocalDateString()}.csv`
+      `Mining_Trips_Export_${toLocalDateString()}.csv`
     );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
-  const getStatusBadge = (status: TripStatus | string) => {
-    switch (status) {
-      case 'Draft':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-600/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-            Draft
-          </span>
-        );
-      case 'Dispatched':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            Dispatched
-          </span>
-        );
-      case 'Weighbridge Confirmed':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20">
-            <Scale className="w-3 h-3 text-amber-600" />
-            Weighbridge Confirmed
-          </span>
-        );
-      case 'Approved':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-            Approved
-          </span>
-        );
-      case 'Delivered':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-600/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-            Delivered
-          </span>
-        );
-      case 'Cancelled':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20">
-            <XCircle className="w-3 h-3 text-rose-600" />
-            Cancelled
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-600/20">
-            {status}
-          </span>
-        );
-    }
+
+  const setFilterToday = () => {
+    const today = toLocalDateString();
+    setFromDate(today);
+    setToDate(today);
   };
 
-  const formatDateTime = (dtStr?: string | null) => {
+  const clearDateFilter = () => {
+    setFromDate('');
+    setToDate('');
+  };
+
+  const formatTripDate = (dtStr?: string | null) => {
     if (!dtStr) return '—';
     try {
-      const d = new Date(dtStr);
-      if (isNaN(d.getTime())) return dtStr;
-      return d.toLocaleString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
+      const parts = dtStr.split(/[ T]/)[0].split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}.${parts[1]}.${parts[0]}`;
+      }
+      return dtStr;
     } catch {
       return dtStr;
     }
@@ -237,108 +242,179 @@ export function TripTable({
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
       {/* Search and Filters Toolbar */}
-      <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-        <div className="flex flex-1 flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+      <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/50 space-y-3.5 print:hidden">
+        {/* Row 1: Search Box & Dropdown Filters (Vehicle, Lead, Status) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Search Box */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by vehicle, driver, pit, destination, material..."
+              placeholder="Search vehicle, route, driver..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all placeholder:text-slate-400"
+              className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent placeholder:text-slate-400"
             />
           </div>
 
+          {/* Vehicle Wise Filter */}
+          <div className="flex items-center gap-1.5">
+            <Truck className="w-4 h-4 text-slate-400 shrink-0" />
+            <select
+              value={selectedVehicle}
+              onChange={(e) => setSelectedVehicle(e.target.value)}
+              className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-700 font-medium"
+            >
+              <option value="ALL">All Vehicles ({vehicleOptions.length})</option>
+              {vehicleOptions.map((veh) => (
+                <option key={veh} value={veh}>
+                  {veh}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Lead Wise Filter */}
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+            <select
+              value={selectedLead}
+              onChange={(e) => setSelectedLead(e.target.value)}
+              className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-700 font-medium"
+            >
+              <option value="ALL">All Leads / Routes ({leadOptions.length})</option>
+              {leadOptions.map((lead) => (
+                <option key={lead} value={lead}>
+                  {lead}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Status Filter */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Filter className="w-4 h-4 text-slate-400 shrink-0" />
             <select
               value={selectedStatus}
               onChange={(e) => onStatusChange(e.target.value)}
-              className="px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-700 transition-all font-medium"
+              className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-700 font-medium"
             >
               <option value="ALL">All Statuses</option>
-              <option value="SITE_SUPERVISOR">Site Supervisor (Draft / Dispatched)</option>
-              <option value="RECONCILE_PENDING">Awaiting Reconcile</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Approved">Approved</option>
               <option value="COMPLETED">Completed (Delivered / Approved)</option>
+              <option value="RECONCILE_PENDING">Awaiting Reconcile</option>
+              <option value="SITE_SUPERVISOR">Site Supervisor (Draft / Dispatched)</option>
               <option value="Draft">Draft</option>
               <option value="Dispatched">Dispatched</option>
               <option value="Weighbridge Confirmed">Weighbridge Confirmed</option>
-              <option value="Approved">Approved</option>
-              <option value="Delivered">Delivered</option>
               <option value="Cancelled">Cancelled</option>
             </select>
           </div>
-
-          {/* Mine Site Filter */}
-          {mineSiteOptions.length > 0 && (
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedMineSite}
-                onChange={(e) => onMineSiteChange(e.target.value)}
-                className="px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-700 transition-all font-medium"
-              >
-                <option value="ALL">All Mine Sites</option>
-                {mineSiteOptions.map((site) => (
-                  <option key={site} value={site}>
-                    {site}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
 
-        {/* Sort & Quick Dispatch Button */}
-        <div className="flex items-center justify-between sm:justify-end gap-3">
-          <div className="flex items-center gap-2">
-            <ArrowUpDown className="w-4 h-4 text-slate-400" />
-            <select
-              value={sortBy}
-              onChange={(e) => onSortChange(e.target.value)}
-              className="px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-700 transition-all font-medium"
+        {/* Row 2: Date to Date Picker, Sort, Mine Site, Print & Download Buttons */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-1 border-t border-slate-200/60">
+          {/* Date to Date Picker */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-slate-500 font-semibold text-[11px] uppercase">From:</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="bg-transparent text-slate-800 text-xs focus:outline-none font-medium"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-slate-500 font-semibold text-[11px] uppercase">To:</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="bg-transparent text-slate-800 text-xs focus:outline-none font-medium"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={setFilterToday}
+              className="px-2.5 py-1.5 text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg transition-colors"
             >
-              <option value="dispatch_desc">Latest Dispatched</option>
-              <option value="dispatch_asc">Oldest Dispatched</option>
-              <option value="weight_desc">Highest Weight</option>
-              <option value="revenue_desc">Highest Est. Value</option>
-            </select>
+              Today
+            </button>
+
+            {(fromDate || toDate || selectedVehicle !== 'ALL' || selectedLead !== 'ALL') && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearDateFilter();
+                  setSelectedVehicle('ALL');
+                  setSelectedLead('ALL');
+                }}
+                className="px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset Filters</span>
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Actions & Tools */}
+          <div className="flex items-center justify-between sm:justify-end gap-2.5">
+            {/* Sort Selector */}
+            <div className="flex items-center gap-1.5">
+              <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <select
+                value={sortBy}
+                onChange={(e) => onSortChange(e.target.value)}
+                className="px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-700 font-medium"
+              >
+                <option value="dispatch_desc">Latest Dispatched</option>
+                <option value="dispatch_asc">Oldest Dispatched</option>
+                <option value="weight_desc">Highest Weight</option>
+                <option value="revenue_desc">Highest Value</option>
+              </select>
+            </div>
+
+            {/* Print Button */}
             <Button
               variant="outline"
               size="sm"
               icon={Printer}
               onClick={() => window.print()}
-              className="text-xs"
+              className="text-xs h-8 px-3"
             >
               Print
             </Button>
+
+            {/* Download CSV Button */}
             <Button
               variant="outline"
               size="sm"
               icon={Download}
               onClick={handleDownloadCsv}
-              className="text-xs"
+              className="text-xs h-8 px-3"
             >
               Download
             </Button>
-          </div>
 
-          {canManage && (
-            <Button
-              onClick={onOpenCreateTrip}
-              variant="primary"
-              size="sm"
-              icon={PlusCircle}
-              className="shrink-0"
-            >
-              New Trip
-            </Button>
-          )}
+            {/* New Trip */}
+            {canManage && (
+              <Button
+                onClick={onOpenCreateTrip}
+                variant="primary"
+                size="sm"
+                icon={PlusCircle}
+                className="shrink-0 h-8 px-3 text-xs"
+              >
+                New Trip
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -355,11 +431,11 @@ export function TripTable({
               <th className="py-3.5 px-4 text-right">Qnt</th>
               <th className="py-3.5 px-4 text-right">Rate</th>
               <th className="py-3.5 px-4 text-right">Amount</th>
-              <th className="py-3.5 px-4 text-right">Edit</th>
+              <th className="py-3.5 px-4 text-right print:hidden">Edit</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 text-sm">
-            {trips.length === 0 ? (
+            {filteredTrips.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-16 text-center">
                   <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
@@ -369,131 +445,125 @@ export function TripTable({
                     <h3 className="text-sm font-semibold text-slate-900 mb-1">
                       No Mining Trips Found
                     </h3>
-                    <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-                      {searchQuery || selectedStatus !== 'ALL' || selectedMineSite !== 'ALL'
-                        ? 'No trips matched your search or filter parameters. Try clearing filters.'
-                        : 'No operational mining trips have been logged in the system. Create a trip to initiate haulage.'}
+                    <p className="text-xs text-slate-500 mb-4">
+                      {searchQuery || fromDate || toDate || selectedVehicle !== 'ALL' || selectedLead !== 'ALL'
+                        ? 'Try adjusting your vehicle, date range, lead, or search filters.'
+                        : 'No trips match the current filter criteria.'}
                     </p>
                     {canManage && (
                       <Button
                         onClick={onOpenCreateTrip}
-                        variant="primary"
+                        variant="outline"
                         size="sm"
                         icon={PlusCircle}
                       >
-                        Create Mining Trip
+                        Create New Trip
                       </Button>
                     )}
                   </div>
                 </td>
               </tr>
             ) : (
-              trips.map((trip) => {
-                const rawDate = trip.dispatchDateTime ? trip.dispatchDateTime.split(/[ T]/)[0] : toLocalDateString();
-                const formattedDate = rawDate.includes('-') ? rawDate.split('-').reverse().join('.') : rawDate;
-                const tripCountVal = Number(trip.tripCount || 1);
-                const leadName = trip.lead || trip.destination || '—';
-
-                // Real average payload tonnage
-                const hasAvg = trip.averageTonnage != null || (trip.calculatedQuantity && tripCountVal > 0) || (trip.netWeightTons && tripCountVal > 0);
+              filteredTrips.map((t) => {
+                const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(/[ T]/)[0] : '';
+                const dateDisplay = formatTripDate(rawDate);
+                const tripCnt = Number(t.tripCount || 1);
                 const avgTons = Number(
-                  trip.averageTonnage ||
-                    (trip.calculatedQuantity && tripCountVal > 0 ? Number(trip.calculatedQuantity) / tripCountVal : 0) ||
-                    (trip.netWeightTons && tripCountVal > 0 ? Number(trip.netWeightTons) / tripCountVal : 0)
+                  t.averageTonnage ||
+                    (t.calculatedQuantity && tripCnt > 0 ? Number(t.calculatedQuantity) / tripCnt : 0) ||
+                    (t.netWeightTons && tripCnt > 0 ? Number(t.netWeightTons) / tripCnt : 0)
                 );
-                const avgDisplay = hasAvg && avgTons > 0 ? `${avgTons} T` : '—';
-
-                // Real calculated quantity
-                const hasQuantity = trip.calculatedQuantity != null || trip.netWeightTons != null || (hasAvg && avgTons > 0);
+                const avgDisplay = avgTons > 0 ? `${avgTons} T` : '—';
                 const qntVal = Number(
-                  trip.calculatedQuantity ??
-                    trip.netWeightTons ??
-                    (hasAvg && avgTons > 0 ? tripCountVal * avgTons : 0)
+                  t.calculatedQuantity ??
+                    t.netWeightTons ??
+                    (avgTons > 0 ? tripCnt * avgTons : 0)
                 );
-
-                // Real contracted rate
-                const hasRate = (trip.leadRate != null && Number(trip.leadRate) > 0) || (trip.ratePerTon != null && Number(trip.ratePerTon) > 0);
-                const rateVal = Number(trip.leadRate ?? trip.ratePerTon ?? 0);
-
-                // Real valuation amount
-                const hasAmount = trip.calculatedAmount != null || trip.grossRevenue != null || (hasQuantity && hasRate);
-                const amountVal = Number(
-                  trip.calculatedAmount ??
-                    trip.grossRevenue ??
+                const qntDisplay = qntVal > 0 ? `${qntVal.toFixed(2)} MT` : '—';
+                const rateVal = Number(t.leadRate ?? t.ratePerTon ?? 0);
+                const rateDisplay = rateVal > 0 ? `₹${rateVal.toFixed(2)}` : '—';
+                const amtVal = Number(
+                  t.calculatedAmount ??
+                    t.grossRevenue ??
                     (qntVal > 0 && rateVal > 0 ? qntVal * rateVal : 0)
                 );
+                const amtDisplay =
+                  amtVal > 0
+                    ? `₹${amtVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : '—';
 
                 return (
                   <tr
-                    key={trip.id}
-                    onClick={() => onSelectTrip(trip.id)}
+                    key={t.id}
+                    onClick={() => onSelectTrip(t.id)}
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                   >
                     {/* Date */}
-                    <td className="py-3 px-4 font-mono text-xs text-slate-700">
-                      {formattedDate}
+                    <td className="py-3 px-4 font-mono text-xs text-slate-800">
+                      {dateDisplay}
                     </td>
 
-                    {/* Vehicle no */}
-                    <td className="py-3 px-4">
-                      <span className="font-semibold text-slate-900 font-mono text-xs">
-                        {formatVehicleDisplay(trip.vehicle)}
-                      </span>
+                    {/* Vehicle No */}
+                    <td className="py-3 px-4 font-mono font-bold text-xs text-slate-900 group-hover:text-blue-900 transition-colors">
+                      {t.vehicle ? formatVehicleDisplay(t.vehicle) : '—'}
                     </td>
 
-                    {/* Lead/Route */}
-                    <td className="py-3 px-4 text-xs text-slate-800">
-                      {leadName}
+                    {/* Lead / Route */}
+                    <td className="py-3 px-4 text-xs font-semibold text-slate-800">
+                      {t.lead || t.destination || 'Direct Mine Haulage'}
                     </td>
 
-                    {/* Trip */}
-                    <td className="py-3 px-4 text-right font-mono font-bold text-blue-900 text-xs">
-                      {tripCountVal}
+                    {/* Trip Count */}
+                    <td className="py-3 px-4 text-right font-mono text-xs font-bold text-blue-900">
+                      {tripCnt}
                     </td>
 
-                    {/* Avg */}
-                    <td className="py-3 px-4 text-center font-mono text-xs text-slate-600">
+                    {/* Avg Tonnage */}
+                    <td className="py-3 px-4 text-center font-mono text-xs text-slate-700">
                       {avgDisplay}
                     </td>
 
                     {/* Qnt */}
-                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 text-xs">
-                      {hasQuantity && qntVal > 0 ? `${qntVal.toFixed(2)} MT` : '—'}
+                    <td className="py-3 px-4 text-right font-mono text-xs font-bold text-slate-900">
+                      {qntDisplay}
                     </td>
 
                     {/* Rate */}
-                    <td className="py-3 px-4 text-right font-mono text-xs text-slate-700">
-                      {hasRate && rateVal > 0 ? `₹${rateVal.toFixed(2)}` : '—'}
+                    <td className="py-3 px-4 text-right font-mono text-xs text-slate-600">
+                      {rateDisplay}
                     </td>
 
                     {/* Amount */}
-                    <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700 text-xs">
-                      {hasAmount && amountVal > 0
-                        ? `₹${amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : '—'}
+                    <td className="py-3 px-4 text-right font-mono text-xs font-bold text-emerald-800">
+                      {amtDisplay}
                     </td>
 
-                    {/* Edit / Action */}
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    {/* Edit Actions */}
+                    <td
+                      className="py-3 px-4 text-right print:hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                         {canManage && onEditTrip && (
                           <button
                             type="button"
-                            onClick={() => onEditTrip(trip)}
-                            className="p-1 text-slate-600 hover:text-blue-900 hover:bg-slate-100 rounded transition-colors"
-                            title="Edit Trip"
+                            onClick={() => onEditTrip(t)}
+                            title="Edit Trip Details"
+                            className="p-1 text-slate-400 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => onSelectTrip(trip.id)}
-                          className="p-1 text-slate-400 hover:text-blue-900 hover:bg-slate-100 rounded transition-colors"
-                          title="View Details"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
+                        {canManage && onDeleteTrip && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteTrip(t)}
+                            title="Delete Trip"
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -501,11 +571,11 @@ export function TripTable({
               })
             )}
           </tbody>
-          {trips.length > 0 && (
+          {filteredTrips.length > 0 && (
             <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
               <tr>
                 <td colSpan={3} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
-                  TOTAL {searchQuery ? `FOR "${searchQuery}"` : ''} ({trips.length} RECORDS)
+                  TOTAL {searchQuery ? `FOR "${searchQuery}"` : ''} ({filteredTrips.length} RECORDS)
                 </td>
                 <td className="py-3 px-4 text-right font-mono text-blue-900">
                   {totalTripsCount}
@@ -522,7 +592,7 @@ export function TripTable({
                 <td className="py-3 px-4 text-right font-mono text-emerald-800">
                   ₹{totalAmountSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
-                <td className="py-3 px-4"></td>
+                <td className="py-3 px-4 print:hidden"></td>
               </tr>
             </tfoot>
           )}
@@ -530,13 +600,13 @@ export function TripTable({
       </div>
 
       {/* Footer summary */}
-      <div className="py-3 px-4 sm:px-6 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
+      <div className="py-3 px-4 sm:px-6 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between print:hidden">
         <span>
-          Showing <strong className="text-slate-700">{trips.length}</strong> mining trips
+          Showing <strong className="text-slate-700">{filteredTrips.length}</strong> of{' '}
+          <strong className="text-slate-700">{trips.length}</strong> mining trips
         </span>
         <span className="text-slate-400">Uptoware Dispatch Engine</span>
       </div>
     </div>
   );
 }
-
