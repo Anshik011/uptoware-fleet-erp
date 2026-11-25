@@ -172,6 +172,10 @@ export default function BreakdownsPage() {
           <VehicleBreakdownTracker
             breakdown={trackedBreakdown}
             onBack={() => setTrackedBreakdown(null)}
+            onRefresh={(updated) => {
+              if (updated) setTrackedBreakdown(updated);
+              fetchBreakdownData();
+            }}
           />
         ) : (
           <>

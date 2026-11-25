@@ -1,8 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { VehicleBreakdown, BreakdownWorkflowAction } from '@/types/fleet';
 import { formatVehicleDisplay } from '@/lib/displayFormatters';
+import {
+  BREAKDOWN_15_STAGES,
+  parseBreakdownStageState,
+  serializeBreakdownStageState,
+  StageHistoryEntry,
+} from '@/lib/breakdownStages';
 import { Button } from '@/components/ui/Button';
 import {
   Wrench,
@@ -54,7 +60,81 @@ export function BreakdownWorkflowModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const stageState = useMemo(() => parseBreakdownStageState(breakdown), [breakdown]);
+  const nextStageDef =
+    stageState.currentStage < 15 ? BREAKDOWN_15_STAGES[stageState.currentStage] : null;
+  const [stageNote, setStageNote] = useState('');
+
   if (!isOpen) return null;
+
+  async function handleAdvanceSingleStage() {
+    if (!nextStageDef) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const now = new Date();
+      const timeStr = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(
+        2,
+        '0'
+      )}-${now.getFullYear()} ${now.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`;
+      const newStage = nextStageDef.stage;
+      const updatedHistory: Record<number, StageHistoryEntry> = {
+        ...stageState.history,
+        [newStage]: {
+          stage: newStage,
+          title: nextStageDef.title,
+          time: timeStr,
+          actor: nextStageDef.actorRole,
+          note: stageNote.trim() || `${nextStageDef.title} completed`,
+        },
+      };
+      const serializedNotes = serializeBreakdownStageState(
+        stageState.plainInspectionNotes,
+        newStage,
+        updatedHistory
+      );
+
+      const patchRes = await fetch(`/api/breakdowns/${encodeURIComponent(breakdown.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspectionNotes: serializedNotes }),
+      });
+      const patchJson = await patchRes.json();
+      if (!patchRes.ok || !patchJson.success) {
+        throw new Error(patchJson.error || `Failed to advance to Stage ${newStage}`);
+      }
+
+      const status = breakdown.repairStatus;
+      let workflowActionToRun: string | null = null;
+      if (newStage === 2 && status === 'Reported') workflowActionToRun = 'Send to Workshop';
+      else if (newStage === 7 && status === 'Reported') workflowActionToRun = 'Approve';
+      else if (newStage === 8 && status === 'In Workshop') workflowActionToRun = 'Request Parts';
+      else if (newStage === 10 && status === 'Awaiting Parts') workflowActionToRun = 'Parts Received';
+      else if (newStage === 12 && (status === 'In Workshop' || status === 'Awaiting Parts'))
+        workflowActionToRun = 'Mark Repaired';
+      else if (newStage === 15 && status === 'Repaired') workflowActionToRun = 'Close Breakdown';
+
+      if (workflowActionToRun) {
+        await fetch(`/api/breakdowns/${encodeURIComponent(breakdown.id)}/transition`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: workflowActionToRun,
+            inspectionNotes: serializedNotes,
+          }),
+        });
+      }
+      onSuccess();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to advance stage.';
+      setError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   // Compute available actions based on current breakdown repair_status
   let availableActions: BreakdownWorkflowAction[] = [];
@@ -161,6 +241,36 @@ export function BreakdownWorkflowModal({
 
         {/* Modal Body */}
         <div className="p-6 space-y-4">
+          {nextStageDef && (
+            <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-lg space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-blue-900">
+                  15-Stage Progression: Stage {stageState.currentStage} / 15
+                </span>
+                <span className="font-semibold text-blue-700">
+                  Next: {nextStageDef.num}. {nextStageDef.title}
+                </span>
+              </div>
+              <input
+                type="text"
+                value={stageNote}
+                onChange={(e) => setStageNote(e.target.value)}
+                placeholder={nextStageDef.inputPlaceholder}
+                className="w-full px-3 py-1.5 bg-white border border-blue-200 rounded text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+              />
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleAdvanceSingleStage}
+                className="w-full px-3 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmitting
+                  ? `Completing Stage ${nextStageDef.num}...`
+                  : `Complete Stage ${nextStageDef.num}: ${nextStageDef.title}`}
+              </button>
+            </div>
+          )}
+
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 leading-relaxed">
             <span className="font-semibold">Provisional Role Authorization:</span> Driver (Report), Workshop Supervisor (Inspection/Repair/Parts), Fleet Manager (Approve/Close) — Formal delegation of authority (DOA) pending client sign-off.
           </div>
