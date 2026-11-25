@@ -1312,6 +1312,9 @@ export function AllReportsHub() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200">
+                <th className="py-3 px-3 w-12 text-center text-[11px] font-bold text-slate-700 uppercase tracking-wider font-mono">
+                  Sl No
+                </th>
                 {columns.map((col) => (
                   <th
                     key={col.fieldname}
@@ -1338,7 +1341,7 @@ export function AllReportsHub() {
             <tbody className="divide-y divide-slate-200 text-xs text-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={Math.max(columns.length, 1)} className="py-12 text-center text-slate-500">
+                  <td colSpan={Math.max(columns.length + 1, 1)} className="py-12 text-center text-slate-500">
                     <div className="inline-flex items-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-blue-700" />
                       <span>Fetching live records...</span>
@@ -1347,13 +1350,16 @@ export function AllReportsHub() {
                 </tr>
               ) : paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={Math.max(columns.length, 1)} className="py-12 text-center text-slate-500">
+                  <td colSpan={Math.max(columns.length + 1, 1)} className="py-12 text-center text-slate-500">
                     No records match the current filters. Try widening your date range or resetting filters.
                   </td>
                 </tr>
               ) : (
                 paginatedRows.map((row, rIdx) => (
                   <tr key={rIdx} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-2.5 px-3 text-center font-mono text-slate-500 whitespace-nowrap font-semibold">
+                      {(currentPage - 1) * pageSize + rIdx + 1}
+                    </td>
                     {columns.map((col) => (
                       <td
                         key={col.fieldname}

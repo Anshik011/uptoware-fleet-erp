@@ -266,6 +266,7 @@ export function FuelLogTable({
                   />
                 </th>
               )}
+              <th className="py-3 px-3 w-12 text-center font-mono">Sl No</th>
               <th className="py-3 px-4 sm:px-6">Refuel Date & Time</th>
               <th className="py-3 px-4">Vehicle & Driver</th>
               <th className="py-3 px-4">Source / Station</th>
@@ -281,7 +282,7 @@ export function FuelLogTable({
           <tbody className="divide-y divide-slate-200 bg-white">
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={canManage ? 11 : 10} className="py-12 text-center text-slate-500">
+                <td colSpan={canManage ? 12 : 11} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Fuel className="w-8 h-8 text-slate-300" />
                     <p className="text-sm font-semibold text-slate-700">No fuel logs found</p>
@@ -294,7 +295,7 @@ export function FuelLogTable({
                 </td>
               </tr>
             ) : (
-              logs.map((log) => {
+              logs.map((log, idx) => {
                 const isDraft = log.approvalStatus === 'Draft';
                 const isSelected = selectedIds.includes(log.id);
 
@@ -325,6 +326,11 @@ export function FuelLogTable({
                         )}
                       </td>
                     )}
+
+                    {/* Sl No */}
+                    <td className="py-3.5 px-3 text-center font-mono text-slate-500 font-semibold text-xs">
+                      {idx + 1}
+                    </td>
 
                     {/* Refuel Date & Time */}
                     <td className="py-3.5 px-4 sm:px-6 font-medium text-slate-900">

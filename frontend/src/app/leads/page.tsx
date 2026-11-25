@@ -426,6 +426,7 @@ function LeadsContent() {
                   <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3 px-3 text-center w-12 font-mono">Sl No</th>
                         <th className="py-3 px-4">Lead Name</th>
                         <th className="py-3 px-4 text-right">Distance</th>
                         <th className="py-3 px-4 text-right">Trip Logged</th>
@@ -435,13 +436,16 @@ function LeadsContent() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredLeads.map((lead) => {
+                      {filteredLeads.map((lead, idx) => {
                         const stats = tripStats[lead.leadName] || tripStats[lead.id];
                         const tripsLogged = stats?.tripCount || 0;
                         const qntLogged = (stats?.totalTonnage || 0).toFixed(2);
 
                         return (
                           <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-3 px-3 text-center font-mono text-slate-500 font-semibold">
+                              {idx + 1}
+                            </td>
                             <td className="py-3 px-4">
                               <div className="font-semibold text-slate-900 flex items-center gap-2">
                                 <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-center font-bold text-xs shrink-0">
@@ -539,6 +543,7 @@ function LeadsContent() {
                 <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-3 text-center w-12 font-mono">Sl No</th>
                       <th className="py-3 px-4">Lead Name</th>
                       <th className="py-3 px-4 text-right">Distance</th>
                       <th className="py-3 px-4 text-right">Total Trip</th>
@@ -547,7 +552,7 @@ function LeadsContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredLeads.map((lead) => {
+                    {filteredLeads.map((lead, idx) => {
                       const stats =
                         tripStats[lead.leadName] ||
                         tripStats[lead.id] ||
@@ -566,6 +571,9 @@ function LeadsContent() {
 
                       return (
                         <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-3 text-center font-mono text-slate-500 font-semibold">
+                            {idx + 1}
+                          </td>
                           <td className="py-3 px-4 font-semibold text-slate-900">
                             {lead.leadName}
                           </td>

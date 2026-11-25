@@ -423,6 +423,7 @@ export function TripTable({
         <table className="w-full text-left border-collapse whitespace-nowrap">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/75 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th className="py-3.5 px-3 text-center w-12 font-mono">Sl No</th>
               <th className="py-3.5 px-4">Date</th>
               <th className="py-3.5 px-4">Vehicle No</th>
               <th className="py-3.5 px-4">Lead/Route</th>
@@ -437,7 +438,7 @@ export function TripTable({
           <tbody className="divide-y divide-slate-200 text-sm">
             {filteredTrips.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-16 text-center">
+                <td colSpan={10} className="py-16 text-center">
                   <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
                     <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
                       <Compass className="w-6 h-6" />
@@ -464,7 +465,7 @@ export function TripTable({
                 </td>
               </tr>
             ) : (
-              filteredTrips.map((t) => {
+              filteredTrips.map((t, idx) => {
                 const rawDate = t.dispatchDateTime ? t.dispatchDateTime.split(/[ T]/)[0] : '';
                 const dateDisplay = formatTripDate(rawDate);
                 const tripCnt = Number(t.tripCount || 1);
@@ -498,6 +499,11 @@ export function TripTable({
                     onClick={() => onSelectTrip(t.id)}
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                   >
+                    {/* Sl No */}
+                    <td className="py-3 px-3 text-center font-mono text-xs text-slate-500 font-semibold">
+                      {idx + 1}
+                    </td>
+
                     {/* Date */}
                     <td className="py-3 px-4 font-mono text-xs text-slate-800">
                       {dateDisplay}

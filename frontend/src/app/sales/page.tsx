@@ -573,6 +573,7 @@ function SalesContent() {
                   <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3 px-3 text-center w-12 font-mono">Sl No</th>
                         <th className="py-3 px-4">Ref No</th>
                         <th className="py-3 px-4">Date</th>
                         <th className="py-3 px-4">Vehicle Number</th>
@@ -585,7 +586,7 @@ function SalesContent() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredSales.map((sale) => {
+                      {filteredSales.map((sale, idx) => {
                         const totalQty = sale.items.reduce((sum, it) => sum + it.qty, 0) || sale.totalQty || 0;
                         const primaryItem = sale.items[0];
                         const itemsText = sale.items.length > 0
@@ -596,6 +597,9 @@ function SalesContent() {
 
                         return (
                           <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-3 px-3 text-center font-mono text-slate-500 font-semibold">
+                              {idx + 1}
+                            </td>
                             <td className="py-3 px-4 font-mono font-semibold text-blue-900">
                               {sale.id}
                             </td>
@@ -717,6 +721,7 @@ function SalesContent() {
                 <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-3 text-center w-12 font-mono">Sl No</th>
                       <th className="py-3 px-4">Ref No</th>
                       <th className="py-3 px-4">Date</th>
                       <th className="py-3 px-4">Vehicle No</th>
@@ -729,38 +734,45 @@ function SalesContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredSales.flatMap((sale) => {
-                      const isPending = sale.docstatus === 0 || sale.status === 'Draft';
-                      const rows = sale.items && sale.items.length > 0 ? sale.items : [{
-                        itemCode: 'SP-PARTS',
-                        itemName: 'Spare Parts',
-                        qty: sale.totalQty || 1,
-                        rate: sale.totalQty ? sale.grandTotal / sale.totalQty : sale.grandTotal,
-                        amount: sale.grandTotal,
-                      }];
+                    {(() => {
+                      let counter = 0;
+                      return filteredSales.flatMap((sale) => {
+                        const isPending = sale.docstatus === 0 || sale.status === 'Draft';
+                        const rows = sale.items && sale.items.length > 0 ? sale.items : [{
+                          itemCode: 'SP-PARTS',
+                          itemName: 'Spare Parts',
+                          qty: sale.totalQty || 1,
+                          rate: sale.totalQty ? sale.grandTotal / sale.totalQty : sale.grandTotal,
+                          amount: sale.grandTotal,
+                        }];
 
-                      return rows.map((it, idx) => (
-                        <tr key={`${sale.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-4 font-mono font-semibold text-blue-900">
-                            {sale.id}
-                          </td>
-                          <td className="py-3 px-4 text-slate-700">{sale.postingDate}</td>
-                          <td className="py-3 px-4 font-mono font-medium text-slate-800">
-                            {sale.vehicle ? formatVehicleDisplay(sale.vehicle) : 'Counter Sale'}
-                          </td>
-                          <td className="py-3 px-4 font-semibold text-slate-900">
-                            {it.itemName}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                            {it.qty}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-700">
-                            ₹{it.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
-                            ₹{it.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-3 px-4 text-center">
+                        return rows.map((it, idx) => {
+                          counter += 1;
+                          return (
+                            <tr key={`${sale.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-3 px-3 text-center font-mono text-slate-500 font-semibold">
+                                {counter}
+                              </td>
+                              <td className="py-3 px-4 font-mono font-semibold text-blue-900">
+                                {sale.id}
+                              </td>
+                              <td className="py-3 px-4 text-slate-700">{sale.postingDate}</td>
+                              <td className="py-3 px-4 font-mono font-medium text-slate-800">
+                                {sale.vehicle ? formatVehicleDisplay(sale.vehicle) : 'Counter Sale'}
+                              </td>
+                              <td className="py-3 px-4 font-semibold text-slate-900">
+                                {it.itemName}
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                                {it.qty}
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono text-slate-700">
+                                ₹{it.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                                ₹{it.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-3 px-4 text-center">
                             {isPending ? (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                                 <Clock className="w-3 h-3 mr-1" /> Pending Approval
@@ -793,21 +805,23 @@ function SalesContent() {
                             )}
                           </td>
                         </tr>
-                      ));
-                    })}
-                    {filteredSales.length === 0 && (
-                      <tr>
-                        <td colSpan={9} className="py-8 text-center text-slate-400">
-                          No sold parts matching criteria.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                  {filteredSales.length > 0 && (
-                    <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
-                      <tr>
-                        <td colSpan={4} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
-                          TOTAL ({filteredSales.length} TRANSACTIONS)
+                      );
+                    });
+                  });
+                })()}
+                {filteredSales.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="py-8 text-center text-slate-400">
+                      No sold parts matching criteria.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {filteredSales.length > 0 && (
+                <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
+                  <tr>
+                    <td colSpan={5} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
+                      TOTAL ({filteredSales.length} TRANSACTIONS)
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">
                           {filteredSales.reduce((acc, s) => acc + (s.items.reduce((sum, it) => sum + it.qty, 0) || s.totalQty || 0), 0)}

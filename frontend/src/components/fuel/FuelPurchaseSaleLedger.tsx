@@ -592,6 +592,7 @@ export function FuelPurchaseSaleLedger({
             <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/75 text-slate-600 font-semibold uppercase">
+                  <th className="py-3 px-3 text-center w-12 font-mono">Sl No</th>
                   <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Supply Name</th>
                   <th className="py-3 px-4">Vehicle Number</th>
@@ -605,12 +606,12 @@ export function FuelPurchaseSaleLedger({
               <tbody className="divide-y divide-slate-100 text-slate-800">
                 {filteredPurchases.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       No fuel purchase records found matching criteria. Click &quot;+ Log Fuel Purchase&quot; to add.
                     </td>
                   </tr>
                 ) : (
-                  filteredPurchases.map((l) => {
+                  filteredPurchases.map((l, idx) => {
                     const amount = l.totalCost || l.quantityLitres * l.ratePerLitre;
                     const isDraft = l.approvalStatus === 'Draft';
                     return (
@@ -619,6 +620,9 @@ export function FuelPurchaseSaleLedger({
                         onClick={() => onSelectLog(l)}
                         className="hover:bg-slate-50 cursor-pointer transition-colors"
                       >
+                        <td className="py-3 px-3 text-center font-mono text-slate-500 font-semibold">
+                          {idx + 1}
+                        </td>
                         <td className="py-3 px-4 font-mono font-medium">{formatDate(l.fuelDate)}</td>
                         <td className="py-3 px-4 font-semibold text-slate-900">
                           {l.fuelStation || l.fuelSource || 'Direct Tanker Inward'}
@@ -671,7 +675,7 @@ export function FuelPurchaseSaleLedger({
               {filteredPurchases.length > 0 && (
                 <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
                   <tr>
-                    <td colSpan={3} className="py-3 px-4 uppercase text-slate-700">
+                    <td colSpan={4} className="py-3 px-4 uppercase text-slate-700">
                       TOTAL FUEL PURCHASE ({filteredPurchases.length} RECORDS)
                     </td>
                     <td className="py-3 px-4 text-right font-mono text-blue-900">
@@ -711,6 +715,7 @@ export function FuelPurchaseSaleLedger({
             <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/75 text-slate-600 font-semibold uppercase">
+                  <th className="py-3 px-3 text-center w-12 font-mono">Sl No</th>
                   <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Supply / Station Name</th>
                   <th className="py-3 px-4">Vehicle Number</th>
@@ -724,12 +729,12 @@ export function FuelPurchaseSaleLedger({
               <tbody className="divide-y divide-slate-100 text-slate-800">
                 {filteredSales.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       No fuel sale / dispensation records found matching criteria. Click &quot;+ Log Fuel Dispensation&quot; to add.
                     </td>
                   </tr>
                 ) : (
-                  filteredSales.map((l) => {
+                  filteredSales.map((l, idx) => {
                     const amount = l.totalCost || l.quantityLitres * l.ratePerLitre;
                     const isDraft = l.approvalStatus === 'Draft';
                     return (
@@ -738,6 +743,9 @@ export function FuelPurchaseSaleLedger({
                         onClick={() => onSelectLog(l)}
                         className="hover:bg-slate-50 cursor-pointer transition-colors"
                       >
+                        <td className="py-3 px-3 text-center font-mono text-slate-500 font-semibold">
+                          {idx + 1}
+                        </td>
                         <td className="py-3 px-4 font-mono font-medium">{formatDate(l.fuelDate)}</td>
                         <td className="py-3 px-4 font-semibold text-slate-900">
                           {l.fuelStation || l.fuelSource || 'Site Bowser Dispenser'}
@@ -790,7 +798,7 @@ export function FuelPurchaseSaleLedger({
               {filteredSales.length > 0 && (
                 <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
                   <tr>
-                    <td colSpan={3} className="py-3 px-4 uppercase text-slate-700">
+                    <td colSpan={4} className="py-3 px-4 uppercase text-slate-700">
                       TOTAL FUEL SALE / DISPENSED ({filteredSales.length} RECORDS)
                     </td>
                     <td className="py-3 px-4 text-right font-mono text-indigo-900">
@@ -839,6 +847,7 @@ export function FuelPurchaseSaleLedger({
               <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-100/80 text-slate-700 font-bold text-[11px] uppercase">
+                    <th className="py-3 px-3 text-center w-12 font-mono">Sl No</th>
                     <th className="py-3 px-4">Date</th>
                     <th className="py-3 px-4">Transaction Details</th>
                     <th className="py-3 px-4">Vehicle / Bowser</th>
@@ -852,7 +861,7 @@ export function FuelPurchaseSaleLedger({
                 <tbody className="divide-y divide-slate-100 text-slate-800">
                   {filteredPurchases.length === 0 && filteredSales.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                      <td colSpan={9} className="py-12 text-center text-slate-400">
                         No transactions recorded for the selected period.
                       </td>
                     </tr>
@@ -863,7 +872,7 @@ export function FuelPurchaseSaleLedger({
                       ...filteredSales.map((l) => ({ ...l, isP: false })),
                     ]
                       .sort((a, b) => (b.fuelDate || '').localeCompare(a.fuelDate || ''))
-                      .map((l) => {
+                      .map((l, idx) => {
                         const amount = l.totalCost || l.quantityLitres * l.ratePerLitre;
                         return (
                           <tr
@@ -871,6 +880,9 @@ export function FuelPurchaseSaleLedger({
                             onClick={() => onSelectLog(l)}
                             className="hover:bg-slate-50 cursor-pointer transition-colors"
                           >
+                            <td className="py-2.5 px-3 text-center font-mono text-slate-500 font-semibold">
+                              {idx + 1}
+                            </td>
                             <td className="py-2.5 px-4 font-mono font-medium">{formatDate(l.fuelDate)}</td>
                             <td className="py-2.5 px-4">
                               <span

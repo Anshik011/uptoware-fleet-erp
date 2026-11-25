@@ -94,7 +94,9 @@ export function PurchaseOrderDetailDrawer({
       return;
     }
     document.body.classList.add('printing-po-active');
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 60);
   };
 
   useEffect(() => {
@@ -705,37 +707,37 @@ function OfficialPOPrintDocument({
   const totalQty = order.items?.reduce((sum, it) => sum + (it.qty || 0), 0) || 1;
 
   return (
-    <div id="po-official-print-portal" className="hidden print:block text-black bg-white font-sans p-6 w-full max-w-[210mm] mx-auto">
+    <div id="po-official-print-portal" className="text-black bg-white font-sans p-3 w-full max-w-[195mm] mx-auto">
       {/* 1. Official Header */}
-      <div className="flex items-start justify-between border-b-2 border-black pb-2.5 mb-2.5">
-        <div className="flex items-start gap-2.5">
-          <div className="w-9 h-9 bg-blue-900 text-white rounded flex items-center justify-center font-black text-sm shrink-0 mt-0.5">
+      <div className="flex items-start justify-between border-b-2 border-black pb-2 mb-2">
+        <div className="flex items-start gap-2">
+          <div className="w-8 h-8 bg-blue-900 text-white rounded flex items-center justify-center font-black text-xs shrink-0 mt-0.5">
             UW
           </div>
           <div>
-            <h1 className="text-base font-black tracking-tight text-black uppercase leading-tight">
+            <h1 className="text-sm font-black tracking-tight text-black uppercase leading-tight">
               UPTOWARE FLEET MANAGEMENT
             </h1>
-            <p className="text-[10px] font-bold text-slate-800 tracking-wide uppercase">
+            <p className="text-[9.5px] font-bold text-slate-800 tracking-wide uppercase">
               JBR Eastern Pvt Ltd · Mining Haulage & Heavy Logistics Division
             </p>
-            <p className="text-[9px] text-slate-600">
+            <p className="text-[8.5px] text-slate-600">
               Talcher Coal Fields, Angul, Odisha · GSTIN: 21AAACJ4928K1Z5
             </p>
           </div>
         </div>
 
         <div className="text-right">
-          <div className="inline-block bg-black text-white px-2 py-0.5 font-bold text-[10px] uppercase tracking-wider rounded-xs mb-1">
+          <div className="inline-block bg-black text-white px-2 py-0.5 font-bold text-[9px] uppercase tracking-wider rounded-xs mb-0.5">
             OFFICIAL PURCHASE ORDER
           </div>
           <div className="text-xs font-mono font-black text-black">PO #{order.name}</div>
-          <div className="text-[9px] text-slate-600">Date: {order.transactionDate}</div>
+          <div className="text-[8.5px] text-slate-600">Date: {order.transactionDate}</div>
         </div>
       </div>
 
       {/* 2. Metadata Grid */}
-      <div className="grid grid-cols-2 gap-2 border border-black rounded p-2 mb-2.5 text-[9px]">
+      <div className="grid grid-cols-2 gap-2 border border-black rounded p-1.5 mb-2 text-[8.5px]">
         <div>
           <div className="font-bold text-slate-900 uppercase tracking-wider mb-0.5">SUPPLIER / VENDOR DETAILS:</div>
           <div className="text-xs font-bold text-black">{order.supplier}</div>
@@ -767,9 +769,9 @@ function OfficialPOPrintDocument({
       </div>
 
       {/* 3. Items Table */}
-      <div className="border border-black rounded overflow-hidden mb-2.5">
-        <table className="w-full text-left border-collapse text-[9px]">
-          <thead className="bg-slate-100 border-b border-black text-black font-black uppercase text-[8.5px]">
+      <div className="border border-black rounded overflow-hidden mb-2">
+        <table className="w-full text-left border-collapse text-[8.5px]">
+          <thead className="bg-slate-100 border-b border-black text-black font-black uppercase text-[8px]">
             <tr>
               <th className="py-1 px-2 border-r border-black w-8 text-center">#</th>
               <th className="py-1 px-2 border-r border-black">Part Code & Description</th>
@@ -806,18 +808,18 @@ function OfficialPOPrintDocument({
               </tr>
             )}
           </tbody>
-          <tfoot className="border-t-2 border-black bg-slate-50 font-bold text-[10px]">
+          <tfoot className="border-t-2 border-black bg-slate-50 font-bold text-[9px]">
             <tr>
-              <td colSpan={3} className="py-1.5 px-2 border-r border-black text-right uppercase tracking-wider text-slate-900">
+              <td colSpan={3} className="py-1 px-2 border-r border-black text-right uppercase tracking-wider text-slate-900">
                 Grand Total ({order.items?.length || 0} Items):
               </td>
-              <td className="py-1.5 px-2 border-r border-black text-right font-mono font-black text-black">
+              <td className="py-1 px-2 border-r border-black text-right font-mono font-black text-black">
                 {totalQty}
               </td>
-              <td className="py-1.5 px-2 border-r border-black text-right font-mono text-slate-400">
+              <td className="py-1 px-2 border-r border-black text-right font-mono text-slate-400">
                 —
               </td>
-              <td className="py-1.5 px-2 text-right font-mono font-black text-black text-xs">
+              <td className="py-1 px-2 text-right font-mono font-black text-black text-xs">
                 ₹{order.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </td>
             </tr>
@@ -826,7 +828,7 @@ function OfficialPOPrintDocument({
       </div>
 
       {/* 4. Commercial Terms & Proof Verification Note */}
-      <div className="border border-black rounded p-2 mb-2 bg-slate-50/30 text-[8.5px] text-slate-700">
+      <div className="border border-black rounded p-1.5 mb-2 bg-slate-50/30 text-[8px] text-slate-700">
         <div className="font-bold text-slate-900 uppercase tracking-wider mb-0.5">Commercial & Quality Verification Terms:</div>
         <ol className="list-decimal list-inside space-y-0.5">
           <li>Supplied items must be delivered with an original Commercial Tax Invoice and verified Delivery Challan referencing this PO number.</li>
@@ -838,58 +840,58 @@ function OfficialPOPrintDocument({
       </div>
 
       {/* 5. Mandatory Verification & Authorization Signatures */}
-      <div className="border border-black rounded p-2">
-        <div className="text-[8.5px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">
+      <div className="border border-black rounded p-1.5">
+        <div className="text-[8px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">
           MANDATORY VERIFICATION & COMMERCIAL AUTHORIZATION SIGNATURES
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           {/* Sign 1: Workshop Incharge */}
-          <div className="border border-slate-300 rounded p-1 bg-slate-50/50 flex flex-col justify-between h-20">
-            <div className="text-[8.5px] font-bold text-slate-900">Workshop Incharge</div>
+          <div className="border border-slate-300 rounded p-1 bg-slate-50/50 flex flex-col justify-between h-16">
+            <div className="text-[8px] font-bold text-slate-900">Workshop Incharge</div>
             <div className="my-0.5 flex items-center justify-center">
               {workshopSign ? (
-                <img src={workshopSign} alt="Workshop Sign" className="max-h-8 object-contain" />
+                <img src={workshopSign} alt="Workshop Sign" className="max-h-7 object-contain" />
               ) : (
                 <div className="border-b border-dashed border-slate-500 w-3/4 mx-auto mb-1"></div>
               )}
             </div>
             <div>
-              <div className="text-[7.5px] text-slate-600 font-semibold">Verification of Spares</div>
-              <div className="text-[7px] text-slate-500">Date: {order.transactionDate}</div>
+              <div className="text-[7px] text-slate-600 font-semibold">Verification of Spares</div>
+              <div className="text-[6.5px] text-slate-500">Date: {order.transactionDate}</div>
             </div>
           </div>
 
           {/* Sign 2: Mechanical Inspection */}
-          <div className="border border-slate-300 rounded p-1 bg-slate-50/50 flex flex-col justify-between h-20">
-            <div className="text-[8.5px] font-bold text-slate-900">Mechanical / Technical</div>
+          <div className="border border-slate-300 rounded p-1 bg-slate-50/50 flex flex-col justify-between h-16">
+            <div className="text-[8px] font-bold text-slate-900">Mechanical / Technical</div>
             <div className="my-0.5 flex items-center justify-center">
               {mechanicalSign ? (
-                <img src={mechanicalSign} alt="Mechanical Sign" className="max-h-8 object-contain" />
+                <img src={mechanicalSign} alt="Mechanical Sign" className="max-h-7 object-contain" />
               ) : (
                 <div className="border-b border-dashed border-slate-500 w-3/4 mx-auto mb-1"></div>
               )}
             </div>
             <div>
-              <div className="text-[7.5px] text-slate-600 font-semibold">Technical Inspection</div>
-              <div className="text-[7px] text-slate-500">Date: {order.transactionDate}</div>
+              <div className="text-[7px] text-slate-600 font-semibold">Technical Inspection</div>
+              <div className="text-[6.5px] text-slate-500">Date: {order.transactionDate}</div>
             </div>
           </div>
 
           {/* Sign 3: Authority Sign (Auto-Added) */}
-          <div className="border border-blue-300 rounded p-1 bg-blue-50/30 flex flex-col justify-between h-20">
-            <div className="text-[8.5px] font-bold text-blue-950">Authorized Commercial Sign</div>
+          <div className="border border-blue-300 rounded p-1 bg-blue-50/30 flex flex-col justify-between h-16">
+            <div className="text-[8px] font-bold text-blue-950">Authorized Commercial Sign</div>
             <div className="my-0.5 flex items-center justify-center">
               <img
                 src="/branding/authority_signature.svg"
                 alt="Authority Stamp"
-                className="max-h-9 object-contain"
+                className="max-h-8 object-contain"
               />
             </div>
             <div>
-              <div className="text-[7.5px] text-blue-900 font-bold">
+              <div className="text-[7px] text-blue-900 font-bold">
                 {order.approvedBy ? `Approved by ${order.approvedBy.split('@')[0]}` : 'Commercial Authority'}
               </div>
-              <div className="text-[7px] text-slate-500">Date: {order.approvedOn || order.transactionDate}</div>
+              <div className="text-[6.5px] text-slate-500">Date: {order.approvedOn || order.transactionDate}</div>
             </div>
           </div>
         </div>

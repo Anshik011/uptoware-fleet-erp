@@ -273,6 +273,7 @@ export function BreakdownTable({
         >
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <th className="py-3 px-3 w-12 text-center font-mono">Sl No</th>
               <th className="py-3 px-4 sm:px-6">Date & Time</th>
               <th className="py-3 px-4">Vehicle & Driver</th>
               <th className="py-3 px-4">Type & Severity</th>
@@ -287,7 +288,7 @@ export function BreakdownTable({
           <tbody className="divide-y divide-slate-200 bg-white">
             {breakdowns.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-slate-500">
+                <td colSpan={10} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Wrench className="w-8 h-8 text-slate-300" />
                     <p className="text-sm font-semibold text-slate-700">No breakdown incidents found</p>
@@ -300,7 +301,7 @@ export function BreakdownTable({
                 </td>
               </tr>
             ) : (
-              breakdowns.map((b) => {
+              breakdowns.map((b, idx) => {
                 return (
                   <tr
                     key={b.id}
@@ -308,6 +309,11 @@ export function BreakdownTable({
                     onClick={() => onSelectBreakdown(b)}
                     data-testid={`row-breakdown-${b.id}`}
                   >
+                    {/* Sl No */}
+                    <td className="py-3.5 px-3 text-center font-mono text-slate-500 font-semibold text-xs">
+                      {idx + 1}
+                    </td>
+
                     {/* Date & Time */}
                     <td className="py-3.5 px-4 sm:px-6 font-medium text-slate-900">
                       <div className="text-xs font-bold text-slate-900">

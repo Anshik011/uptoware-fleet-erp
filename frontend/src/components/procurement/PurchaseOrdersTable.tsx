@@ -250,6 +250,7 @@ export function PurchaseOrdersTable({
           <thead>
             {viewMode === 'home' ? (
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-[10px] tracking-wider uppercase">
+                <th className="py-3 px-3 text-center w-12">Sl No</th>
                 <th className="py-3 px-4">Date</th>
                 <th className="py-3 px-4">PO Number</th>
                 <th className="py-3 px-4">Supplier Name</th>
@@ -261,6 +262,7 @@ export function PurchaseOrdersTable({
               </tr>
             ) : (
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-semibold text-[10px] tracking-wider uppercase">
+                <th className="py-3 px-3 text-center w-12">Sl No</th>
                 <th className="py-3 px-4">Ref No</th>
                 <th className="py-3 px-4">Date</th>
                 <th className="py-3 px-4">Supply Name</th>
@@ -277,7 +279,7 @@ export function PurchaseOrdersTable({
           <tbody className="divide-y divide-slate-200 text-slate-800">
             {isLoading ? (
               <tr>
-                <td colSpan={viewMode === 'home' ? 8 : 10} className="py-12 text-center text-slate-500">
+                <td colSpan={viewMode === 'home' ? 9 : 11} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                     <span>Loading purchase orders...</span>
@@ -286,7 +288,7 @@ export function PurchaseOrdersTable({
               </tr>
             ) : paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={viewMode === 'home' ? 8 : 10} className="py-12 text-center text-slate-500">
+                <td colSpan={viewMode === 'home' ? 9 : 11} className="py-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <ShoppingCart className="w-8 h-8 text-slate-400" />
                     <p className="font-medium text-slate-700">No purchase orders found</p>
@@ -297,7 +299,7 @@ export function PurchaseOrdersTable({
                 </td>
               </tr>
             ) : (
-              paginatedOrders.map((o) => {
+              paginatedOrders.map((o, idx) => {
                 const hasItems = Boolean(o.items && o.items.length > 0);
                 const totalQty = hasItems
                   ? o.items.reduce((sum, it) => sum + (it.qty || 0), 0)
@@ -310,6 +312,7 @@ export function PurchaseOrdersTable({
                 if (viewMode === 'home') {
                   return (
                     <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-3 text-center text-slate-500 font-mono">{(currentPage - 1) * pageSize + idx + 1}</td>
                       <td className="py-3 px-4 text-slate-700">{o.transactionDate}</td>
                       <td className="py-3 px-4 font-mono font-semibold text-blue-900">{o.name}</td>
                       <td className="py-3 px-4 font-semibold text-slate-900">{o.supplier}</td>
@@ -343,6 +346,7 @@ export function PurchaseOrdersTable({
                 } else {
                   return (
                     <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-3 text-center text-slate-500 font-mono">{(currentPage - 1) * pageSize + idx + 1}</td>
                       <td className="py-3 px-4 font-mono font-semibold text-blue-900">{o.name}</td>
                       <td className="py-3 px-4 text-slate-700">{o.transactionDate}</td>
                       <td className="py-3 px-4 font-semibold text-slate-900">{o.supplier}</td>
@@ -374,7 +378,7 @@ export function PurchaseOrdersTable({
           {filteredOrders.length > 0 && (
             <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-bold text-xs text-slate-900">
               <tr>
-                <td colSpan={viewMode === 'home' ? 4 : 5} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
+                <td colSpan={viewMode === 'home' ? 5 : 6} className="py-3 px-4 text-left uppercase tracking-wider text-slate-700">
                   TOTAL ({filteredOrders.length} ORDERS)
                 </td>
                 <td className="py-3 px-4 text-right font-mono font-black text-blue-900 text-sm">

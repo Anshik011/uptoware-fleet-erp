@@ -19,11 +19,11 @@ body {
   box-sizing: border-box;
 }
 
-/* Global Print Styles for 1-Page Official Bills & Invoices */
+/* Global Print Styles for 1-Page Official Documents, Bills & Standard Reports */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 8mm 10mm 8mm 10mm;
+    size: auto;
+    margin: 6mm 8mm 6mm 8mm;
   }
 
   /* Reset body and container heights/overflows so print engines don't truncate scrollable viewports */
@@ -33,11 +33,11 @@ body {
     overflow: visible !important;
     background: #ffffff !important;
     color: #000000 !important;
-    font-size: 11px !important;
-    line-height: 1.25 !important;
+    font-size: 10.5px !important;
+    line-height: 1.2 !important;
   }
 
-  /* Hide app navigation sidebar, headers, backdrop overlays, and UI buttons */
+  /* Hide app navigation sidebar, headers, backdrop overlays, and interactive UI buttons */
   aside,
   header,
   nav,
@@ -54,15 +54,24 @@ body {
     overflow: visible !important;
   }
 
-  body.printing-po-active > *:not(#po-official-print-portal) {
+  body.printing-po-active > div:not(#po-official-print-portal),
+  body.printing-po-active aside,
+  body.printing-po-active nav,
+  body.printing-po-active header,
+  body.printing-po-active main {
     display: none !important;
+  }
+
+  #po-official-print-portal {
+    display: none;
   }
 
   body.printing-po-active #po-official-print-portal {
     display: block !important;
     position: static !important;
     width: 100% !important;
-    margin: 0 !important;
+    max-width: 195mm !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
@@ -70,18 +79,12 @@ body {
     break-inside: avoid !important;
   }
 
-  /* If printing from a modal, remove the fixed dark overlay and backdrop blur */
-  .fixed,
-  .backdrop-blur-xs,
-  .bg-black\/60 {
-    position: static !important;
-    background: transparent !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    max-width: 100% !important;
-    max-height: none !important;
-    border: none !important;
-    box-shadow: none !important;
+  /* If printing normally (not printing-po-active), hide modals and backdrop overlays */
+  body:not(.printing-po-active) .fixed.z-50,
+  body:not(.printing-po-active) .fixed.z-40,
+  body:not(.printing-po-active) .backdrop-blur-xs,
+  body:not(.printing-po-active) .bg-black\/60 {
+    display: none !important;
   }
 
   /* Reset layout flex/overflow constraints */
@@ -112,16 +115,26 @@ body {
 
   /* Prevent page breaks inside critical financial blocks to guarantee 1-page fit */
   .official-bill-document,
-  .hsd-calc-sheet {
+  .hsd-calc-sheet,
+  #po-official-print-portal {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     margin: 0 !important;
-    padding: 0 !important;
     width: 100% !important;
   }
 
   tr, td, th {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
   }
 }

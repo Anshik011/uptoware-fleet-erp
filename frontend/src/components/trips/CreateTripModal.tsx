@@ -647,7 +647,6 @@ export function CreateTripModal({
                   options={vehicles.map((v) => ({
                     id: v.id,
                     label: v.licensePlate,
-                    subtext: `${(v as any).make || ''} ${(v as any).model || ''} • ${v.payloadCapacityTons}T`,
                   }))}
                   placeholder="-- Select Vehicle --"
                   entityName="Vehicle"
@@ -669,7 +668,6 @@ export function CreateTripModal({
                   options={drivers.map((d) => ({
                     id: d.id,
                     label: d.fullName,
-                    subtext: d.licenseNumber ? `Lic: ${d.licenseNumber}` : 'Active Fleet Driver',
                   }))}
                   placeholder="-- Select Driver --"
                   entityName="Driver"
@@ -699,11 +697,18 @@ export function CreateTripModal({
                     className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
                   >
                     <option value="">-- Choose Lead / Route --</option>
-                    {leads.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.leadName} ({l.leadKm} km • ₹{l.leadRate}/T)
-                      </option>
-                    ))}
+                    {leads.map((l) => {
+                      const kmClean =
+                        typeof l.leadKm === 'number' ||
+                        (!isNaN(Number(l.leadKm)) && !String(l.leadKm).includes('-'))
+                          ? parseFloat(Number(l.leadKm).toFixed(2))
+                          : l.leadKm;
+                      return (
+                        <option key={l.id} value={l.id}>
+                          {l.leadName} ({kmClean} km)
+                        </option>
+                      );
+                    })}
                   </select>
                   {leadKm !== '' && (
                     <span className="text-[11px] text-slate-500 font-medium mt-1 block">
@@ -1237,7 +1242,6 @@ export function CreateTripModal({
                         options={vehicles.map((v) => ({
                           id: v.id,
                           label: v.licensePlate,
-                          subtext: `${v.payloadCapacityTons}T`,
                         }))}
                         placeholder="-- Vehicle --"
                         entityName="Vehicle"
@@ -1260,11 +1264,18 @@ export function CreateTripModal({
                         className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-medium"
                       >
                         <option value="">-- Choose Lead --</option>
-                        {leads.map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.leadName} ({l.leadKm} km)
-                          </option>
-                        ))}
+                        {leads.map((l) => {
+                          const kmClean =
+                            typeof l.leadKm === 'number' ||
+                            (!isNaN(Number(l.leadKm)) && !String(l.leadKm).includes('-'))
+                              ? parseFloat(Number(l.leadKm).toFixed(2))
+                              : l.leadKm;
+                          return (
+                            <option key={l.id} value={l.id}>
+                              {l.leadName} ({kmClean} km)
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
 
