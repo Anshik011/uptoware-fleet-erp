@@ -46,6 +46,30 @@ body {
     display: none !important;
   }
 
+  /* Dedicated 1-Page Official Purchase Order Print Isolation */
+  body.printing-po-active {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  body.printing-po-active > *:not(#po-official-print-portal) {
+    display: none !important;
+  }
+
+  body.printing-po-active #po-official-print-portal {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
   /* If printing from a modal, remove the fixed dark overlay and backdrop blur */
   .fixed,
   .backdrop-blur-xs,
