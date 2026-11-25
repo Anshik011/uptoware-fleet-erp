@@ -150,6 +150,7 @@ export function VehicleIncomeBillFormat({
   const [leadsData, setLeadsData] = useState<LeadRow[]>([]);
   const [hsdEntries, setHsdEntries] = useState<HsdRow[]>([]);
   const [sparePartsCost, setSparePartsCost] = useState(0);
+  const [staffSalary, setStaffSalary] = useState(0);
 
   // Sync prop vehicle if changed from parent
   useEffect(() => {
@@ -188,16 +189,19 @@ export function VehicleIncomeBillFormat({
     setLoading(true);
 
     try {
-      const [tripsRes, fuelRes, salesRes] = await Promise.all([
+      const now = new Date();
+      const [tripsRes, fuelRes, salesRes, salaryRes] = await Promise.all([
         fetch(`/api/trips?vehicle=${encodeURIComponent(selectedVehicle)}&limit=500&mine_site=ALL&status=ALL`),
         fetch(`/api/fuel?status=ALL&mine_site=ALL&include_test=true`),
         fetch(`/api/sales?vehicle=${encodeURIComponent(selectedVehicle)}&mine_site=ALL`),
+        fetch(`/api/attendance/summary?month=${now.getMonth() + 1}&year=${now.getFullYear()}`),
       ]);
 
-      const [tripsJson, fuelJson, salesJson] = await Promise.all([
+      const [tripsJson, fuelJson, salesJson, salaryJson] = await Promise.all([
         tripsRes.json(),
         fuelRes.json(),
         salesRes.json(),
+        salaryRes.json().catch(() => ({ success: false, data: [] })),
       ]);
 
       // Process Trips
@@ -363,6 +367,17 @@ export function VehicleIncomeBillFormat({
         setIsLiveParts(false);
       }
 
+      // Process Staff Salary for assigned driver(s) of this vehicle
+      const rawSalary: any[] =
+        salaryJson?.success && Array.isArray(salaryJson.data) ? salaryJson.data : [];
+      const vehicleSalaryTotal = rawSalary
+        .filter((s) => {
+          const av = cleanStr(s.assignedVehicle || '');
+          return av && targetIdentifiers.has(av);
+        })
+        .reduce((acc, s) => acc + Number(s.totalCalculatedSalary || 0), 0);
+      setStaffSalary(Math.round(vehicleSalaryTotal * 100) / 100);
+
     } catch (err) {
       console.error('Error fetching live financial data for vehicle bill:', err);
       setLeadsData([]);
@@ -392,7 +407,7 @@ export function VehicleIncomeBillFormat({
   const totalHsdAmount = hsdEntries.reduce((acc, row) => acc + row.amount, 0);
 
   // Financial deductions following Indian mining transportation norms
-  const societyDeductionRate = 0.13; // 13% society deduction as per client statement
+  const societyDeductionRate = 0.12; // 12% society deduction
   const societyDeduction = Math.round(grossFreightAmount * societyDeductionRate * 100) / 100;
 
   const taxableValue = Math.max(0, grossFreightAmount - societyDeduction);
@@ -400,10 +415,9 @@ export function VehicleIncomeBillFormat({
   const invoiceValue = taxableValue + gst18;
   const tds1 = Math.round(taxableValue * 0.01 * 100) / 100;
 
-  // Deductions: TDS + Diesel (HSD) + Spare Parts Used
-  const totalDeduction = tds1 + totalHsdAmount + sparePartsCost;
-  const paymentReceived = 0;
-  const balance = Math.max(0, invoiceValue - totalDeduction - paymentReceived);
+  // Deductions: TDS + Diesel (HSD) + Staff Salary + Spare Parts Used
+  const totalDeduction = tds1 + totalHsdAmount + staffSalary + sparePartsCost;
+  const balance = Math.max(0, invoiceValue - totalDeduction);
 
   const handlePrint = () => {
     // Open dedicated pure 1-page print invoice in clean window
@@ -429,16 +443,16 @@ export function VehicleIncomeBillFormat({
     csv += `TOTAL HSD,${totalHsdLtr},,${totalHsdAmount.toFixed(2)}\n\n`;
     csv += `FINANCIAL DEDUCTIONS SUMMARY\n`;
     csv += `Gross Freight Total,,${grossFreightAmount.toFixed(2)}\n`;
-    csv += `Less Society Deduction,,${societyDeduction.toFixed(2)}\n`;
+    csv += `Less Society Deduction (12%),,${societyDeduction.toFixed(2)}\n`;
     csv += `Taxable Value,,${taxableValue.toFixed(2)}\n`;
     csv += `Add GST 18%,,${gst18.toFixed(2)}\n`;
     csv += `Invoice Value,,${invoiceValue.toFixed(2)}\n`;
     csv += `TDS 1%,,${tds1.toFixed(2)}\n`;
     csv += `Diesel Consumption,,${totalHsdAmount.toFixed(2)}\n`;
+    csv += `Staff Salary,,${staffSalary.toFixed(2)}\n`;
     csv += `Spare Parts Used,,${sparePartsCost.toFixed(2)}\n`;
     csv += `Total Deduction,,${totalDeduction.toFixed(2)}\n`;
-    csv += `Less Payment,,${paymentReceived.toFixed(2)}\n`;
-    csv += `Balance,,${balance.toFixed(2)}\n`;
+    csv += `Net Balance Payable,,${balance.toFixed(2)}\n`;
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -715,10 +729,10 @@ export function VehicleIncomeBillFormat({
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-200 text-slate-900 font-bold uppercase border-b border-slate-300">
               <tr>
-                <th className="py-2 px-3">LEAD</th>
-                <th className="py-2 px-3">ROUTE / SUB-LEAD</th>
+                <th className="py-2 px-3">LEAD NAME</th>
+                <th className="py-2 px-3">LEAD KM</th>
                 <th className="py-2 px-3 text-right">TRIPS</th>
-                <th className="py-2 px-3 text-right">TON</th>
+                <th className="py-2 px-3 text-right">AVG</th>
                 <th className="py-2 px-3 text-right">QTY (TONS)</th>
                 <th className="py-2 px-3 text-right">RATE (₹)</th>
                 <th className="py-2 px-3 text-right">AMOUNTS (₹)</th>
@@ -835,7 +849,6 @@ export function VehicleIncomeBillFormat({
           <div className="border border-slate-300 rounded-lg overflow-hidden flex flex-col justify-between">
             <div className="bg-slate-200 px-3 py-2 border-b border-slate-300 font-bold text-xs uppercase flex items-center justify-between">
               <span>Financial Deductions & Net Payable</span>
-              <span className="font-mono text-emerald-800">SAC: 998622</span>
             </div>
 
             <div className="p-4 space-y-2 text-xs divide-y divide-slate-100">
@@ -879,6 +892,26 @@ export function VehicleIncomeBillFormat({
                         : '₹0.00'}
                     </span>
                   </div>
+                  <div className="flex justify-between items-center text-slate-700">
+                    <span>• Staff Salary:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-mono text-rose-700 print:hidden">- ₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={staffSalary}
+                        onChange={(e) => setStaffSalary(Math.max(0, Number(e.target.value) || 0))}
+                        aria-label="Staff Salary Deduction"
+                        className="w-24 text-right font-mono text-rose-700 bg-transparent border-b border-dotted border-slate-400 focus:outline-none print:hidden"
+                      />
+                      <span className="hidden print:inline font-mono text-rose-700">
+                        {staffSalary > 0
+                          ? `- ₹${staffSalary.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                          : '₹0.00'}
+                      </span>
+                    </div>
+                  </div>
                   <div className="flex justify-between text-slate-700">
                     <span>• Spare Parts Used:</span>
                     <span className="font-mono text-rose-700">
@@ -893,11 +926,6 @@ export function VehicleIncomeBillFormat({
               <div className="flex justify-between py-1.5 font-bold text-rose-800 bg-rose-50 px-2 rounded border border-rose-200">
                 <span>Total Deductions:</span>
                 <span className="font-mono">- ₹{totalDeduction.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-              </div>
-
-              <div className="flex justify-between py-1.5 font-bold text-slate-900">
-                <span>Less: Payment Made:</span>
-                <span className="font-mono">₹{paymentReceived.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex justify-between py-2 font-black text-sm bg-emerald-50 px-2 rounded border border-emerald-300 text-emerald-900">

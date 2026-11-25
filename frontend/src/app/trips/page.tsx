@@ -74,9 +74,14 @@ function TripsTableSection() {
       setIsLoading(true);
       setError(null);
 
+      const isCompoundStatus =
+        selectedStatus === 'SITE_SUPERVISOR' ||
+        selectedStatus === 'RECONCILE_PENDING' ||
+        selectedStatus === 'COMPLETED';
+
       const params = new URLSearchParams();
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
-      if (selectedStatus !== 'ALL') params.set('status', selectedStatus);
+      if (selectedStatus !== 'ALL' && !isCompoundStatus) params.set('status', selectedStatus);
       if (selectedMineSite !== 'ALL') params.set('mine_site', selectedMineSite);
 
       // Concurrently fetch filtered trips for the table and all trips for the mine site metrics
@@ -96,6 +101,16 @@ function TripsTableSection() {
       }
 
       let data: MiningTrip[] = json.data || [];
+
+      if (selectedStatus === 'SITE_SUPERVISOR') {
+        data = data.filter((t) => t.tripStatus === 'Dispatched' || t.tripStatus === 'Draft');
+      } else if (selectedStatus === 'RECONCILE_PENDING') {
+        data = data.filter(
+          (t) => t.tripStatus === 'Weighbridge Confirmed' || (t.tripStatus === 'Dispatched' && !t.averageTonnage)
+        );
+      } else if (selectedStatus === 'COMPLETED') {
+        data = data.filter((t) => t.tripStatus === 'Delivered' || t.tripStatus === 'Approved');
+      }
 
       // Sort data
       if (sortBy === 'dispatch_desc') {
@@ -244,13 +259,13 @@ function TripsTableSection() {
 
         {/* Active In-Transit -> Site Supervisor Trip */}
         <div
-          onClick={() => setSelectedStatus('Dispatched')}
+          onClick={() => setSelectedStatus('SITE_SUPERVISOR')}
           className={`p-4 sm:p-5 rounded-xl border transition-all cursor-pointer ${
-            selectedStatus === 'Dispatched'
+            selectedStatus === 'SITE_SUPERVISOR' || selectedStatus === 'Dispatched' || selectedStatus === 'Draft'
               ? 'bg-blue-50/60 border-blue-400 shadow-sm ring-1 ring-blue-500'
               : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
           } flex items-center gap-4`}
-          title="Click to view site supervisor dispatched trips"
+          title="Click to view site supervisor trips (Draft & Dispatched)"
         >
           <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0">
             <Truck className="w-6 h-6" />
@@ -273,9 +288,9 @@ function TripsTableSection() {
 
         {/* Weighbridge Pending -> Reconcile Trip */}
         <div
-          onClick={() => setSelectedStatus('Weighbridge Confirmed')}
+          onClick={() => setSelectedStatus('RECONCILE_PENDING')}
           className={`p-4 sm:p-5 rounded-xl border transition-all cursor-pointer ${
-            selectedStatus === 'Weighbridge Confirmed'
+            selectedStatus === 'RECONCILE_PENDING' || selectedStatus === 'Weighbridge Confirmed'
               ? 'bg-amber-50/60 border-amber-400 shadow-sm ring-1 ring-amber-500'
               : 'bg-white border-slate-200 hover:border-amber-300 shadow-xs'
           } flex items-center gap-4`}
@@ -302,13 +317,13 @@ function TripsTableSection() {
 
         {/* Completed Deliveries */}
         <div
-          onClick={() => setSelectedStatus('Delivered')}
+          onClick={() => setSelectedStatus('COMPLETED')}
           className={`p-4 sm:p-5 rounded-xl border transition-all cursor-pointer ${
-            selectedStatus === 'Delivered'
+            selectedStatus === 'COMPLETED' || selectedStatus === 'Delivered' || selectedStatus === 'Approved'
               ? 'bg-teal-50/60 border-teal-400 shadow-sm ring-1 ring-teal-500'
               : 'bg-white border-slate-200 hover:border-teal-300 shadow-xs'
           } flex items-center gap-4`}
-          title="Click to view completed trips"
+          title="Click to view completed trips (Delivered & Approved)"
         >
           <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-6 h-6" />

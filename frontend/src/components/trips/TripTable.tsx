@@ -260,6 +260,9 @@ export function TripTable({
               className="px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-slate-700 transition-all font-medium"
             >
               <option value="ALL">All Statuses</option>
+              <option value="SITE_SUPERVISOR">Site Supervisor (Draft / Dispatched)</option>
+              <option value="RECONCILE_PENDING">Awaiting Reconcile</option>
+              <option value="COMPLETED">Completed (Delivered / Approved)</option>
               <option value="Draft">Draft</option>
               <option value="Dispatched">Dispatched</option>
               <option value="Weighbridge Confirmed">Weighbridge Confirmed</option>
