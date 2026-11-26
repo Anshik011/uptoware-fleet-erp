@@ -133,6 +133,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!requiredRoles || requiredRoles.length === 0) return true;
     if (!user) return false;
 
+    // Restricted specialized roles must never inherit Administrator/System Manager bypass
+    if (
+      user.role === 'Maintenance Stores User' ||
+      user.role === 'Site Supervisor User' ||
+      user.role === 'Reconcile Incharge User'
+    ) {
+      return requiredRoles.includes(user.role);
+    }
+
     // Platform administrators have unrestricted access
     if (
       user.role === 'Administrator' ||

@@ -27,8 +27,10 @@ import { ReconcileSummaryTab } from '@/components/trips/ReconcileSummaryTab';
 
 function TripsTableSection() {
   const searchParams = useSearchParams();
-  const { hasRole } = useAuth();
-  const canManage = hasRole(['Fleet Manager', 'Dispatcher', 'Administrator']);
+  const { user, hasRole } = useAuth();
+  const isSiteSupOnly = user?.role === 'Site Supervisor User';
+  const isReconcileOnly = user?.role === 'Reconcile Incharge User';
+  const canManage = hasRole(['Fleet Manager', 'Dispatcher', 'Administrator', 'Site Supervisor User', 'Reconcile Incharge User']);
 
   const isReportView = searchParams.get('view') === 'report';
 
@@ -234,29 +236,33 @@ function TripsTableSection() {
         actions={
           canManage ? (
             <div className="flex items-center gap-2">
-              <Button
-                variant="primary"
-                size="md"
-                icon={PlusCircle}
-                onClick={() => {
-                  setModalMode('reconcile');
-                  setIsCreateModalOpen(true);
-                }}
-                data-testid="btn-create-trip-header"
-              >
-                Trip Entry & Reconcile
-              </Button>
-              <Button
-                variant="outline"
-                size="md"
-                icon={Compass}
-                onClick={() => {
-                  setModalMode('supervisor');
-                  setIsCreateModalOpen(true);
-                }}
-              >
-                Site Supervisor Entry
-              </Button>
+              {!isSiteSupOnly && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={PlusCircle}
+                  onClick={() => {
+                    setModalMode('reconcile');
+                    setIsCreateModalOpen(true);
+                  }}
+                  data-testid="btn-create-trip-header"
+                >
+                  Trip Entry & Reconcile
+                </Button>
+              )}
+              {!isReconcileOnly && (
+                <Button
+                  variant={isSiteSupOnly ? 'primary' : 'outline'}
+                  size="md"
+                  icon={Compass}
+                  onClick={() => {
+                    setModalMode('supervisor');
+                    setIsCreateModalOpen(true);
+                  }}
+                >
+                  Site Supervisor Entry
+                </Button>
+              )}
             </div>
           ) : undefined
         }
@@ -276,18 +282,20 @@ function TripsTableSection() {
           <Compass className="w-4 h-4" />
           <span>Mining Trips Ledger</span>
         </button>
-        <button
-          type="button"
-          onClick={() => setCurrentTab('reconcile_summary')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-            currentTab === 'reconcile_summary'
-              ? 'bg-blue-900 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80'
-          }`}
-        >
-          <Scale className="w-4 h-4" />
-          <span>Reconcile Summary</span>
-        </button>
+        {!isSiteSupOnly && (
+          <button
+            type="button"
+            onClick={() => setCurrentTab('reconcile_summary')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              currentTab === 'reconcile_summary'
+                ? 'bg-blue-900 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80'
+            }`}
+          >
+            <Scale className="w-4 h-4" />
+            <span>Reconcile Summary</span>
+          </button>
+        )}
       </div>
 
       {currentTab === 'reconcile_summary' ? (

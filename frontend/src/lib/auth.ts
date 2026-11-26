@@ -279,22 +279,20 @@ export function checkPermission(
   module: string,
   action: PermissionAction = 'view'
 ): boolean {
-  // Administrator and System Manager have full access across all modules
-  if (
-    user.role === 'Administrator' ||
-    user.roles.includes('System Manager') ||
-    user.roles.includes('Administrator')
-  ) {
-    return true;
-  }
-
-  // Specialized operational user roles
+  // Specialized restricted operational roles MUST be evaluated before generic Frappe role bypasses
   if (user.role === 'Maintenance Stores User') {
-    const allowed = [
+    const viewOnly = [
       'dashboard',
       'vehicles',
       'drivers',
       'mineSites',
+      'employees', // read-only list for attendance marking
+      'shifts',
+      'leads',
+      'alerts',
+      'documents',
+    ];
+    const manageAllowed = [
       'fuel',
       'maintenance',
       'breakdowns',
@@ -305,22 +303,36 @@ export function checkPermission(
       'suppliers',
       'purchaseOrders',
       'procurement',
-      'employees',
-      'shifts',
-      'documents',
-      'alerts',
+      'attendance',
     ];
-    return allowed.includes(module);
+    if (action === 'full') return false;
+    if (action === 'manage') return manageAllowed.includes(module);
+    return viewOnly.includes(module) || manageAllowed.includes(module);
   }
 
   if (user.role === 'Site Supervisor User') {
-    const allowed = ['dashboard', 'trips', 'dispatch', 'vehicles', 'drivers', 'mineSites', 'shifts'];
-    return allowed.includes(module);
+    const viewOnly = ['dashboard', 'vehicles', 'drivers', 'mineSites', 'shifts', 'leads'];
+    const manageAllowed = ['trips', 'dispatch'];
+    if (action === 'full') return false;
+    if (action === 'manage') return manageAllowed.includes(module);
+    return viewOnly.includes(module) || manageAllowed.includes(module);
   }
 
   if (user.role === 'Reconcile Incharge User') {
-    const allowed = ['dashboard', 'trips', 'dispatch', 'weighbridge', 'vehicles', 'drivers', 'mineSites', 'shifts'];
-    return allowed.includes(module);
+    const viewOnly = ['dashboard', 'vehicles', 'drivers', 'mineSites', 'shifts', 'leads'];
+    const manageAllowed = ['trips', 'dispatch', 'weighbridge'];
+    if (action === 'full') return false;
+    if (action === 'manage') return manageAllowed.includes(module);
+    return viewOnly.includes(module) || manageAllowed.includes(module);
+  }
+
+  // Administrator and System Manager have full access across all modules
+  if (
+    user.role === 'Administrator' ||
+    user.roles.includes('System Manager') ||
+    user.roles.includes('Administrator')
+  ) {
+    return true;
   }
 
   const modulePerms = PERMISSION_MATRIX[module];
@@ -353,6 +365,13 @@ export function checkPermission(
  * Ordinary production roles (Fleet Manager, Dispatcher, Workshop Supervisor, Accountant) are strictly denied.
  */
 export function isAuthorizedForTestRecords(user: AuthUser): boolean {
+  if (
+    user.role === 'Maintenance Stores User' ||
+    user.role === 'Site Supervisor User' ||
+    user.role === 'Reconcile Incharge User'
+  ) {
+    return false;
+  }
   return (
     user.role === 'Administrator' ||
     user.roles.includes('Administrator') ||

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
-  clientNavigationSections,
+  getFilteredNavigationSections,
   administrationNavSection,
   ClientNavSection,
 } from '@/config/navigation';
@@ -29,7 +29,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { branding } = useBranding();
-  const { user, hasRole } = useAuth();
+  const { user, isLoading, hasRole } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
   const isRestoringRef = useRef(true);
 
@@ -39,55 +39,9 @@ export function Sidebar({ className = '' }: SidebarProps) {
     user?.role === 'Reconcile Incharge User';
 
   const filteredSections = React.useMemo(() => {
-    if (!user || !user.role) return clientNavigationSections;
-
-    // User 1: Maintenance & Stores
-    if (user.role === 'Maintenance Stores User') {
-      return clientNavigationSections
-        .filter((s) =>
-          [
-            'spare-parts-report',
-            'stock-report',
-            'hsd-escalation',
-            'maintenance-workshop',
-            'emp-attendance-report',
-          ].includes(s.id)
-        )
-        .map((s) => {
-          if (s.id === 'emp-attendance-report') {
-            return {
-              ...s,
-              items: (s.items || []).filter((item) => item.name === 'ATTENDANCE ENTRY'),
-            };
-          }
-          return s;
-        });
-    }
-
-    // User 2: Site Supervisor
-    if (user.role === 'Site Supervisor User') {
-      return clientNavigationSections
-        .filter((s) => s.id === 'trip-report')
-        .map((s) => ({
-          ...s,
-          items: (s.items || []).filter((item) => item.name === 'SITE SUP TRIP ENTRY'),
-        }));
-    }
-
-    // User 3: Reconcile Incharge
-    if (user.role === 'Reconcile Incharge User') {
-      return clientNavigationSections
-        .filter((s) => s.id === 'trip-report')
-        .map((s) => ({
-          ...s,
-          items: (s.items || []).filter(
-            (item) => item.name === 'TRIP ENTRY' || item.name === 'RECONCILE SUMMARY'
-          ),
-        }));
-    }
-
-    return clientNavigationSections;
-  }, [user]);
+    if (isLoading || !user || !user.role) return [];
+    return getFilteredNavigationSections(user.role);
+  }, [user, isLoading]);
 
   // Conventional single-open accordion: All groups CLOSED by default on fresh load / reload.
   // Only the user's explicit click expands a group; clicking another closes the previous.

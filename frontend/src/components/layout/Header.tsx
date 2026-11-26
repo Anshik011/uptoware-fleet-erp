@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useBranding } from '@/context/BrandingContext';
 import { useAuth } from '@/context/AuthContext';
 import { useMine } from '@/context/MineContext';
-import { clientNavigationSections, administrationNavSection } from '@/config/navigation';
+import { getFilteredNavigationSections, administrationNavSection } from '@/config/navigation';
 import { UNIFIED_REPORTS } from '@/components/reports/AllReportsHub';
 import {
   Menu,
@@ -127,8 +127,14 @@ export function Header({
 
     const items: SearchResultItem[] = [];
 
-    // 1. Navigation Modules & Sub-items
-    clientNavigationSections.forEach((sec) => {
+    // 1. Role-filtered Navigation Modules & Sub-items
+    const isRestrictedRole =
+      user?.role === 'Maintenance Stores User' ||
+      user?.role === 'Site Supervisor User' ||
+      user?.role === 'Reconcile Incharge User';
+    const allowedSections = getFilteredNavigationSections(user?.role);
+
+    allowedSections.forEach((sec) => {
       if (sec.title.toLowerCase().includes(q) || sec.shortTitle.toLowerCase().includes(q)) {
         items.push({
           id: `nav-${sec.id}`,
@@ -164,30 +170,32 @@ export function Header({
       });
     });
 
-    administrationNavSection.items.forEach((adm, idx) => {
-      if (adm.name.toLowerCase().includes(q)) {
-        items.push({
-          id: `adm-${idx}`,
-          category: 'Module',
-          title: adm.name,
-          subtitle: 'Technical & Workshop Controls',
-          href: adm.href,
-        });
-      }
-    });
+    if (!isRestrictedRole) {
+      administrationNavSection.items.forEach((adm, idx) => {
+        if (adm.name.toLowerCase().includes(q)) {
+          items.push({
+            id: `adm-${idx}`,
+            category: 'Module',
+            title: adm.name,
+            subtitle: 'Technical & Workshop Controls',
+            href: adm.href,
+          });
+        }
+      });
 
-    // 2. All Unified Reports
-    UNIFIED_REPORTS.forEach((rep) => {
-      if (rep.name.toLowerCase().includes(q) || rep.desc.toLowerCase().includes(q)) {
-        items.push({
-          id: `rep-${rep.id}`,
-          category: 'Report',
-          title: rep.name,
-          subtitle: 'All Reports Center (Excel / PDF / View)',
-          href: `/all-reports?report=${encodeURIComponent(rep.id)}`,
-        });
-      }
-    });
+      // 2. All Unified Reports
+      UNIFIED_REPORTS.forEach((rep) => {
+        if (rep.name.toLowerCase().includes(q) || rep.desc.toLowerCase().includes(q)) {
+          items.push({
+            id: `rep-${rep.id}`,
+            category: 'Report',
+            title: rep.name,
+            subtitle: 'All Reports Center (Excel / PDF / View)',
+            href: `/all-reports?report=${encodeURIComponent(rep.id)}`,
+          });
+        }
+      });
+    }
 
     // 3. Live Vehicles
     liveVehicles.forEach((v) => {

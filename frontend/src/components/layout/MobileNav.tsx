@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
-  clientNavigationSections,
+  getFilteredNavigationSections,
   administrationNavSection,
   ClientNavSection,
 } from '@/config/navigation';
@@ -29,7 +29,17 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { branding } = useBranding();
-  const { hasRole } = useAuth();
+  const { user, isLoading, hasRole } = useAuth();
+
+  const isRestrictedRole =
+    user?.role === 'Maintenance Stores User' ||
+    user?.role === 'Site Supervisor User' ||
+    user?.role === 'Reconcile Incharge User';
+
+  const filteredSections = React.useMemo(() => {
+    if (isLoading || !user || !user.role) return [];
+    return getFilteredNavigationSections(user.role);
+  }, [user, isLoading]);
 
   // Collapsed by default: all groups closed until user taps to expand
   const [openSectionId, setOpenSectionId] = useState<string | null>(null);
@@ -135,8 +145,8 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             </Link>
           </div>
 
-          {/* Client's Exact Nine Main Sections (Closed by default; Single-open Accordion) */}
-          {clientNavigationSections.map((section: ClientNavSection) => {
+          {/* Role-filtered Navigation Sections */}
+          {filteredSections.map((section: ClientNavSection) => {
             const isExpanded = openSectionId === section.id;
             const currentActive = isSectionActive(section);
             const Icon = section.icon;
@@ -245,7 +255,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
           })}
 
           {/* Technical Administration Controls (10. TECHNICAL & WORKSHOP CONTROLS; Uniform with sections 1-9) */}
-          {hasRole(administrationNavSection.roles) && (() => {
+          {!isRestrictedRole && hasRole(administrationNavSection.roles) && (() => {
             const isAdminActive = administrationNavSection.items.some(
               (item) => pathname === item.href || isLinkActive(item.href)
             );

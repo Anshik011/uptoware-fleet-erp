@@ -336,3 +336,113 @@ export const navigationSections: NavSection[] = [
     ],
   },
 ];
+
+/**
+ * Authoritative role-based navigation filter shared across Sidebar, MobileNav, and Header Search.
+ */
+export function getFilteredNavigationSections(userRole?: string): ClientNavSection[] {
+  if (!userRole || userRole === 'Guest') return [];
+
+  // User 1: Maintenance & Stores Incharge
+  if (userRole === 'Maintenance Stores User') {
+    return clientNavigationSections
+      .filter((s) =>
+        [
+          'spare-parts-report',
+          'stock-report',
+          'hsd-escalation',
+          'maintenance-workshop',
+          'emp-attendance-report',
+        ].includes(s.id)
+      )
+      .map((s) => {
+        if (s.id === 'emp-attendance-report') {
+          return {
+            ...s,
+            items: (s.items || []).filter((item) => item.name === 'ATTENDANCE ENTRY'),
+          };
+        }
+        return s;
+      });
+  }
+
+  // User 2: Site Supervisor
+  if (userRole === 'Site Supervisor User') {
+    return clientNavigationSections
+      .filter((s) => s.id === 'trip-report')
+      .map((s) => ({
+        ...s,
+        items: (s.items || []).filter((item) => item.name === 'SITE SUP TRIP ENTRY'),
+      }));
+  }
+
+  // User 3: Reconcile Incharge
+  if (userRole === 'Reconcile Incharge User') {
+    return clientNavigationSections
+      .filter((s) => s.id === 'trip-report')
+      .map((s) => ({
+        ...s,
+        items: (s.items || []).filter(
+          (item) => item.name === 'TRIP ENTRY' || item.name === 'RECONCILE SUMMARY'
+        ),
+      }));
+  }
+
+  return clientNavigationSections;
+}
+
+/**
+ * Route-level authorization check for restricted operational roles.
+ */
+export function isRouteAllowedForRole(
+  userRole: string | undefined,
+  pathname: string,
+  searchParams?: URLSearchParams | null
+): boolean {
+  if (!userRole || userRole === 'Guest') return true;
+  if (pathname === '/' || pathname === '/login') return true;
+
+  if (userRole === 'Site Supervisor User') {
+    return pathname === '/trips' || pathname.startsWith('/trips/');
+  }
+
+  if (userRole === 'Reconcile Incharge User') {
+    return (
+      pathname === '/trips' ||
+      pathname.startsWith('/trips/') ||
+      pathname === '/weighbridge'
+    );
+  }
+
+  if (userRole === 'Maintenance Stores User') {
+    const allowedPrefixes = [
+      '/spare-parts',
+      '/purchases',
+      '/sales',
+      '/suppliers',
+      '/procurement',
+      '/stock-movements',
+      '/warehouses',
+      '/inventory',
+      '/fuel',
+      '/maintenance',
+      '/breakdowns',
+      '/attendance',
+      '/alerts',
+    ];
+    if (allowedPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+      return true;
+    }
+    if (pathname === '/employees') {
+      const tab = searchParams?.get('tab');
+      return tab === 'roster' || tab === 'attendance';
+    }
+    if (pathname === '/reports') {
+      const rep = (searchParams?.get('report') || '').toLowerCase();
+      return rep.includes('hsd');
+    }
+    return false;
+  }
+
+  return true;
+}
