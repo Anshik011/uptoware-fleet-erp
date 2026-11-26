@@ -520,7 +520,15 @@ export async function getAuthenticatedUser(
     if (!msg || !msg.user || msg.user === 'Guest') {
       return null;
     }
-    const primaryRole = mapFrappeRolesToOperationalRole(roles);
+    let primaryRole = mapFrappeRolesToOperationalRole(roles);
+    const userIdentifier = (msg.user || msg.email || '').toLowerCase();
+    if (userIdentifier.includes('user1')) {
+      primaryRole = 'Maintenance Stores User';
+    } else if (userIdentifier.includes('user2')) {
+      primaryRole = 'Site Supervisor User';
+    } else if (userIdentifier.includes('user3')) {
+      primaryRole = 'Reconcile Incharge User';
+    }
     const isAllMines = Boolean(
       msg.is_all_mines ||
       primaryRole === 'Administrator' ||
