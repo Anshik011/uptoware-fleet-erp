@@ -51,7 +51,10 @@ export function CreateTripModal({
   initialMode = 'reconcile',
 }: CreateTripModalProps) {
   const { currentMine, allowedMines, isSingleMine, isAllMines, isUnassigned, activeMineLabel } = useMine();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isSiteSupOnly = user?.role === 'Site Supervisor User';
+  const isReconcileOnly = user?.role === 'Reconcile Incharge User';
+  const canManageMasterData = !isSiteSupOnly && !isReconcileOnly && hasRole(['Fleet Manager', 'Administrator']);
 
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -221,6 +224,10 @@ export function CreateTripModal({
     const selectedVeh = vehicles.find((v) => v.id === vId || v.licensePlate === vId);
     if (selectedVeh) {
       setOpeningOdometer(selectedVeh.lastOdometer || 0);
+      const vehMine = selectedVeh.customMineSite || selectedVeh.mineSite;
+      if (vehMine) {
+        setMineSite(vehMine);
+      }
       if (selectedVeh.payloadCapacityTons && averageTonnage === '') {
         setAverageTonnage(selectedVeh.payloadCapacityTons);
       }
@@ -399,20 +406,23 @@ export function CreateTripModal({
       setError('You are not assigned to any operational mine site. Mine-specific transactions cannot be created.');
       return;
     }
-    if (!mineSite || mineSite === 'ALL' || mineSite === 'UNASSIGNED') {
-      setError('Please select an operational mine site pit.');
-      return;
-    }
-    if (!isAllMines && !allowedMines.includes(mineSite)) {
-      setError(`Access Denied: You do not have authorization to create trips for Mine Site '${mineSite}'.`);
-      return;
-    }
     if (!vehicle) {
       setError('Please select an active operational vehicle.');
       return;
     }
 
     const leadObj = leads.find((l) => l.id === selectedLead || l.leadName === selectedLead);
+    const resolvedMineSite =
+      selectedVehicleObj?.customMineSite ||
+      selectedVehicleObj?.mineSite ||
+      leadObj?.mineSite ||
+      (mineSite && mineSite !== 'ALL' && mineSite !== 'UNASSIGNED' ? mineSite : '') ||
+      (availableMineSites[0]?.id || 'JBR Eastern — Talcher Site');
+
+    if (!isAllMines && !allowedMines.includes(resolvedMineSite)) {
+      setError(`Access Denied: You do not have authorization to create trips for Mine Site '${resolvedMineSite}'.`);
+      return;
+    }
     const effectiveDriver =
       (driver && driver.trim()) ||
       selectedVehicleObj?.assignedDriverId ||
@@ -452,7 +462,7 @@ export function CreateTripModal({
       const input: CreateMiningTripInput = {
         vehicle,
         driver: effectiveDriver,
-        mineSite,
+        mineSite: resolvedMineSite,
         destination: effectiveDestination,
         materialType: effectiveMaterial,
         dispatchDateTime: formattedDt,
@@ -530,30 +540,34 @@ export function CreateTripModal({
 
         {/* Two-Tab Entry Mode Switcher */}
         <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-100/70 px-4 pt-2">
-          <button
-            type="button"
-            onClick={() => setTripEntryMode('supervisor')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
-              tripEntryMode === 'supervisor'
-                ? 'border-blue-900 text-blue-900 bg-white rounded-t-lg shadow-2xs'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>1. Site Supervisor Trip Entry</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTripEntryMode('reconcile')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
-              tripEntryMode === 'reconcile'
-                ? 'border-blue-900 text-blue-900 bg-white rounded-t-lg shadow-2xs'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>2. Reconcile Trip Entry</span>
-          </button>
+          {!isReconcileOnly && (
+            <button
+              type="button"
+              onClick={() => setTripEntryMode('supervisor')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
+                tripEntryMode === 'supervisor'
+                  ? 'border-blue-900 text-blue-900 bg-white rounded-t-lg shadow-2xs'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>1. Site Supervisor Trip Entry</span>
+            </button>
+          )}
+          {!isSiteSupOnly && (
+            <button
+              type="button"
+              onClick={() => setTripEntryMode('reconcile')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
+                tripEntryMode === 'reconcile'
+                  ? 'border-blue-900 text-blue-900 bg-white rounded-t-lg shadow-2xs'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>2. Reconcile Trip Entry</span>
+            </button>
+          )}
         </div>
 
         {/* Modal Body */}
@@ -594,13 +608,15 @@ export function CreateTripModal({
             <>
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs flex items-center justify-between">
                 <span>Fast pit-head dispatch entry for site supervisor.</span>
-                <button
-                  type="button"
-                  onClick={() => setTripEntryMode('reconcile')}
-                  className="font-bold underline text-blue-900 hover:text-blue-700"
-                >
-                  View Reconciliation & Value →
-                </button>
+                {!isSiteSupOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setTripEntryMode('reconcile')}
+                    className="font-bold underline text-blue-900 hover:text-blue-700"
+                  >
+                    View Reconciliation & Value →
+                  </button>
+                )}
               </div>
 
               {/* Row: Date & Shift */}
@@ -651,8 +667,8 @@ export function CreateTripModal({
                   placeholder="-- Select Vehicle --"
                   entityName="Vehicle"
                   icon={Truck}
-                  onCreateNew={() => setShowAddVehicle(true)}
-                  onViewRecord={(id) => setViewVehicleId(id)}
+                  onCreateNew={canManageMasterData ? () => setShowAddVehicle(true) : undefined}
+                  onViewRecord={canManageMasterData ? (id) => setViewVehicleId(id) : undefined}
                   helperText={
                     selectedVehicleObj
                       ? `Payload: ${selectedVehicleObj.payloadCapacityTons}T • Last Odo: ${selectedVehicleObj.lastOdometer} km`
@@ -672,8 +688,8 @@ export function CreateTripModal({
                   placeholder="-- Select Driver --"
                   entityName="Driver"
                   icon={User}
-                  onCreateNew={() => setShowAddDriver(true)}
-                  onViewRecord={(id) => setViewDriverId(id)}
+                  onCreateNew={canManageMasterData ? () => setShowAddDriver(true) : undefined}
+                  onViewRecord={canManageMasterData ? (id) => setViewDriverId(id) : undefined}
                   helperText={
                     driver
                       ? undefined
@@ -684,7 +700,7 @@ export function CreateTripModal({
                 />
               </div>
 
-              {/* Row 3: Lead / Route & Origin Mine */}
+              {/* Row 3: Lead / Route & Trip Count (Mine Site auto-resolved from Vehicle) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -717,28 +733,6 @@ export function CreateTripModal({
                   )}
                 </div>
 
-                <LinkedField
-                  label="Mine Site / Pit"
-                  required
-                  disabled={isMineLocked}
-                  value={mineSite}
-                  onChange={handleMineSiteChange}
-                  options={availableMineSites.map((s) => ({
-                    id: s.id,
-                    label: s.siteName,
-                    subtext: s.mineralType,
-                  }))}
-                  placeholder="-- Origin Pit --"
-                  entityName="Mine Site"
-                  icon={MapPin}
-                  onCreateNew={() => setShowAddMineSite(true)}
-                  onViewRecord={(id) => setViewMineSiteId(id)}
-                  hint={isMineLocked ? 'Locked to assigned mine' : undefined}
-                />
-              </div>
-
-              {/* Row 4: Trip Count */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Trip Count <span className="text-rose-500">*</span>
@@ -1259,8 +1253,8 @@ export function CreateTripModal({
                         placeholder="-- Vehicle --"
                         entityName="Vehicle"
                         icon={Truck}
-                        onCreateNew={() => setShowAddVehicle(true)}
-                        onViewRecord={(id) => setViewVehicleId(id)}
+                        onCreateNew={canManageMasterData ? () => setShowAddVehicle(true) : undefined}
+                        onViewRecord={canManageMasterData ? (id) => setViewVehicleId(id) : undefined}
                       />
                     </div>
                   </div>
