@@ -2064,6 +2064,48 @@ export async function createMiningTrip(
   sessionCookie: string,
   input: CreateMiningTripInput
 ): Promise<MiningTrip> {
+  let resolvedDriver = input.driver;
+
+  // If driver is an Employee ID (e.g. HR-EMP-00043) instead of a Driver ID, resolve or auto-create the Driver record
+  if (resolvedDriver && resolvedDriver.startsWith('HR-EMP-')) {
+    try {
+      const existingDrivers = await frappeFetch<{ data: any[] }>(
+        `/api/resource/Driver?filters=${encodeURIComponent(JSON.stringify([['employee', '=', resolvedDriver]]))}&fields=${encodeURIComponent(JSON.stringify(['name', 'status']))}&limit_page_length=1`,
+        { sessionCookie }
+      );
+      if (existingDrivers.data && existingDrivers.data.length > 0) {
+        resolvedDriver = existingDrivers.data[0].name;
+      } else {
+        const empRes = await frappeFetch<{ data: any }>(
+          `/api/resource/Employee/${encodeURIComponent(resolvedDriver)}`,
+          { sessionCookie }
+        );
+        const emp = empRes.data;
+        if (emp) {
+          const newDrv = await frappeFetch<{ data: any }>('/api/resource/Driver', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              full_name: emp.employee_name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || resolvedDriver,
+              employee: emp.name,
+              status: 'Active',
+              cell_number: emp.cell_number || undefined,
+              license_number: emp.custom_driving_license_number || undefined,
+              expiry_date: emp.custom_dl_validity || new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+              custom_mine_site: emp.custom_mine_site || input.mineSite || undefined,
+            }),
+            sessionCookie,
+          });
+          if (newDrv.data?.name) {
+            resolvedDriver = newDrv.data.name;
+          }
+        }
+      }
+    } catch (drvErr: any) {
+      console.warn('Auto-resolving Driver from Employee failed:', drvErr?.message);
+    }
+  }
+
   const payload: any = {
     vehicle: input.vehicle,
     mine_site: input.mineSite,
@@ -2071,7 +2113,7 @@ export async function createMiningTrip(
     material_type: input.materialType,
     dispatch_date_time: input.dispatchDateTime,
   };
-  if (input.driver) payload.driver = input.driver;
+  if (resolvedDriver) payload.driver = resolvedDriver;
   if (input.challanNumber) payload.challan_number = input.challanNumber;
   if (input.ratePerTon != null) payload.rate_per_ton = input.ratePerTon;
   if (input.openingOdometer != null) payload.opening_odometer = input.openingOdometer;
