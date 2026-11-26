@@ -548,11 +548,16 @@ export async function getAuthenticatedUser(
     } else if (userIdentifier.includes('user3')) {
       primaryRole = 'Reconcile Incharge User';
     }
+    const isSpecializedRole =
+      primaryRole === 'Maintenance Stores User' ||
+      primaryRole === 'Site Supervisor User' ||
+      primaryRole === 'Reconcile Incharge User';
     const isAllMines = Boolean(
       msg.is_all_mines ||
       primaryRole === 'Administrator' ||
       roles.includes('System Manager') ||
-      roles.includes('Fleet Head Office Admin')
+      roles.includes('Fleet Head Office Admin') ||
+      (isSpecializedRole && (!Array.isArray(msg.allowed_mines) || msg.allowed_mines.length === 0))
     );
     const allowedMines: string[] = Array.isArray(msg.allowed_mines) ? msg.allowed_mines : [];
     const isUnassigned = !isAllMines && allowedMines.length === 0;

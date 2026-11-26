@@ -332,11 +332,16 @@ export async function POST(request: NextRequest) {
             ? 'Dispatch & Weighbridge Operations'
             : 'Fleet Operations';
 
+    const isSpecializedRole =
+      primaryRole === 'Maintenance Stores User' ||
+      primaryRole === 'Site Supervisor User' ||
+      primaryRole === 'Reconcile Incharge User';
     const isAllMines = Boolean(
       profile.is_all_mines ||
       primaryRole === 'Administrator' ||
       roles.includes('System Manager') ||
-      roles.includes('Fleet Head Office Admin')
+      roles.includes('Fleet Head Office Admin') ||
+      (isSpecializedRole && (!Array.isArray(profile.allowed_mines) || profile.allowed_mines.length === 0))
     );
     const allowedMines: string[] = Array.isArray(profile.allowed_mines) ? profile.allowed_mines : [];
     const isUnassigned = !isAllMines && allowedMines.length === 0;
