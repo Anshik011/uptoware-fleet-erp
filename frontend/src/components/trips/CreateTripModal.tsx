@@ -92,7 +92,7 @@ export function CreateTripModal({
   const [selectedLead, setSelectedLead] = useState<string>('');
   const [leadKm, setLeadKm] = useState<number | string | ''>('');
   const [leadRate, setLeadRate] = useState<number | ''>('');
-  const [tripCount, setTripCount] = useState<number>(1);
+  const [tripCount, setTripCount] = useState<number | ''>(1);
   const [averageTonnage, setAverageTonnage] = useState<number | ''>('');
 
   // Reconcile supervisor state & trips list
@@ -748,7 +748,20 @@ export function CreateTripModal({
                     min="1"
                     step="1"
                     value={tripCount}
-                    onChange={(e) => setTripCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setTripCount('');
+                      } else {
+                        const num = parseInt(val, 10);
+                        setTripCount(isNaN(num) ? '' : num);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (tripCount === '' || Number(tripCount) < 1) {
+                        setTripCount(1);
+                      }
+                    }}
                     required
                     className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
                   />
@@ -1288,7 +1301,20 @@ export function CreateTripModal({
                         min="1"
                         step="1"
                         value={tripCount}
-                        onChange={(e) => setTripCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setTripCount('');
+                          } else {
+                            const num = parseInt(val, 10);
+                            setTripCount(isNaN(num) ? '' : num);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (tripCount === '' || Number(tripCount) < 1) {
+                            setTripCount(1);
+                          }
+                        }}
                         required
                         className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-900 text-slate-900 font-mono font-bold"
                       />

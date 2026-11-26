@@ -17,6 +17,8 @@ import {
   Calculator,
   ArrowRight,
   Zap,
+  Compass,
+  Scale,
 } from 'lucide-react';
 
 
@@ -32,6 +34,36 @@ interface DemoUser {
 }
 
 const DEMO_USERS: DemoUser[] = [
+  {
+    id: 'user-1',
+    name: 'User Id :- 1',
+    roleTitle: 'Maintenance & Stores Incharge',
+    roleBadge: 'Parts, Stock, Fuel & Workshop',
+    email: 'user1@uptoware.com',
+    description: 'Under: spare parts report, stock report, hsd escalation/de-escalation, maintenance & workshop, Emp. Attendance (attendance entry).',
+    isPrimaryAdmin: false,
+    icon: Wrench,
+  },
+  {
+    id: 'user-2',
+    name: 'User Id :- 2',
+    roleTitle: 'Site Supervisor',
+    roleBadge: 'Site Sup Trip Entry Only',
+    email: 'user2@uptoware.com',
+    description: 'Under: Trip report only site sup trip entry menu.',
+    isPrimaryAdmin: false,
+    icon: Compass,
+  },
+  {
+    id: 'user-3',
+    name: 'User Id :- 3',
+    roleTitle: 'Reconciliation Incharge',
+    roleBadge: 'Reconcile Trip & Summary Only',
+    email: 'user3@uptoware.com',
+    description: 'Under: Trip report only reconcile trip entry, reconcile summary menu.',
+    isPrimaryAdmin: false,
+    icon: Scale,
+  },
   {
     id: 'demo-admin',
     name: 'Demo Admin',

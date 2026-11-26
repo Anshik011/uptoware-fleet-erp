@@ -84,6 +84,8 @@ export async function POST(request: NextRequest) {
     const receipt = await createPurchaseReceipt(auth.sid, {
       purchaseOrder: body.purchaseOrder,
       postingDate: body.postingDate,
+      items: body.items,
+      evidenceMediaUrl: body.evidenceMediaUrl,
     });
 
     return NextResponse.json(

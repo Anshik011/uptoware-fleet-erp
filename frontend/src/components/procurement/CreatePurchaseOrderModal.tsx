@@ -23,6 +23,7 @@ import { VehicleDrawer } from '@/components/vehicles/VehicleDrawer';
 import { AddSparePartModal } from '@/components/inventory/AddSparePartModal';
 import { SparePartDrawer } from '@/components/inventory/SparePartDrawer';
 import { formatVehicleDisplay } from '@/lib/displayFormatters';
+import { SignaturePadModal } from './SignaturePadModal';
 
 interface CreatePurchaseOrderModalProps {
   isOpen: boolean;
@@ -102,6 +103,19 @@ export function CreatePurchaseOrderModal({
   const [evidenceMediaUrl, setEvidenceMediaUrl] = useState('');
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
+
+  // Signatures State
+  const [workshopSign, setWorkshopSign] = useState<string>('');
+  const [mechanicalSign, setMechanicalSign] = useState<string>('');
+  const [signModalConfig, setSignModalConfig] = useState<{
+    isOpen: boolean;
+    role: string;
+    onSave: (dataUrl: string) => void;
+  }>({
+    isOpen: false,
+    role: '',
+    onSave: () => {},
+  });
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -318,6 +332,11 @@ export function CreatePurchaseOrderModal({
       }
     }
 
+    if (!evidenceMediaUrl) {
+      setError('Part requisition proof (Photo/Video) is mandatory to create a Purchase Order.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload: CreatePurchaseOrderInput = {
@@ -328,6 +347,8 @@ export function CreatePurchaseOrderModal({
         vehicle: selectedVehicle || undefined,
         vehicleBreakdown: selectedBreakdown || undefined,
         evidenceMediaUrl: evidenceMediaUrl || undefined,
+        workshopSignature: workshopSign || undefined,
+        mechanicalSignature: mechanicalSign || undefined,
         items: sanitizedRows.map((r) => ({
           itemCode: r.itemCode,
           qty: r.qty,
@@ -631,21 +652,27 @@ export function CreatePurchaseOrderModal({
               </div>
             </div>
 
-            {/* Photo / Video Proof Section (Mandatory for Approval) */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+            {/* Photo / Video Proof Section (Mandatory to Create PO) */}
+            <div className={`p-4 rounded-lg space-y-3 border ${evidenceMediaUrl ? 'bg-slate-50 border-slate-200' : 'bg-rose-50/40 border-rose-200'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Camera className="w-4 h-4 text-blue-900" />
                   <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                    Part Verification Proof (Photo / Video Evidence)
+                    Part Verification Proof (Photo / Video Evidence) <span className="text-rose-600">* Mandatory</span>
                   </span>
                 </div>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                  Mandatory For PO Approval
-                </span>
+                {evidenceMediaUrl ? (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Proof Attached
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                    Required *
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500">
-                Upload photo or video of requisition slip, quotation, or damaged/replacement parts. Mandatory prior to final approval.
+                Upload photo or video of requisition slip, quotation, or damaged/replacement parts. Mandatory to create Purchase Order.
               </p>
 
               {evidenceMediaUrl ? (
@@ -712,6 +739,107 @@ export function CreatePurchaseOrderModal({
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Signatures Section: Workshop Incharge & Mechanical Inspection */}
+            <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                  Requisition Signatures (Workshop & Mechanical)
+                </label>
+                <span className="text-[11px] text-slate-500">Sign with draw or typed signature</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Sign 1: Workshop Incharge */}
+                <div className="border border-slate-300 rounded-lg p-2.5 bg-white flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-slate-900">Workshop Incharge Sign</span>
+                    {workshopSign ? (
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-0.5">
+                        <CheckCircle2 className="w-3 h-3" /> Signed
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">Pending</span>
+                    )}
+                  </div>
+                  <div className="h-14 flex items-center justify-center border border-dashed border-slate-200 rounded bg-slate-50/50 my-1">
+                    {workshopSign ? (
+                      <img src={workshopSign} alt="Workshop Sign" className="max-h-12 object-contain" />
+                    ) : (
+                      <span className="text-[11px] text-slate-400">Click below to apply signature</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSignModalConfig({
+                          isOpen: true,
+                          role: 'Workshop Incharge',
+                          onSave: (dataUrl) => setWorkshopSign(dataUrl),
+                        })
+                      }
+                      className="text-xs text-blue-700 hover:text-blue-900 font-semibold hover:underline"
+                    >
+                      {workshopSign ? 'Change Signature' : '✍ Sign Here'}
+                    </button>
+                    {workshopSign && (
+                      <button
+                        type="button"
+                        onClick={() => setWorkshopSign('')}
+                        className="text-xs text-rose-600 hover:text-rose-700"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sign 2: Mechanical Inspection */}
+                <div className="border border-slate-300 rounded-lg p-2.5 bg-white flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-slate-900">Mechanical / Technical Sign</span>
+                    {mechanicalSign ? (
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-0.5">
+                        <CheckCircle2 className="w-3 h-3" /> Signed
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">Pending</span>
+                    )}
+                  </div>
+                  <div className="h-14 flex items-center justify-center border border-dashed border-slate-200 rounded bg-slate-50/50 my-1">
+                    {mechanicalSign ? (
+                      <img src={mechanicalSign} alt="Mechanical Sign" className="max-h-12 object-contain" />
+                    ) : (
+                      <span className="text-[11px] text-slate-400">Click below to apply signature</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSignModalConfig({
+                          isOpen: true,
+                          role: 'Mechanical / Technical Inspector',
+                          onSave: (dataUrl) => setMechanicalSign(dataUrl),
+                        })
+                      }
+                      className="text-xs text-blue-700 hover:text-blue-900 font-semibold hover:underline"
+                    >
+                      {mechanicalSign ? 'Change Signature' : '✍ Sign Here'}
+                    </button>
+                    {mechanicalSign && (
+                      <button
+                        type="button"
+                        onClick={() => setMechanicalSign('')}
+                        className="text-xs text-rose-600 hover:text-rose-700"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Modal Actions */}
@@ -783,6 +911,13 @@ export function CreatePurchaseOrderModal({
       <SparePartDrawer
         itemId={viewPartId}
         onClose={() => setViewPartId(null)}
+      />
+
+      <SignaturePadModal
+        isOpen={signModalConfig.isOpen}
+        onClose={() => setSignModalConfig((prev) => ({ ...prev, isOpen: false }))}
+        onSave={signModalConfig.onSave}
+        roleTitle={signModalConfig.role}
       />
     </>
   );

@@ -186,12 +186,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (odometerReading == null || isNaN(Number(odometerReading)) || Number(odometerReading) < 0) {
-      return NextResponse.json(
-        { success: false, error: 'Odometer reading must be a non-negative integer.' },
-        { status: 400 }
-      );
-    }
+    const odoValue = odometerReading != null && odometerReading !== '' && !isNaN(Number(odometerReading))
+      ? Math.max(0, Math.floor(Number(odometerReading)))
+      : 0;
 
     if (quantityLitres == null || isNaN(Number(quantityLitres)) || Number(quantityLitres) <= 0) {
       return NextResponse.json(
@@ -207,17 +204,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedMineSite = mineSite
+      ? String(mineSite).replace(/\s*-\s*/g, ' — ').trim()
+      : undefined;
+
     const input: CreateFuelLogInput = {
       vehicle: vehicle.trim(),
       fuelDate: fuelDate.trim(),
       fuelSource: fuelSource as FuelSource,
-      odometerReading: Math.floor(Number(odometerReading)),
+      odometerReading: odoValue,
       quantityLitres: Number(quantityLitres),
       ratePerLitre: Number(ratePerLitre),
       totalCost: totalCost != null ? Number(totalCost) : undefined,
       isFullTank: Boolean(isFullTank),
       driver: driver ? String(driver).trim() : undefined,
-      mineSite: mineSite ? String(mineSite).trim() : undefined,
+      mineSite: normalizedMineSite,
       paymentMethod: (paymentMethod as FuelPaymentMethod) || undefined,
       fuelStation: fuelStation ? String(fuelStation).trim() : undefined,
       remarks: remarks ? String(remarks).trim() : undefined,

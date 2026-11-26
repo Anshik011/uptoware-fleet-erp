@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { InvoicePreparationModal } from '@/components/finance/InvoicePreparationModal';
+import { ReconcileSummaryTab } from '@/components/trips/ReconcileSummaryTab';
 
 function TripsTableSection() {
   const searchParams = useSearchParams();
@@ -37,9 +38,22 @@ function TripsTableSection() {
   const [error, setError] = useState<string | null>(null);
 
   // Filters and Search state
+  const tabParam = searchParams.get('tab');
+  const [currentTab, setCurrentTab] = useState<'trips' | 'reconcile_summary'>(
+    tabParam === 'reconcile_summary' ? 'reconcile_summary' : 'trips'
+  );
+
+  useEffect(() => {
+    if (tabParam === 'reconcile_summary') {
+      setCurrentTab('reconcile_summary');
+    } else if (tabParam === 'trips' || !tabParam) {
+      setCurrentTab('trips');
+    }
+  }, [tabParam]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>(
-    searchParams.get('status') || (isReportView ? 'ALL' : 'Delivered')
+    searchParams.get('status') || 'ALL'
   );
   const [selectedMineSite, setSelectedMineSite] = useState<string>(
     searchParams.get('mine_site') || 'ALL'
@@ -248,8 +262,44 @@ function TripsTableSection() {
         }
       />
 
-      {/* Dynamic KPI Cards Strip - 100% Dynamic from live records, clickable for instant filtering */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {/* Navigation Sub-Tabs: Trips Ledger vs Reconcile Summary */}
+      <div className="flex items-center gap-2 mb-6 border-b border-slate-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setCurrentTab('trips')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            currentTab === 'trips'
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80'
+          }`}
+        >
+          <Compass className="w-4 h-4" />
+          <span>Mining Trips Ledger</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setCurrentTab('reconcile_summary')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            currentTab === 'reconcile_summary'
+              ? 'bg-blue-900 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80'
+          }`}
+        >
+          <Scale className="w-4 h-4" />
+          <span>Reconcile Summary</span>
+        </button>
+      </div>
+
+      {currentTab === 'reconcile_summary' ? (
+        <ReconcileSummaryTab
+          trips={allTripsForMetrics.length > 0 ? allTripsForMetrics : trips}
+          onRefresh={fetchTrips}
+          isLoading={isLoading}
+        />
+      ) : (
+        <>
+          {/* Dynamic KPI Cards Strip - 100% Dynamic from live records, clickable for instant filtering */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {/* Total Trips */}
         <div
           onClick={() => setSelectedStatus('ALL')}
@@ -391,6 +441,8 @@ function TripsTableSection() {
           sortBy={sortBy}
           onSortChange={setSortBy}
         />
+      )}
+        </>
       )}
 
       {/* Slide-over Detail Drawer */}

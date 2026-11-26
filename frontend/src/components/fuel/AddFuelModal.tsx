@@ -185,18 +185,7 @@ export function AddFuelModal({ isOpen, onClose, onSuccess }: AddFuelModalProps) 
       return;
     }
 
-    const odo = parseInt(odometerReading, 10);
-    if (isNaN(odo) || odo < 0) {
-      setError('Odometer reading must be a valid positive integer.');
-      return;
-    }
-
-    if (selectedVehObj && selectedVehObj.lastOdometer && odo < selectedVehObj.lastOdometer) {
-      setError(
-        `Odometer reading (${odo.toLocaleString('en-IN')} KM) cannot be lower than the vehicle's last recorded odometer (${selectedVehObj.lastOdometer.toLocaleString('en-IN')} KM).`
-      );
-      return;
-    }
+    const odo = odometerReading.trim() ? parseInt(odometerReading, 10) || 0 : 0;
 
     if (isNaN(qty) || qty <= 0) {
       setError('Quantity in litres must be a positive numeric value.');
@@ -317,7 +306,7 @@ export function AddFuelModal({ isOpen, onClose, onSuccess }: AddFuelModalProps) 
                 onChange={handleVehicleChange}
                 options={vehicles.map((v) => ({
                   value: v.licensePlate,
-                  label: `${v.licensePlate} (Last: ${v.lastOdometer.toLocaleString('en-IN')} KM)`,
+                  label: v.licensePlate,
                 }))}
                 entityName="Vehicle"
                 placeholder="Select commercial vehicle..."
@@ -376,14 +365,13 @@ export function AddFuelModal({ isOpen, onClose, onSuccess }: AddFuelModalProps) 
             {/* Odometer & Full Tank Checkbox */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
               <Input
-                label="Odometer Reading (KM) *"
+                label="Odometer Reading (KM) (Optional)"
                 type="number"
                 min="0"
                 placeholder="e.g. 62150"
                 value={odometerReading}
                 onChange={(e) => setOdometerReading(e.target.value)}
                 data-testid="input-fuel-odometer"
-                required
               />
 
               <div className="pt-5">
@@ -443,7 +431,7 @@ export function AddFuelModal({ isOpen, onClose, onSuccess }: AddFuelModalProps) 
               </div>
             </div>
 
-            {/* Mine Site & Payment Method */}
+            {/* Mine Site & Station / Bowser */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <LinkedField
                 label="Mine Site Location"
@@ -462,34 +450,15 @@ export function AddFuelModal({ isOpen, onClose, onSuccess }: AddFuelModalProps) 
                 hint={isMineLocked ? 'Mine site locked to user operational assignment' : 'Operational pit or delivery terminal'}
               />
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Payment Method
-                </label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as FuelPaymentMethod)}
-                  data-testid="select-fuel-payment-method"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 shadow-xs"
-                >
-                  {paymentMethods.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Input
+                label="Fuel Station / Bowser ID"
+                type="text"
+                placeholder="e.g. Site Bowser #02 or Indian Oil Pump #14"
+                value={fuelStation}
+                onChange={(e) => setFuelStation(e.target.value)}
+                data-testid="input-fuel-station"
+              />
             </div>
-
-            {/* Station / Bowser Details */}
-            <Input
-              label="Fuel Station / Bowser ID"
-              type="text"
-              placeholder="e.g. Site Bowser #02 or Indian Oil Pump #14"
-              value={fuelStation}
-              onChange={(e) => setFuelStation(e.target.value)}
-              data-testid="input-fuel-station"
-            />
 
             {/* Remarks */}
             <div>

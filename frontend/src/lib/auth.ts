@@ -6,6 +6,9 @@ export type OperationalRole =
   | 'Workshop Supervisor'
   | 'Accountant'
   | 'Administrator'
+  | 'Maintenance Stores User'
+  | 'Site Supervisor User'
+  | 'Reconcile Incharge User'
   | 'Unauthorized';
 
 export interface AuthUser {
@@ -23,6 +26,21 @@ export interface AuthUser {
 export const AUTH_COOKIE_NAME = 'uptoware_sid';
 
 export const DEMO_ACCOUNTS: Record<string, { name: string; role: OperationalRole; roles: string[] }> = {
+  'user1@uptoware.com': {
+    name: 'User Id - 1',
+    role: 'Maintenance Stores User',
+    roles: ['Workshop Supervisor', 'Item Manager', 'Stock Manager', 'HR User'],
+  },
+  'user2@uptoware.com': {
+    name: 'User Id - 2',
+    role: 'Site Supervisor User',
+    roles: ['Dispatcher', 'Fleet User'],
+  },
+  'user3@uptoware.com': {
+    name: 'User Id - 3',
+    role: 'Reconcile Incharge User',
+    roles: ['Fleet Manager', 'Dispatcher', 'Fleet User'],
+  },
   'demo.admin@uptoware.com': {
     name: 'Demo Admin',
     role: 'Administrator',
@@ -268,6 +286,41 @@ export function checkPermission(
     user.roles.includes('Administrator')
   ) {
     return true;
+  }
+
+  // Specialized operational user roles
+  if (user.role === 'Maintenance Stores User') {
+    const allowed = [
+      'dashboard',
+      'vehicles',
+      'drivers',
+      'mineSites',
+      'fuel',
+      'maintenance',
+      'breakdowns',
+      'spareParts',
+      'inventory',
+      'warehouses',
+      'stockMovements',
+      'suppliers',
+      'purchaseOrders',
+      'procurement',
+      'employees',
+      'shifts',
+      'documents',
+      'alerts',
+    ];
+    return allowed.includes(module);
+  }
+
+  if (user.role === 'Site Supervisor User') {
+    const allowed = ['dashboard', 'trips', 'dispatch', 'vehicles', 'drivers', 'mineSites', 'shifts'];
+    return allowed.includes(module);
+  }
+
+  if (user.role === 'Reconcile Incharge User') {
+    const allowed = ['dashboard', 'trips', 'dispatch', 'weighbridge', 'vehicles', 'drivers', 'mineSites', 'shifts'];
+    return allowed.includes(module);
   }
 
   const modulePerms = PERMISSION_MATRIX[module];

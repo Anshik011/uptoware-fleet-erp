@@ -5893,6 +5893,8 @@ export async function createPurchaseReceipt(
   input: {
     purchaseOrder: string;
     postingDate?: string;
+    items?: Array<{ itemCode: string; qty?: number; rate?: number }>;
+    evidenceMediaUrl?: string;
   }
 ): Promise<PurchaseReceipt> {
   // 1. Generate mapped Purchase Receipt from Purchase Order via native ERPNext method
@@ -5917,6 +5919,29 @@ export async function createPurchaseReceipt(
 
   if (input.postingDate) {
     prDoc.posting_date = input.postingDate;
+  }
+
+  // Apply user-modified quantities or rates if provided
+  if (input.items && Array.isArray(input.items) && input.items.length > 0) {
+    for (const mod of input.items) {
+      const match = prDoc.items.find((row: any) => row.item_code === mod.itemCode || row.item_name === mod.itemCode);
+      if (match) {
+        if (mod.qty != null && Number(mod.qty) > 0) {
+          match.qty = Number(mod.qty);
+          match.received_qty = Number(mod.qty);
+        }
+        if (mod.rate != null && Number(mod.rate) >= 0) {
+          match.rate = Number(mod.rate);
+        }
+        match.amount = Number(match.qty) * Number(match.rate);
+      }
+    }
+  }
+
+  // Attach evidence media reference in remarks if provided
+  if (input.evidenceMediaUrl) {
+    const mediaRemark = `[EVIDENCE_MEDIA: ${input.evidenceMediaUrl}]`;
+    prDoc.remarks = prDoc.remarks ? `${prDoc.remarks} | ${mediaRemark}` : mediaRemark;
   }
 
   // 2. Insert the Purchase Receipt

@@ -105,6 +105,7 @@ export const clientNavigationSections: ClientNavSection[] = [
       { name: 'TRIP HOME', href: '/trips' },
       { name: 'TRIP ENTRY', href: '/trips?action=new' },
       { name: 'SITE SUP TRIP ENTRY', href: '/trips?action=site_sup' },
+      { name: 'RECONCILE SUMMARY', href: '/trips?tab=reconcile_summary' },
       { name: 'TRIP REPORT', href: '/trips?view=report' },
     ],
   },
