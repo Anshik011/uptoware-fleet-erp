@@ -341,7 +341,7 @@ export async function POST(request: NextRequest) {
       primaryRole === 'Administrator' ||
       roles.includes('System Manager') ||
       roles.includes('Fleet Head Office Admin') ||
-      (isSpecializedRole && (!Array.isArray(profile.allowed_mines) || profile.allowed_mines.length === 0))
+      (isSpecializedRole && (!Array.isArray(profile.allowed_mines) || profile.allowed_mines.length === 0 || profile.allowed_mines.length >= 2))
     );
     const allowedMines: string[] = Array.isArray(profile.allowed_mines) ? profile.allowed_mines : [];
     const isUnassigned = !isAllMines && allowedMines.length === 0;

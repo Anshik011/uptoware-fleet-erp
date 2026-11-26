@@ -557,7 +557,7 @@ export async function getAuthenticatedUser(
       primaryRole === 'Administrator' ||
       roles.includes('System Manager') ||
       roles.includes('Fleet Head Office Admin') ||
-      (isSpecializedRole && (!Array.isArray(msg.allowed_mines) || msg.allowed_mines.length === 0))
+      (isSpecializedRole && (!Array.isArray(msg.allowed_mines) || msg.allowed_mines.length === 0 || msg.allowed_mines.length >= 2))
     );
     const allowedMines: string[] = Array.isArray(msg.allowed_mines) ? msg.allowed_mines : [];
     const isUnassigned = !isAllMines && allowedMines.length === 0;
