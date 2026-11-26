@@ -139,10 +139,16 @@ export function MineProvider({ children }: { children: ReactNode }) {
     }
 
     if (isAllMines) {
-      if (stored) {
+      const isManual = typeof window !== 'undefined' && localStorage.getItem(`${STORAGE_KEY}_manual`) === 'true';
+      if (stored && isManual) {
         setCurrentMineState(stored);
       } else {
         setCurrentMineState('ALL');
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          // Ignore
+        }
       }
     } else {
       // Multi-mine user: strictly verify stored selection is in allowedMines ONLY (prevent ALL tampering)
@@ -181,6 +187,7 @@ export function MineProvider({ children }: { children: ReactNode }) {
       setCurrentMineState(mine);
       try {
         localStorage.setItem(STORAGE_KEY, mine);
+        localStorage.setItem(`${STORAGE_KEY}_manual`, 'true');
         if (user?.id || user?.email) {
           localStorage.setItem(`${STORAGE_KEY}_user`, user.id || user.email);
         }

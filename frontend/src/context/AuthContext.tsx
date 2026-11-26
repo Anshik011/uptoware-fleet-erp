@@ -108,6 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(json.error || 'Authentication failed. Please verify credentials.');
       }
 
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('uptoware_selected_mine');
+          localStorage.removeItem('uptoware_selected_mine_manual');
+        } catch {
+          // ignore
+        }
+      }
       setUser(json.user);
       return true;
     } finally {
@@ -122,6 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         cache: 'no-store',
       });
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('uptoware_selected_mine');
+          localStorage.removeItem('uptoware_selected_mine_manual');
+        } catch {
+          // ignore
+        }
+      }
       setUser(null);
       window.location.href = '/login';
     } finally {
