@@ -19,6 +19,7 @@ import { QuickActions } from '@/components/dashboard/QuickActions';
 import { DashboardSummary } from '@/types/fleet';
 import { formatCurrency, formatNumber } from '@/config/branding';
 import { useMine } from '@/context/MineContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   Truck,
   CheckCircle2,
@@ -64,6 +65,7 @@ const defaultReportMetrics: ReportMetrics = {
 
 export default function FleetDashboardPage() {
   const { currentMine, activeMineLabel } = useMine();
+  const { user } = useAuth();
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -262,18 +264,69 @@ export default function FleetDashboardPage() {
 
   const unreadAlerts = data?.recentAlerts?.filter((a) => a.status === 'Unread').length || 0;
 
-  // The 9 Mandatory Module Headings in exact PDF sequence
-  const clientPdfHeadings = [
-    { num: 1, title: 'EMPLOYEE DATA', href: '/employees', icon: Users },
-    { num: 2, title: 'VEHICLE DATA', href: '/vehicles', icon: Truck },
-    { num: 3, title: 'TRIP REPORT', href: '/trips', icon: Compass },
-    { num: 4, title: 'LEAD REPORT', href: '/leads', icon: MapPin },
-    { num: 5, title: 'SPARE PARTS REPORT', href: '/spare-parts', icon: Package },
-    { num: 6, title: 'STOCK REPORT', href: '/stock-movements', icon: Warehouse },
-    { num: 7, title: 'EMP ATTENDANCE REPORT', href: '/employees?tab=roster', icon: UserCheck },
-    { num: 8, title: 'VEHICLE INCOME REPORT', href: '/reports?report=Vehicle+Earning+Summary+Report', icon: IndianRupee },
-    { num: 9, title: 'HSD ESCALATION/DE-ESCALATION', href: '/reports?report=HSD+Fuel+Price+Escalation+Report', icon: Fuel },
-  ];
+  const isRestrictedRole =
+    user?.role === 'Maintenance Stores User' ||
+    user?.role === 'Site Supervisor User' ||
+    user?.role === 'Reconcile Incharge User';
+
+  const canViewFinance = !['Site Supervisor User', 'Reconcile Incharge User'].includes(user?.role || '');
+
+  // Role-filtered dashboard module headings
+  const visibleHeadings = React.useMemo(() => {
+    if (!user || !user.role) {
+      return [
+        { num: 1, title: 'EMPLOYEE DATA', href: '/employees', icon: Users },
+        { num: 2, title: 'VEHICLE DATA', href: '/vehicles', icon: Truck },
+        { num: 3, title: 'TRIP REPORT', href: '/trips', icon: Compass },
+        { num: 4, title: 'LEAD REPORT', href: '/leads', icon: MapPin },
+        { num: 5, title: 'SPARE PARTS REPORT', href: '/spare-parts', icon: Package },
+        { num: 6, title: 'STOCK REPORT', href: '/stock-movements', icon: Warehouse },
+        { num: 7, title: 'EMP ATTENDANCE REPORT', href: '/employees?tab=roster', icon: UserCheck },
+        { num: 8, title: 'VEHICLE INCOME REPORT', href: '/reports?report=Vehicle+Earning+Summary+Report', icon: IndianRupee },
+        { num: 9, title: 'HSD ESCALATION/DE-ESCALATION', href: '/reports?report=HSD+Fuel+Price+Escalation+Report', icon: Fuel },
+      ];
+    }
+
+    // User 1: Maintenance & Stores Incharge
+    if (user.role === 'Maintenance Stores User') {
+      return [
+        { num: 5, title: 'SPARE PARTS REPORT', href: '/spare-parts', icon: Package },
+        { num: 6, title: 'STOCK REPORT', href: '/stock-movements', icon: Warehouse },
+        { num: 7, title: 'EMP ATTENDANCE REPORT', href: '/attendance', icon: UserCheck },
+        { num: 9, title: 'HSD ESCALATION/DE-ESCALATION', href: '/reports?report=HSD+Fuel+Price+Escalation+Report', icon: Fuel },
+        { num: 10, title: 'MAINTENANCE & WORKSHOP', href: '/maintenance', icon: Wrench },
+      ];
+    }
+
+    // User 2: Site Supervisor
+    if (user.role === 'Site Supervisor User') {
+      return [
+        { num: 3, title: 'SITE SUP TRIP ENTRY', href: '/trips?action=site_sup', icon: Compass },
+      ];
+    }
+
+    // User 3: Reconcile Incharge
+    if (user.role === 'Reconcile Incharge User') {
+      return [
+        { num: 3, title: 'RECONCILE TRIP ENTRY', href: '/trips', icon: Compass },
+        { num: 4, title: 'RECONCILE SUMMARY', href: '/trips?tab=reconcile_summary', icon: Compass },
+      ];
+    }
+
+    // Standard Full Roles (Administrator, Fleet Manager, Dispatcher, Workshop Supervisor, Accountant)
+    return [
+      { num: 1, title: 'EMPLOYEE DATA', href: '/employees', icon: Users },
+      { num: 2, title: 'VEHICLE DATA', href: '/vehicles', icon: Truck },
+      { num: 3, title: 'TRIP REPORT', href: '/trips', icon: Compass },
+      { num: 4, title: 'LEAD REPORT', href: '/leads', icon: MapPin },
+      { num: 5, title: 'SPARE PARTS REPORT', href: '/spare-parts', icon: Package },
+      { num: 6, title: 'STOCK REPORT', href: '/stock-movements', icon: Warehouse },
+      { num: 7, title: 'EMP ATTENDANCE REPORT', href: '/employees?tab=roster', icon: UserCheck },
+      { num: 8, title: 'VEHICLE INCOME REPORT', href: '/reports?report=Vehicle+Earning+Summary+Report', icon: IndianRupee },
+      { num: 9, title: 'HSD ESCALATION/DE-ESCALATION', href: '/reports?report=HSD+Fuel+Price+Escalation+Report', icon: Fuel },
+      { num: 10, title: 'MAINTENANCE & WORKSHOP', href: '/maintenance', icon: Wrench },
+    ];
+  }, [user]);
 
   return (
     <AppShell
@@ -311,27 +364,39 @@ export default function FleetDashboardPage() {
                 HOME PAGE
               </h2>
               <p className="text-[11px] text-slate-500">
-                Client Specification — 9 Mandatory Operational Sections
+                {isRestrictedRole
+                  ? `Assigned Operational Modules (${visibleHeadings.length} Active)`
+                  : 'Client Specification — 9 Mandatory Operational Sections'}
               </p>
             </div>
             <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
-              Specification Sequence
+              {isRestrictedRole ? user?.role : 'Specification Sequence'}
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2">
-            {clientPdfHeadings.map((heading) => {
+          <div
+            className={`grid gap-2 ${
+              visibleHeadings.length === 1
+                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                : visibleHeadings.length === 2
+                  ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+                  : visibleHeadings.length <= 5
+                    ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
+                    : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 xl:grid-cols-10'
+            }`}
+          >
+            {visibleHeadings.map((heading) => {
               const Icon = heading.icon;
               return (
                 <Link
                   key={heading.num}
                   href={heading.href}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-blue-50/80 hover:border-blue-300 transition-all text-center group"
+                  className="flex flex-col items-center justify-center p-3 rounded-lg border border-slate-200/90 bg-slate-50/70 hover:bg-blue-50/80 hover:border-blue-300 transition-all text-center group"
                 >
-                  <div className="w-6 h-6 rounded-md bg-white border border-slate-200 flex items-center justify-center text-slate-600 group-hover:text-blue-600 group-hover:border-blue-300 mb-1.5 transition-colors">
-                    <Icon className="w-3.5 h-3.5" />
+                  <div className="w-7 h-7 rounded-md bg-white border border-slate-200 flex items-center justify-center text-slate-600 group-hover:text-blue-600 group-hover:border-blue-300 mb-1.5 transition-colors">
+                    <Icon className="w-4 h-4" />
                   </div>
-                  <span className="text-[10px] font-bold text-slate-900 group-hover:text-blue-700 line-clamp-2 leading-tight uppercase">
+                  <span className="text-[11px] font-bold text-slate-900 group-hover:text-blue-700 line-clamp-2 leading-tight uppercase">
                     {heading.num}. {heading.title}
                   </span>
                 </Link>
@@ -424,32 +489,55 @@ export default function FleetDashboardPage() {
                   badge={{ text: 'Active Hauls', variant: 'positive' }}
                 />
 
-                <KpiCard
-                  title="Operating Cost"
-                  value={formatCurrency(data.kpi.totalOperatingCost)}
-                  subtext="Fuel, Spares & Statutory"
-                  icon={Receipt}
-                  badge={{ text: 'Disbursements', variant: 'neutral' }}
-                />
+                {canViewFinance ? (
+                  <>
+                    <KpiCard
+                      title="Operating Cost"
+                      value={formatCurrency(data.kpi.totalOperatingCost)}
+                      subtext="Fuel, Spares & Statutory"
+                      icon={Receipt}
+                      badge={{ text: 'Disbursements', variant: 'neutral' }}
+                    />
 
-                <KpiCard
-                  title="Billed Revenue"
-                  value={formatCurrency(data.kpi.totalRevenue)}
-                  subtext={
-                    data.kpi.netOperatingIncome >= 0
-                      ? `${formatCurrency(data.kpi.netOperatingIncome)} Net Margin`
-                      : `-${formatCurrency(Math.abs(data.kpi.netOperatingIncome))} Net Margin`
-                  }
-                  icon={IndianRupee}
-                  badge={{ text: 'Revenue', variant: 'positive' }}
-                />
+                    <KpiCard
+                      title="Billed Revenue"
+                      value={formatCurrency(data.kpi.totalRevenue)}
+                      subtext={
+                        data.kpi.netOperatingIncome >= 0
+                          ? `${formatCurrency(data.kpi.netOperatingIncome)} Net Margin`
+                          : `-${formatCurrency(Math.abs(data.kpi.netOperatingIncome))} Net Margin`
+                      }
+                      icon={IndianRupee}
+                      badge={{ text: 'Revenue', variant: 'positive' }}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <KpiCard
+                      title="Completed Trips"
+                      value={data.kpi.completedTrips}
+                      subtext="Weighbridge & Delivery"
+                      icon={CheckCircle2}
+                      badge={{ text: 'Verified', variant: 'positive' }}
+                    />
+
+                    <KpiCard
+                      title="Trips In Transit"
+                      value={data.kpi.inProgressTrips}
+                      subtext="Active Pit Hauls"
+                      icon={Truck}
+                      badge={{ text: 'Dispatched', variant: 'neutral' }}
+                    />
+                  </>
+                )}
               </div>
             </section>
 
             {/* ========================================================================= */}
             {/* MANDATORY CLIENT SPECIFICATION: DAILY REPORT (EXPENSES & INCOME)          */}
             {/* ========================================================================= */}
-            <section aria-label="Daily Report Metrics" className="mt-6 bg-white border border-slate-200 rounded-xl p-5 shadow-2xs">
+            {canViewFinance && (
+              <section aria-label="Daily Report Metrics" className="mt-6 bg-white border border-slate-200 rounded-xl p-5 shadow-2xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-slate-200 gap-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
@@ -575,10 +663,12 @@ export default function FleetDashboardPage() {
                 </div>
               </div>
             </section>
+            )}
 
             {/* ========================================================================= */}
             {/* MANDATORY CLIENT SPECIFICATION: MONTHLY REPORT (EXPENSES & INCOME)        */}
             {/* ========================================================================= */}
+            {canViewFinance && (
             <section aria-label="Monthly Report Metrics" className="mt-6 bg-white border border-slate-200 rounded-xl p-5 shadow-2xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-slate-200 gap-3">
                 <div className="flex items-center gap-2">
@@ -705,13 +795,14 @@ export default function FleetDashboardPage() {
                 </div>
               </div>
             </section>
+            )}
 
             {/* Utilization & Financial Summaries Grid (Restored Original Components) */}
             <section
               aria-label="Operational & Financial Summaries"
               className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 mt-6 sm:mt-8"
             >
-              <div className="lg:col-span-7">
+              <div className={canViewFinance ? "lg:col-span-7" : "lg:col-span-12"}>
                 <UtilizationCard
                   totalVehicles={data.kpi.totalVehicles}
                   activeVehicles={data.kpi.activeVehicles}
@@ -724,16 +815,18 @@ export default function FleetDashboardPage() {
                 />
               </div>
 
-              <div className="lg:col-span-5">
-                <FinancialSummaryCard
-                  totalRevenue={data.kpi.totalRevenue}
-                  totalOperatingCost={data.kpi.totalOperatingCost}
-                  fuelCost={data.kpi.fuelCost}
-                  maintenanceCost={data.kpi.maintenanceCost}
-                  netOperatingIncome={data.kpi.netOperatingIncome}
-                  completedTrips={data.kpi.completedTrips}
-                />
-              </div>
+              {canViewFinance && (
+                <div className="lg:col-span-5">
+                  <FinancialSummaryCard
+                    totalRevenue={data.kpi.totalRevenue}
+                    totalOperatingCost={data.kpi.totalOperatingCost}
+                    fuelCost={data.kpi.fuelCost}
+                    maintenanceCost={data.kpi.maintenanceCost}
+                    netOperatingIncome={data.kpi.netOperatingIncome}
+                    completedTrips={data.kpi.completedTrips}
+                  />
+                </div>
+              )}
             </section>
 
             {/* Recent Trips & Alerts Grid (Restored Original Components) */}
