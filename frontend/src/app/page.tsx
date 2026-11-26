@@ -18,6 +18,7 @@ import { AlertsList } from '@/components/dashboard/AlertsList';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { DashboardSummary } from '@/types/fleet';
 import { formatCurrency, formatNumber } from '@/config/branding';
+import { toLocalDateString } from '@/lib/datetime';
 import { useMine } from '@/context/MineContext';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -71,8 +72,14 @@ export default function FleetDashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Daily & Monthly Report States for Client Specification Compliance
-  const [dailyDate, setDailyDate] = useState('2026-11-15');
-  const [monthlyMonth, setMonthlyMonth] = useState('2026-11');
+  const [dailyDate, setDailyDate] = useState('');
+  const [monthlyMonth, setMonthlyMonth] = useState('');
+
+  useEffect(() => {
+    const today = toLocalDateString();
+    setDailyDate((prev) => prev || today);
+    setMonthlyMonth((prev) => prev || today.slice(0, 7));
+  }, []);
   const [dailyMetrics, setDailyMetrics] = useState<ReportMetrics>(defaultReportMetrics);
   const [monthlyMetrics, setMonthlyMetrics] = useState<ReportMetrics>(defaultReportMetrics);
   const [reportsLoading, setReportsLoading] = useState(false);
@@ -256,11 +263,13 @@ export default function FleetDashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
-    fetchReportMetrics();
+    if (dailyDate && monthlyMonth) {
+      fetchReportMetrics();
+    }
     return () => {
       activeRequestRef.current?.abort();
     };
-  }, [fetchDashboardData, fetchReportMetrics]);
+  }, [fetchDashboardData, fetchReportMetrics, dailyDate, monthlyMonth]);
 
   const unreadAlerts = data?.recentAlerts?.filter((a) => a.status === 'Unread').length || 0;
 

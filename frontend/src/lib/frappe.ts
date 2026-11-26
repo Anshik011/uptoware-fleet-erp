@@ -1494,6 +1494,7 @@ export async function getDashboardData(
       'net_weight_tons',
       'gross_revenue',
       'trip_status',
+      'workflow_state',
       'dispatch_date_time',
       'is_test_record',
     ]);
@@ -1505,7 +1506,7 @@ export async function getDashboardData(
     const tripsRes = await frappeFetch<{ data: any[] }>(
       `/api/resource/Mining%20Trip?fields=${encodeURIComponent(
         tripFields
-      )}&filters=${encodeURIComponent(tripFilters)}&order_by=creation%20desc&limit_page_length=50`,
+      )}&filters=${encodeURIComponent(tripFilters)}&order_by=creation%20desc&limit_page_length=500`,
       { sessionCookie }
     ).catch(() => ({ data: [] }));
 
@@ -1527,9 +1528,14 @@ export async function getDashboardData(
     }));
 
     // Aggregate completed trips & in-progress trips from live database records
-    const completedTrips = rawTrips.filter((t) => t.trip_status === 'Delivered').length;
+    const completedTrips = rawTrips.filter(
+      (t) => t.trip_status === 'Delivered' || t.trip_status === 'Approved' || t.workflow_state === 'Approved'
+    ).length;
     const inProgressTrips = rawTrips.filter(
-      (t) => t.trip_status === 'Dispatched' || t.trip_status === 'Weighbridge Confirmed'
+      (t) =>
+        t.trip_status === 'Draft' ||
+        t.trip_status === 'Dispatched' ||
+        t.trip_status === 'Weighbridge Confirmed'
     ).length;
 
     // Fetch recent alerts
@@ -1657,9 +1663,10 @@ export async function getDashboardData(
       0
     );
 
-    // Actual billed revenue strictly sourced from submitted Sales Invoices (docstatus = 1).
-    // Trip rate_per_ton and gross_revenue are indicative non-binding estimates and must NEVER affect accounting revenue.
-    const totalRevenue = billedInvoiceTotal;
+    const tripRevenueTotal = rawTrips
+      .filter((t) => t.trip_status === 'Approved' || t.trip_status === 'Delivered' || t.workflow_state === 'Approved')
+      .reduce((acc, t) => acc + (Number(t.gross_revenue) || 0), 0);
+    const totalRevenue = billedInvoiceTotal + tripRevenueTotal;
     const totalOperatingCost = fuelCost + maintenanceCost + operationalExpenses;
     const netOperatingIncome = totalRevenue - totalOperatingCost;
 
