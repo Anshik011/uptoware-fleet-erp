@@ -146,7 +146,7 @@ export const PERMISSION_MATRIX: Record<
   },
   fuel: {
     view: ['Fleet Manager', 'Dispatcher', 'Workshop Supervisor', 'Accountant', 'Administrator'],
-    manage: ['Fleet Manager', 'Workshop Supervisor', 'Administrator'],
+    manage: ['Fleet Manager', 'Workshop Supervisor', 'Accountant', 'Administrator'],
     full: ['Administrator'],
   },
   maintenance: {
@@ -553,11 +553,11 @@ export async function getAuthenticatedUser(
       primaryRole === 'Site Supervisor User' ||
       primaryRole === 'Reconcile Incharge User';
     const isAllMines = Boolean(
-      msg.is_all_mines ||
-      primaryRole === 'Administrator' ||
-      roles.includes('System Manager') ||
-      roles.includes('Fleet Head Office Admin') ||
-      (isSpecializedRole && (!Array.isArray(msg.allowed_mines) || msg.allowed_mines.length === 0 || msg.allowed_mines.length >= 2))
+      !isSpecializedRole &&
+      (msg.is_all_mines ||
+        primaryRole === 'Administrator' ||
+        roles.includes('System Manager') ||
+        roles.includes('Fleet Head Office Admin'))
     );
     const allowedMines: string[] = Array.isArray(msg.allowed_mines) ? msg.allowed_mines : [];
     const isUnassigned = !isAllMines && allowedMines.length === 0;

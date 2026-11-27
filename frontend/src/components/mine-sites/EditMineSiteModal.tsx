@@ -34,6 +34,7 @@ export function EditMineSiteModal({
   onClose,
   onSuccess,
 }: EditMineSiteModalProps) {
+  const [siteName, setSiteName] = useState('');
   const [client, setClient] = useState('');
   const [status, setStatus] = useState<MineSiteStatus>('Operational');
   const [mineralType, setMineralType] = useState<MineralType>('Iron Ore');
@@ -49,6 +50,7 @@ export function EditMineSiteModal({
   useEffect(() => {
     if (!isOpen || !site) return;
 
+    setSiteName(site.siteName || site.id || '');
     setClient(site.client || '');
     setStatus(site.status || 'Operational');
     setMineralType(site.mineralType || 'Iron Ore');
@@ -97,7 +99,14 @@ export function EditMineSiteModal({
       return;
     }
 
+    const trimmedSiteName = siteName.trim();
+    if (!trimmedSiteName) {
+      setError('Mine site name is required.');
+      return;
+    }
+
     const payload: UpdateMineSiteInput = {
+      siteName: trimmedSiteName,
       client: client.trim() || undefined,
       status,
       mineralType,
@@ -178,6 +187,22 @@ export function EditMineSiteModal({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Mine Site Name */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Mine Site Name <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={siteName}
+                onChange={(e) => setSiteName(e.target.value)}
+                placeholder="e.g. JBR Eastern — Talcher Site"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 shadow-xs"
+                data-testid="edit-input-site-name"
+              />
+            </div>
+
             {/* Client / Customer */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">

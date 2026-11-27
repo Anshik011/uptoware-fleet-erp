@@ -81,11 +81,17 @@ export async function POST(
     }
 
     if (trimmedAction === 'Approve') {
-      if (auth.user.role !== 'Fleet Manager' && auth.user.role !== 'Administrator') {
+      const canApproveFuel =
+        auth.user.role === 'Fleet Manager' ||
+        auth.user.role === 'Administrator' ||
+        auth.user.role === 'Accountant' ||
+        auth.user.role === 'Workshop Supervisor' ||
+        auth.user.role === 'Maintenance Stores User';
+      if (!canApproveFuel) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Forbidden: Only Fleet Managers and Administrators are authorized to approve Fuel Logs.',
+            error: 'Forbidden: Only authorized procurement/fleet roles can approve Fuel Logs.',
           },
           { status: 403 }
         );

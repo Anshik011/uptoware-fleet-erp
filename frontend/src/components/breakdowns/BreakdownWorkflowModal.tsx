@@ -443,6 +443,17 @@ export function BreakdownWorkflowModal({
                   />
                 </div>
               </div>
+              <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-xs">
+                <span className="text-blue-900 font-medium">
+                  Need to raise a Purchase Order for this breakdown?
+                </span>
+                <a
+                  href={`/purchases?action=new&breakdown=${encodeURIComponent(breakdown.id)}&vehicle=${encodeURIComponent(breakdown.vehicle)}`}
+                  className="px-2.5 py-1 rounded bg-blue-900 text-white font-semibold hover:bg-blue-800 transition-colors shrink-0"
+                >
+                  Create Spare Parts PO →
+                </a>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Purchase Authorized By

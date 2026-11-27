@@ -32,7 +32,13 @@ import {
 function FuelPageContent() {
   const searchParams = useSearchParams();
   const { hasRole } = useAuth();
-  const canManage = hasRole(['Fleet Manager', 'Workshop Supervisor', 'Administrator']);
+  const canManage = hasRole([
+    'Fleet Manager',
+    'Workshop Supervisor',
+    'Accountant',
+    'Maintenance Stores User',
+    'Administrator',
+  ]);
 
   const paramTab = searchParams.get('tab');
   const initialTab: 'sale' | 'purchase' | 'ledger' | 'average' =

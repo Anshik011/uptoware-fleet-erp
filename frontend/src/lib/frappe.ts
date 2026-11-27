@@ -1037,7 +1037,26 @@ export async function updateMineSite(
   siteId: string,
   input: UpdateMineSiteInput
 ): Promise<MineSite> {
+  let targetSiteId = siteId;
+  const requestedName = input.siteName ? input.siteName.trim() : '';
+
+  if (requestedName && requestedName !== siteId) {
+    await frappeFetch('/api/method/frappe.client.rename_doc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        doctype: 'Mine Site',
+        old_name: siteId,
+        new_name: requestedName,
+        merge: 0,
+      }),
+      sessionCookie,
+    });
+    targetSiteId = requestedName;
+  }
+
   const payload: any = {};
+  if (requestedName) payload.site_name = requestedName;
   if (input.client !== undefined) payload.client = input.client ? input.client.trim() : null;
   if (input.status !== undefined) payload.status = input.status;
   if (input.mineralType !== undefined) payload.mineral_type = input.mineralType;
@@ -1049,8 +1068,16 @@ export async function updateMineSite(
     payload.location = input.location ? input.location.trim() : null;
   if (input.ratePerTon !== undefined) payload.rate_per_ton = Number(input.ratePerTon);
 
+  if (Object.keys(payload).length === 0) {
+    const existing = await getMineSiteDetails(sessionCookie, targetSiteId);
+    if (!existing?.site) {
+      throw new Error(`Mine site '${targetSiteId}' not found.`);
+    }
+    return existing.site;
+  }
+
   const res = await frappeFetch<{ data: any }>(
-    `/api/resource/Mine%20Site/${encodeURIComponent(siteId)}`,
+    `/api/resource/Mine%20Site/${encodeURIComponent(targetSiteId)}`,
     {
       method: 'PUT',
       body: JSON.stringify(payload),
@@ -5830,6 +5857,75 @@ export async function getPurchaseOrderDetails(
   };
 }
 
+async function syncPurchaseOrderToBreakdown(
+  sessionCookie: string,
+  breakdownId: string | null | undefined,
+  poId: string,
+  options: {
+    phaseAction?: 'Request Parts' | 'Parts Received';
+    partsAvailabilityStatus?: string;
+    authorizedBy?: string;
+    deliveryChallanNo?: string;
+  }
+): Promise<void> {
+  if (!breakdownId || !breakdownId.trim()) return;
+  try {
+    const bdRes = await frappeFetch<{ data: any }>(
+      `/api/resource/Vehicle%20Breakdown/${encodeURIComponent(breakdownId.trim())}`,
+      { sessionCookie }
+    );
+    const bd = bdRes.data;
+    if (!bd) return;
+
+    const updatePayload: any = {
+      custom_purchase_request: poId,
+    };
+    if (options.partsAvailabilityStatus) {
+      updatePayload.custom_parts_availability_status = options.partsAvailabilityStatus;
+    }
+    if (options.authorizedBy) {
+      updatePayload.custom_purchase_authorized_by = options.authorizedBy;
+    }
+    if (options.deliveryChallanNo) {
+      updatePayload.custom_delivery_challan_no = options.deliveryChallanNo;
+    }
+
+    await frappeFetch(
+      `/api/resource/Vehicle%20Breakdown/${encodeURIComponent(breakdownId.trim())}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload),
+        sessionCookie,
+      }
+    );
+
+    const currentStatus = bd.repair_status || '';
+    const shouldRequestParts =
+      options.phaseAction === 'Request Parts' && currentStatus === 'In Workshop';
+    const shouldReceiveParts =
+      options.phaseAction === 'Parts Received' && currentStatus === 'Awaiting Parts';
+
+    if (shouldRequestParts || shouldReceiveParts) {
+      const latestRes = await frappeFetch<{ data: any }>(
+        `/api/resource/Vehicle%20Breakdown/${encodeURIComponent(breakdownId.trim())}`,
+        { sessionCookie }
+      );
+      await frappeFetch('/api/method/frappe.model.workflow.apply_workflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doc: latestRes.data,
+          action: options.phaseAction,
+        }),
+        sessionCookie,
+      });
+    }
+  } catch (syncErr: any) {
+    console.warn(`Breakdown sync notice for PO ${poId} -> ${breakdownId}:`, syncErr?.message);
+  }
+}
+
 export async function createPurchaseOrder(
   sessionCookie: string,
   input: CreatePurchaseOrderInput
@@ -5871,6 +5967,13 @@ export async function createPurchaseOrder(
     body: JSON.stringify(payload),
     sessionCookie,
   });
+
+  if (input.vehicleBreakdown) {
+    await syncPurchaseOrderToBreakdown(sessionCookie, input.vehicleBreakdown, res.data.name, {
+      phaseAction: 'Request Parts',
+      partsAvailabilityStatus: 'PO Raised (Awaiting Parts)',
+    });
+  }
 
   return getPurchaseOrderDetails(sessionCookie, res.data.name);
 }
@@ -5920,6 +6023,14 @@ export async function applyPurchaseOrderWorkflow(
     body: JSON.stringify(updatePayload),
     sessionCookie,
   });
+
+  if (action === 'submit' && currentPo.vehicleBreakdown) {
+    await syncPurchaseOrderToBreakdown(sessionCookie, currentPo.vehicleBreakdown, poId, {
+      phaseAction: 'Request Parts',
+      partsAvailabilityStatus: 'PO Approved (In Transit)',
+      authorizedBy: metadata?.approvedBy || 'Commercial Authority',
+    });
+  }
 
   return getPurchaseOrderDetails(sessionCookie, poId);
 }
@@ -6061,6 +6172,19 @@ export async function createPurchaseReceipt(
     { sessionCookie }
   );
   const r = subRes.data;
+
+  if (r.custom_vehicle_breakdown) {
+    await syncPurchaseOrderToBreakdown(
+      sessionCookie,
+      r.custom_vehicle_breakdown,
+      input.purchaseOrder,
+      {
+        phaseAction: 'Parts Received',
+        partsAvailabilityStatus: 'Available / Issued',
+        deliveryChallanNo: prName,
+      }
+    );
+  }
 
   return {
     id: r.name,

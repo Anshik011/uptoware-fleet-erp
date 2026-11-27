@@ -21,6 +21,8 @@ function PurchasesContent() {
   const canReceive = hasRole(['Workshop Supervisor', 'Fleet Manager', 'Administrator']);
 
   const actionParam = searchParams.get('action');
+  const breakdownParam = searchParams.get('breakdown');
+  const vehicleParam = searchParams.get('vehicle');
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -295,6 +297,8 @@ function PurchasesContent() {
             warehouses={warehouses}
             vehicles={vehicles}
             breakdowns={breakdowns}
+            initialBreakdown={breakdownParam}
+            initialVehicle={vehicleParam}
           />
         )}
 

@@ -39,6 +39,8 @@ interface CreatePurchaseOrderModalProps {
     description: string;
     parts: Array<{ itemCode: string; plannedQty: number }>;
   }>;
+  initialBreakdown?: string | null;
+  initialVehicle?: string | null;
 }
 
 export function CreatePurchaseOrderModal({
@@ -50,6 +52,8 @@ export function CreatePurchaseOrderModal({
   warehouses,
   vehicles,
   breakdowns,
+  initialBreakdown,
+  initialVehicle,
 }: CreatePurchaseOrderModalProps) {
   const todayStr = toLocalDateString();
 
@@ -87,10 +91,21 @@ export function CreatePurchaseOrderModal({
   const [supplier, setSupplier] = useState(suppliers[0]?.id || '');
   const [transactionDate, setTransactionDate] = useState(todayStr);
   const [scheduleDate, setScheduleDate] = useState(todayStr);
-  const [procurementType, setProcurementType] = useState('Spare Parts Replenishment');
-  const [selectedVehicle, setSelectedVehicle] = useState('');
-  const [selectedBreakdown, setSelectedBreakdown] = useState('');
+  const [procurementType, setProcurementType] = useState(
+    initialBreakdown ? 'Breakdown Emergency Procurement' : 'Spare Parts Replenishment'
+  );
+  const [selectedVehicle, setSelectedVehicle] = useState(initialVehicle || '');
+  const [selectedBreakdown, setSelectedBreakdown] = useState(initialBreakdown || '');
   const [warehouse, setWarehouse] = useState(warehouses[0]?.id || 'Stores - U');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialVehicle) setSelectedVehicle(initialVehicle);
+    if (initialBreakdown) {
+      setSelectedBreakdown(initialBreakdown);
+      setProcurementType('Breakdown Emergency Procurement');
+    }
+  }, [isOpen, initialBreakdown, initialVehicle]);
 
   const [rows, setRows] = useState<
     Array<{

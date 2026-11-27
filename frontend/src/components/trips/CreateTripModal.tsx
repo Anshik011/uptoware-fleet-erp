@@ -113,6 +113,13 @@ export function CreateTripModal({
   const [reconcileSearch, setReconcileSearch] = useState<string>('');
   const [reconcileActionSuccess, setReconcileActionSuccess] = useState<string | null>(null);
 
+  // 1-Click Bulk Reconcile state
+  const [selectedBulkIds, setSelectedBulkIds] = useState<Record<string, boolean>>({});
+  const [bulkAvgMap, setBulkAvgMap] = useState<Record<string, string>>({});
+  const [bulkGlobalAvg, setBulkGlobalAvg] = useState<string>('');
+  const [isBulkReconciling, setIsBulkReconciling] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+
   // Lock status for single-mine / restricted users
   const isMineLocked = isSingleMine || (!isAllMines && allowedMines.length === 1);
 
@@ -395,6 +402,84 @@ export function CreateTripModal({
       setError(err.message || 'Failed to update/reconcile trip.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleBulkReconcile = async (pendingTrips: any[]) => {
+    const selectedTrips = pendingTrips.filter((t) => selectedBulkIds[t.id]);
+    if (selectedTrips.length === 0) {
+      setError('Select at least one pending trip to bulk reconcile.');
+      return;
+    }
+
+    const resolvedPayloads: Array<{ trip: any; avg: number }> = [];
+    for (const t of selectedTrips) {
+      const rawAvg = bulkAvgMap[t.id] ?? bulkGlobalAvg;
+      const avgNum = Number(rawAvg);
+      if (!rawAvg || isNaN(avgNum) || avgNum <= 0) {
+        setError(`Enter a valid Avg (MT) > 0 for trip ${t.id} or use "Apply Avg to Selected".`);
+        return;
+      }
+      resolvedPayloads.push({ trip: t, avg: avgNum });
+    }
+
+    setError(null);
+    setReconcileActionSuccess(null);
+    setIsBulkReconciling(true);
+    setBulkProgress({ done: 0, total: resolvedPayloads.length });
+
+    let successCount = 0;
+    const failedIds: string[] = [];
+
+    try {
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < resolvedPayloads.length; i += BATCH_SIZE) {
+        const chunk = resolvedPayloads.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(
+          chunk.map(async ({ trip, avg }) => {
+            const leadObj = leads.find((l) => l.id === trip.lead || l.leadName === trip.lead);
+            const rate = Number(leadObj?.leadRate || trip.ratePerTon || 0);
+            const res = await fetch(`/api/trips/${encodeURIComponent(trip.id)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tripCount: Number(trip.tripCount || 1),
+                averageTonnage: avg,
+                lead: trip.lead || undefined,
+                ratePerTon: rate > 0 ? rate : undefined,
+                shift: trip.shift || undefined,
+                vehicle: trip.vehicle || undefined,
+                finalize: true,
+              }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || `Failed ${trip.id}`);
+            return json.data;
+          })
+        );
+
+        results.forEach((r, idx) => {
+          if (r.status === 'fulfilled') {
+            successCount += 1;
+          } else {
+            failedIds.push(chunk[idx].trip.id);
+          }
+        });
+        setBulkProgress({ done: Math.min(i + chunk.length, resolvedPayloads.length), total: resolvedPayloads.length });
+      }
+
+      if (failedIds.length > 0) {
+        setError(`Reconciled ${successCount} trip(s), but ${failedIds.length} failed: ${failedIds.join(', ')}`);
+      } else {
+        setReconcileActionSuccess(`1-Click Bulk Reconcile complete: ${successCount} trip(s) finalized & approved!`);
+      }
+
+      setSelectedBulkIds({});
+      fetchSupervisorTrips();
+      onSuccess({} as any);
+    } finally {
+      setIsBulkReconciling(false);
+      setBulkProgress(null);
     }
   };
 
@@ -1113,64 +1198,192 @@ export function CreateTripModal({
                             )}
                           </div>
                         ) : (
-                          <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                            {filteredReconcileTrips.map((t) => {
-                              const isReconciled = isTripClosed(t);
-                              const rawDate = t.dispatchDateTime
-                                ? (t.dispatchDateTime.includes('T') ? t.dispatchDateTime.split('T')[0] : t.dispatchDateTime.split(' ')[0])
-                                : '';
-                              const dateFormatted = rawDate && rawDate.includes('-')
-                                ? rawDate.split('-').reverse().join('.')
-                                : (rawDate || 'Today');
+                          <>
+                            {/* 1-Click Bulk Reconcile Toolbar for Pending Trips */}
+                            {(() => {
+                              const pendingVisible = filteredReconcileTrips.filter((t) => !isTripClosed(t));
+                              if (pendingVisible.length === 0) return null;
+                              const allPendingSelected = pendingVisible.every((t) => selectedBulkIds[t.id]);
+                              const selectedCount = pendingVisible.filter((t) => selectedBulkIds[t.id]).length;
 
                               return (
-                                <div
-                                  key={t.id}
-                                  className="p-3.5 border border-slate-200 rounded-xl bg-white hover:border-emerald-500 hover:shadow-xs transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-                                >
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-mono font-bold text-xs text-slate-900">{t.id}</span>
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 font-mono">
-                                        {dateFormatted}
-                                      </span>
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
-                                        {t.shift || 'Shift A'}
-                                      </span>
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-900">
-                                        {formatVehicleDisplay(t.vehicle)}
-                                      </span>
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                        isReconciled
-                                          ? 'bg-emerald-100 text-emerald-800'
-                                          : 'bg-amber-100 text-amber-800'
-                                      }`}>
-                                        {isReconciled ? 'Closed / Reconciled' : 'Pending'}
-                                      </span>
-                                    </div>
-                                    <div className="text-xs text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-                                      <span>Route: <strong className="text-slate-900">{t.lead || t.destination || 'Direct Route'}</strong></span>
-                                      <span>Trips: <strong className="text-blue-900 font-bold">{t.tripCount || 1}</strong></span>
-                                      {isReconciled && Number(t.averageTonnage || 0) > 0 && (
-                                        <>
-                                          <span>Avg: <strong className="text-slate-900">{Number(t.averageTonnage).toFixed(2)} T</strong></span>
-                                          <span>Qty: <strong className="text-emerald-800">{Number(t.calculatedQuantity || t.netWeightTons || 0).toFixed(2)} T</strong></span>
-                                        </>
-                                      )}
+                                <div className="p-3 rounded-xl bg-emerald-50/90 border border-emerald-200 flex flex-wrap items-center justify-between gap-2.5">
+                                  <div className="flex items-center gap-2.5 flex-wrap">
+                                    <label className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-950 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={allPendingSelected}
+                                        onChange={(e) => {
+                                          const checked = e.target.checked;
+                                          setSelectedBulkIds((prev) => {
+                                            const next = { ...prev };
+                                            pendingVisible.forEach((t) => {
+                                              next[t.id] = checked;
+                                            });
+                                            return next;
+                                          });
+                                        }}
+                                        className="w-4 h-4 rounded border-emerald-400 text-emerald-700 focus:ring-emerald-600"
+                                      />
+                                      <span>Select All Pending ({pendingVisible.length})</span>
+                                    </label>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="number"
+                                        min="0.1"
+                                        step="0.01"
+                                        value={bulkGlobalAvg}
+                                        onChange={(e) => setBulkGlobalAvg(e.target.value)}
+                                        placeholder="Bulk Avg (MT)"
+                                        className="w-28 px-2.5 py-1 text-xs bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-600 font-semibold text-slate-900"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (!bulkGlobalAvg || Number(bulkGlobalAvg) <= 0) return;
+                                          setSelectedBulkIds((prev) => {
+                                            const next = { ...prev };
+                                            pendingVisible.forEach((t) => {
+                                              if (selectedCount === 0 || next[t.id]) next[t.id] = true;
+                                            });
+                                            return next;
+                                          });
+                                          setBulkAvgMap((prev) => {
+                                            const next = { ...prev };
+                                            pendingVisible.forEach((t) => {
+                                              if (selectedCount === 0 || selectedBulkIds[t.id]) {
+                                                next[t.id] = bulkGlobalAvg;
+                                              }
+                                            });
+                                            return next;
+                                          });
+                                        }}
+                                        className="px-2.5 py-1 text-[11px] font-bold bg-white border border-emerald-300 text-emerald-900 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer"
+                                      >
+                                        Apply Avg
+                                      </button>
                                     </div>
                                   </div>
+
                                   <button
                                     type="button"
-                                    onClick={() => handleSelectTripForReconciliation(t)}
-                                    className="shrink-0 px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-2xs"
+                                    disabled={isBulkReconciling || selectedCount === 0}
+                                    onClick={() => handleBulkReconcile(pendingVisible)}
+                                    className="px-3.5 py-1.5 text-xs font-bold bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
                                   >
-                                    <span>{isReconciled ? 'Edit / View' : 'Reconcile & Enter Avg'}</span>
-                                    <ArrowRight className="w-3.5 h-3.5" />
+                                    {isBulkReconciling ? (
+                                      <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        <span>
+                                          Reconciling {bulkProgress?.done || 0}/{bulkProgress?.total || selectedCount}...
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>1-Click Reconcile ({selectedCount})</span>
+                                      </>
+                                    )}
                                   </button>
                                 </div>
                               );
-                            })}
-                          </div>
+                            })()}
+
+                            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                              {filteredReconcileTrips.map((t) => {
+                                const isReconciled = isTripClosed(t);
+                                const rawDate = t.dispatchDateTime
+                                  ? (t.dispatchDateTime.includes('T') ? t.dispatchDateTime.split('T')[0] : t.dispatchDateTime.split(' ')[0])
+                                  : '';
+                                const dateFormatted = rawDate && rawDate.includes('-')
+                                  ? rawDate.split('-').reverse().join('.')
+                                  : (rawDate || 'Today');
+
+                                return (
+                                  <div
+                                    key={t.id}
+                                    className="p-3.5 border border-slate-200 rounded-xl bg-white hover:border-emerald-500 hover:shadow-xs transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                                  >
+                                    <div className="flex items-start gap-2.5 flex-1">
+                                      {!isReconciled && (
+                                        <input
+                                          type="checkbox"
+                                          checked={Boolean(selectedBulkIds[t.id])}
+                                          onChange={(e) =>
+                                            setSelectedBulkIds((prev) => ({
+                                              ...prev,
+                                              [t.id]: e.target.checked,
+                                            }))
+                                          }
+                                          className="mt-1 w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600 cursor-pointer"
+                                          aria-label={`Select trip ${t.id}`}
+                                        />
+                                      )}
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="font-mono font-bold text-xs text-slate-900">{t.id}</span>
+                                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 font-mono">
+                                            {dateFormatted}
+                                          </span>
+                                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                                            {t.shift || 'Shift A'}
+                                          </span>
+                                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-900">
+                                            {formatVehicleDisplay(t.vehicle)}
+                                          </span>
+                                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                            isReconciled
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : 'bg-amber-100 text-amber-800'
+                                          }`}>
+                                            {isReconciled ? 'Closed / Reconciled' : 'Pending'}
+                                          </span>
+                                        </div>
+                                        <div className="text-xs text-slate-600 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                          <span>Route: <strong className="text-slate-900">{t.lead || t.destination || 'Direct Route'}</strong></span>
+                                          <span>Trips: <strong className="text-blue-900 font-bold">{t.tripCount || 1}</strong></span>
+                                          {isReconciled && Number(t.averageTonnage || 0) > 0 && (
+                                            <>
+                                              <span>Avg: <strong className="text-slate-900">{Number(t.averageTonnage).toFixed(2)} T</strong></span>
+                                              <span>Qty: <strong className="text-emerald-800">{Number(t.calculatedQuantity || t.netWeightTons || 0).toFixed(2)} T</strong></span>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      {!isReconciled && (
+                                        <input
+                                          type="number"
+                                          min="0.1"
+                                          step="0.01"
+                                          value={bulkAvgMap[t.id] ?? ''}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setBulkAvgMap((prev) => ({ ...prev, [t.id]: val }));
+                                            if (val && Number(val) > 0) {
+                                              setSelectedBulkIds((prev) => ({ ...prev, [t.id]: true }));
+                                            }
+                                          }}
+                                          placeholder="Avg MT"
+                                          className="w-20 px-2 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-600 font-semibold text-slate-900"
+                                        />
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSelectTripForReconciliation(t)}
+                                        className="shrink-0 px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                                      >
+                                        <span>{isReconciled ? 'Edit / View' : 'Reconcile & Enter Avg'}</span>
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </>
                         )}
                       </>
                     );

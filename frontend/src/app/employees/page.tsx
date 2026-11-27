@@ -47,9 +47,10 @@ import { OtherStaffSalaryFormat } from '@/components/employees/OtherStaffSalaryF
 type ActiveTab = 'directory' | 'roster' | 'summary' | 'attendance_home';
 
 function EmployeesContent() {
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const { currentMine, mineOptions } = useMine();
   const searchParams = useSearchParams();
+  const isRosterOnlyUser = user?.role === 'Maintenance Stores User';
   const canManage = hasRole(['Fleet Manager', 'Administrator']);
 
   const tabParam = searchParams.get('tab') as ActiveTab | null;
@@ -57,7 +58,9 @@ function EmployeesContent() {
   const actionParam = searchParams.get('action');
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<ActiveTab>(tabParam || 'directory');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(
+    isRosterOnlyUser ? 'roster' : tabParam || 'directory'
+  );
 
   // Employee Directory state
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
@@ -72,8 +75,12 @@ function EmployeesContent() {
   const [mineFilter, setMineFilter] = useState<string>(currentMine);
 
   useEffect(() => {
+    if (isRosterOnlyUser) {
+      setActiveTab('roster');
+      return;
+    }
     if (tabParam) setActiveTab(tabParam);
-  }, [tabParam]);
+  }, [tabParam, isRosterOnlyUser]);
 
   useEffect(() => {
     if (statusParam) setStatusFilter(statusParam);
@@ -666,34 +673,38 @@ function EmployeesContent() {
 
         {/* Tab Navigation */}
         <div className="flex items-center gap-1 border-b border-slate-200 mb-6 bg-white px-2 rounded-t-xl print:hidden overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('directory')}
-            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
-              activeTab === 'directory'
-                ? 'border-blue-900 text-blue-900'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Personnel Directory (Emp Home)</span>
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-600 font-bold">
-              {employees.length}
-            </span>
-          </button>
+          {!isRosterOnlyUser && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('directory')}
+              className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
+                activeTab === 'directory'
+                  ? 'border-blue-900 text-blue-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Personnel Directory (Emp Home)</span>
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-600 font-bold">
+                {employees.length}
+              </span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('attendance_home')}
-            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
-              activeTab === 'attendance_home'
-                ? 'border-blue-900 text-blue-900'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <UserCheck className="w-4 h-4" />
-            <span>Attendance Home</span>
-          </button>
+          {!isRosterOnlyUser && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('attendance_home')}
+              className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
+                activeTab === 'attendance_home'
+                  ? 'border-blue-900 text-blue-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>Attendance Home</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -708,18 +719,20 @@ function EmployeesContent() {
             <span>Daily Attendance Roster</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('summary')}
-            className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
-              activeTab === 'summary'
-                ? 'border-blue-900 text-blue-900'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Attendance Summary</span>
-          </button>
+          {!isRosterOnlyUser && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('summary')}
+              className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
+                activeTab === 'summary'
+                  ? 'border-blue-900 text-blue-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Attendance Summary</span>
+            </button>
+          )}
         </div>
 
         {actionSuccessMessage && (

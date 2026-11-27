@@ -351,7 +351,7 @@ export function getFilteredNavigationSections(userRole?: string): ClientNavSecti
           'spare-parts-report',
           'stock-report',
           'hsd-escalation',
-          'maintenance-workshop',
+          'maintenance-menu',
           'emp-attendance-report',
         ].includes(s.id)
       )

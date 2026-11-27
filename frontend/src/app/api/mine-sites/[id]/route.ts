@@ -147,6 +147,20 @@ export async function PATCH(
 
     const updatePayload: UpdateMineSiteInput = {};
 
+    if (body.siteName !== undefined) {
+      const name = String(body.siteName || '').trim();
+      if (!name || name.length > 140) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Mine site name must be a non-empty string up to 140 characters.',
+          },
+          { status: 400 }
+        );
+      }
+      updatePayload.siteName = name;
+    }
+
     if (body.status !== undefined) {
       if (!PERMITTED_STATUSES.includes(body.status)) {
         return NextResponse.json(
