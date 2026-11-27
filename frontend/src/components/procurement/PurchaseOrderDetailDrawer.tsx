@@ -393,44 +393,48 @@ export function PurchaseOrderDetailDrawer({
                   </div>
 
                   {currentMediaUrl ? (
-                    <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        {currentMediaUrl.match(/\.(mp4|mov|webm)$/i) ? (
-                          <div className="w-14 h-14 bg-slate-900 rounded-lg flex items-center justify-center text-white shrink-0">
-                            <Video className="w-7 h-7 text-emerald-400" />
-                          </div>
-                        ) : (
-                          <img
-                            src={currentMediaUrl}
-                            alt="PO Evidence"
-                            className="w-14 h-14 object-cover rounded-lg border border-slate-200 shrink-0"
-                          />
-                        )}
-                        <div>
-                          <p className="text-xs font-bold text-slate-900">
-                            {currentMediaUrl.match(/\.(mp4|mov|webm)$/i) ? 'Video Evidence File' : 'Photo Proof Image'}
-                          </p>
+                    <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-slate-900">
+                          {currentMediaUrl.match(/\.(mp4|mov|webm)$/i) ? 'Video Evidence File' : 'Photo Proof Image'}
+                        </p>
+                        <div className="flex items-center gap-2">
                           <a
                             href={currentMediaUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 mt-1 font-semibold"
+                            className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-semibold"
                           >
-                            <Eye className="w-3 h-3" /> View / Inspect Full Evidence
+                            <Eye className="w-3.5 h-3.5" /> Open Full Size
                           </a>
+                          {!isApproved && (
+                            <label className="cursor-pointer text-xs text-blue-700 hover:text-blue-900 font-medium px-2.5 py-1 border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-md transition-colors">
+                              Replace Media
+                              <input
+                                type="file"
+                                accept="image/*,video/*"
+                                capture="environment"
+                                onChange={handleMediaUpload}
+                                className="hidden"
+                              />
+                            </label>
+                          )}
                         </div>
                       </div>
-                      {!isApproved && (
-                        <label className="cursor-pointer text-xs text-blue-700 hover:text-blue-900 font-medium px-2.5 py-1.5 border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-md transition-colors">
-                          Replace Media
-                          <input
-                            type="file"
-                            accept="image/*,video/*"
-                            capture="environment"
-                            onChange={handleMediaUpload}
-                            className="hidden"
+                      {currentMediaUrl.match(/\.(mp4|mov|webm)$/i) ? (
+                        <video
+                          src={currentMediaUrl}
+                          controls
+                          className="w-full max-h-72 bg-slate-900 rounded-lg object-contain"
+                        />
+                      ) : (
+                        <a href={currentMediaUrl} target="_blank" rel="noreferrer" className="block">
+                          <img
+                            src={currentMediaUrl}
+                            alt="PO Evidence"
+                            className="w-full max-h-72 object-contain rounded-lg border border-slate-200 bg-slate-50"
                           />
-                        </label>
+                        </a>
                       )}
                     </div>
                   ) : (

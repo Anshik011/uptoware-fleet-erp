@@ -604,7 +604,7 @@ export function VehicleBreakdownTracker({
                             <img
                               src={evidenceMediaUrl}
                               alt="Uploaded Evidence"
-                              className="w-full max-h-48 rounded object-contain bg-slate-100 cursor-pointer"
+                              className="w-full max-h-72 rounded-lg object-contain bg-slate-100 cursor-pointer border border-slate-200"
                               onClick={() =>
                                 setActiveMediaViewer({
                                   isOpen: true,

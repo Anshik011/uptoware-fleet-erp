@@ -5217,6 +5217,7 @@ export async function getStockMovements(
         'custom_is_return',
         'docstatus',
         'total_amount',
+        'remarks',
       ])
     )}&limit_page_length=200&order_by=posting_date desc, creation desc`,
     { sessionCookie }
@@ -5267,6 +5268,7 @@ export async function getStockMovements(
       purpose: e.purpose || e.stock_entry_type || 'Material Issue',
       postingDate: e.posting_date,
       postingTime: e.posting_time,
+      remarks: e.remarks || fullDoc?.remarks || undefined,
       fromWarehouse: e.from_warehouse,
       toWarehouse: e.to_warehouse,
       mineSite: e.custom_mine_site || undefined,

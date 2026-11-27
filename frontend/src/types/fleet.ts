@@ -821,6 +821,7 @@ export interface StockMovement {
   status: 'Draft' | 'Submitted' | 'Cancelled';
   totalQty: number;
   totalAmount: number;
+  remarks?: string;
   items: StockMovementItem[];
 }
 

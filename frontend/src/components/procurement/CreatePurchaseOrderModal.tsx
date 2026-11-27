@@ -691,40 +691,44 @@ export function CreatePurchaseOrderModal({
               </p>
 
               {evidenceMediaUrl ? (
-                <div className="flex items-center justify-between p-3 bg-white border border-emerald-200 rounded-md">
-                  <div className="flex items-center space-x-3">
-                    {evidenceMediaUrl.match(/\.(mp4|mov|webm)$/i) ? (
-                      <div className="w-12 h-12 bg-slate-900 rounded flex items-center justify-center text-white">
-                        <Video className="w-6 h-6 text-emerald-400" />
-                      </div>
-                    ) : (
-                      <img
-                        src={evidenceMediaUrl}
-                        alt="Evidence Proof"
-                        className="w-12 h-12 object-cover rounded border border-slate-200"
-                      />
-                    )}
-                    <div>
-                      <div className="text-xs font-semibold text-emerald-800 flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Evidence Uploaded
-                      </div>
+                <div className="p-3 bg-white border border-emerald-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Evidence Uploaded
+                    </div>
+                    <div className="flex items-center gap-2">
                       <a
                         href={evidenceMediaUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 mt-0.5 font-mono"
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-semibold"
                       >
-                        <Eye className="w-3 h-3" /> View Full File
+                        <Eye className="w-3.5 h-3.5" /> Open Full Size
                       </a>
+                      <button
+                        type="button"
+                        onClick={() => setEvidenceMediaUrl('')}
+                        className="text-xs text-rose-600 hover:text-rose-700 font-medium px-2 py-1 hover:bg-rose-50 rounded"
+                      >
+                        Remove & Replace
+                      </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setEvidenceMediaUrl('')}
-                    className="text-xs text-rose-600 hover:text-rose-700 font-medium px-2 py-1 hover:bg-rose-50 rounded"
-                  >
-                    Remove & Replace
-                  </button>
+                  {evidenceMediaUrl.match(/\.(mp4|mov|webm)$/i) ? (
+                    <video
+                      src={evidenceMediaUrl}
+                      controls
+                      className="w-full max-h-72 bg-slate-900 rounded-lg object-contain"
+                    />
+                  ) : (
+                    <a href={evidenceMediaUrl} target="_blank" rel="noreferrer" className="block">
+                      <img
+                        src={evidenceMediaUrl}
+                        alt="Evidence Proof"
+                        className="w-full max-h-72 object-contain rounded-lg border border-slate-200 bg-slate-50"
+                      />
+                    </a>
+                  )}
                 </div>
               ) : (
                 <div>

@@ -334,39 +334,45 @@ export function ReceiveGoodsModal({
             )}
 
             {evidenceMediaUrl ? (
-              <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200">
-                <div className="w-12 h-12 rounded bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                  {evidenceMediaUrl.match(/\.(mp4|webm|mov)$/i) ? (
-                    <Video className="w-6 h-6 text-slate-600" />
-                  ) : (
-                    <img
-                      src={evidenceMediaUrl}
-                      alt="Received goods proof"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
+              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-slate-900 truncate">
                     {evidenceMediaUrl.split('/').pop()}
                   </p>
-                  <a
-                    href={evidenceMediaUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 mt-0.5"
-                  >
-                    <Eye className="w-3 h-3" /> View Uploaded Proof
-                  </a>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={evidenceMediaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-semibold"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> Open Full Size
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setEvidenceMediaUrl('')}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                      title="Remove media"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setEvidenceMediaUrl('')}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
-                  title="Remove media"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {evidenceMediaUrl.match(/\.(mp4|webm|mov)$/i) ? (
+                  <video
+                    src={evidenceMediaUrl}
+                    controls
+                    className="w-full max-h-72 rounded-lg bg-slate-900 object-contain"
+                  />
+                ) : (
+                  <a href={evidenceMediaUrl} target="_blank" rel="noreferrer" className="block">
+                    <img
+                      src={evidenceMediaUrl}
+                      alt="Received goods proof"
+                      className="w-full max-h-72 object-contain rounded-lg border border-slate-200 bg-slate-50"
+                    />
+                  </a>
+                )}
               </div>
             ) : (
               <label
