@@ -41,6 +41,7 @@ interface CreatePurchaseOrderModalProps {
   }>;
   initialBreakdown?: string | null;
   initialVehicle?: string | null;
+  initialType?: string | null;
 }
 
 export function CreatePurchaseOrderModal({
@@ -54,6 +55,7 @@ export function CreatePurchaseOrderModal({
   breakdowns,
   initialBreakdown,
   initialVehicle,
+  initialType,
 }: CreatePurchaseOrderModalProps) {
   const todayStr = toLocalDateString();
 
@@ -92,7 +94,11 @@ export function CreatePurchaseOrderModal({
   const [transactionDate, setTransactionDate] = useState(todayStr);
   const [scheduleDate, setScheduleDate] = useState(todayStr);
   const [procurementType, setProcurementType] = useState(
-    initialBreakdown ? 'Breakdown Emergency Procurement' : 'Spare Parts Replenishment'
+    initialType === 'service'
+      ? 'Service Order'
+      : initialBreakdown
+        ? 'Breakdown Emergency Procurement'
+        : 'Spare Parts Replenishment'
   );
   const [selectedVehicle, setSelectedVehicle] = useState(initialVehicle || '');
   const [selectedBreakdown, setSelectedBreakdown] = useState(initialBreakdown || '');
@@ -101,11 +107,13 @@ export function CreatePurchaseOrderModal({
   useEffect(() => {
     if (!isOpen) return;
     if (initialVehicle) setSelectedVehicle(initialVehicle);
-    if (initialBreakdown) {
+    if (initialType === 'service') {
+      setProcurementType('Service Order');
+    } else if (initialBreakdown) {
       setSelectedBreakdown(initialBreakdown);
       setProcurementType('Breakdown Emergency Procurement');
     }
-  }, [isOpen, initialBreakdown, initialVehicle]);
+  }, [isOpen, initialBreakdown, initialVehicle, initialType]);
 
   const [rows, setRows] = useState<
     Array<{
@@ -395,28 +403,35 @@ export function CreatePurchaseOrderModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl border border-slate-200 overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+      <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="relative bg-white rounded-xl shadow-xl w-full max-w-3xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+          {/* Header (Pinned so Close X is always visible) */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
             <div className="flex items-center space-x-2">
               <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
                 <ShoppingCart className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">New Purchase Order</h3>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {procurementType === 'Service Order' ? 'New Service Order' : 'New Purchase Order'}
+                </h3>
                 <p className="text-xs text-slate-500">
                   Raise an official procurement order with linked master records
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-md">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close modal"
+              className="text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 p-1.5 rounded-lg transition-colors cursor-pointer"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Form Body */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
             {error && (
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-700 flex items-start space-x-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -450,6 +465,7 @@ export function CreatePurchaseOrderModal({
                   className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm text-slate-900 focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Spare Parts Replenishment">Spare Parts Replenishment</option>
+                  <option value="Service Order">Service Order (Workshop / External Service)</option>
                   <option value="Vehicle Breakdown">Vehicle Breakdown</option>
                   <option value="Vehicle Maintenance">Vehicle Maintenance</option>
                   <option value="Mine Site Requirement">Mine Site Requirement</option>

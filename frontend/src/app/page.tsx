@@ -65,7 +65,7 @@ const defaultReportMetrics: ReportMetrics = {
 };
 
 export default function FleetDashboardPage() {
-  const { currentMine, activeMineLabel } = useMine();
+  const { currentMine, setCurrentMine, activeMineLabel, mineOptions, isAllMines } = useMine();
   const { user } = useAuth();
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -413,6 +413,59 @@ export default function FleetDashboardPage() {
             })}
           </div>
         </section>
+
+        {/* Individual Mine Site Quick Entry & Report (Trial / Site-Wise View) */}
+        {isAllMines && mineOptions.length > 0 && (
+          <section aria-label="Mine Site Individual Entry and Report" className="mb-6 bg-white border border-slate-200 rounded-xl p-4 shadow-2xs">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  INDIVIDUAL MINE SITE ENTRY &amp; REPORT
+                </h2>
+                <p className="text-[11px] text-slate-500">
+                  Direct site-wise trip entry and filtered operational reports for each mine site
+                </p>
+              </div>
+              <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                {mineOptions.length} Active Sites
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {mineOptions.map((site) => (
+                <div
+                  key={site.value}
+                  className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-900 flex items-center justify-center shrink-0">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 truncate">{site.label}</div>
+                      <div className="text-[11px] text-slate-500 font-mono truncate">{site.value}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      href={`/trips?action=site_sup&mine_site=${encodeURIComponent(site.value)}`}
+                      onClick={() => setCurrentMine(site.value)}
+                      className="px-2.5 py-1.5 rounded-md bg-blue-900 text-white text-[11px] font-semibold hover:bg-blue-800 transition-colors"
+                    >
+                      Site Entry
+                    </Link>
+                    <Link
+                      href={`/trips?view=report&mine_site=${encodeURIComponent(site.value)}`}
+                      onClick={() => setCurrentMine(site.value)}
+                      className="px-2.5 py-1.5 rounded-md bg-white border border-slate-300 text-slate-800 text-[11px] font-semibold hover:bg-slate-100 transition-colors"
+                    >
+                      Site Report
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Global Error Banner when request fails and no cached data exists */}
         {error && !data && (

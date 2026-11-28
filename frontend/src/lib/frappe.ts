@@ -5934,8 +5934,10 @@ export async function createPurchaseOrder(
 ): Promise<PurchaseOrder> {
   const todayStr = toLocalDateString();
 
+  const isServiceOrder = (input.procurementType || '').toLowerCase().includes('service');
   const payload: any = {
     doctype: 'Purchase Order',
+    naming_series: isServiceOrder ? 'JBRE/SVO/26-27/.#' : 'JBRE/PO/26-27/.#',
     supplier: input.supplier,
     transaction_date: input.transactionDate || todayStr,
     schedule_date: input.scheduleDate || todayStr,
@@ -7489,6 +7491,7 @@ export async function createSalesInvoice(
   }));
 
   const payload: Record<string, unknown> = {
+    naming_series: 'JBRE/SO/26-27/.#',
     customer: input.customer,
     posting_date: input.postingDate || new Date().toISOString().split('T')[0],
     items,

@@ -23,6 +23,7 @@ function PurchasesContent() {
   const actionParam = searchParams.get('action');
   const breakdownParam = searchParams.get('breakdown');
   const vehicleParam = searchParams.get('vehicle');
+  const typeParam = searchParams.get('type');
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -299,6 +300,7 @@ function PurchasesContent() {
             breakdowns={breakdowns}
             initialBreakdown={breakdownParam}
             initialVehicle={vehicleParam}
+            initialType={typeParam}
           />
         )}
 

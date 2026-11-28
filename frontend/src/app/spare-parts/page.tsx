@@ -190,6 +190,11 @@ function SparePartsContent() {
 
     setIsSubmittingScrap(true);
     try {
+      const selectedWhObj = warehouses.find((w) => w.id === chosenWh) as
+        | { id: string; name: string; customMineSite?: string | null }
+        | undefined;
+      const resolvedMineSite = selectedWhObj?.customMineSite || undefined;
+
       const res = await fetch('/api/inventory/movements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -197,7 +202,7 @@ function SparePartsContent() {
           entryType: 'Material Issue',
           fromWarehouse: chosenWh,
           vehicle: scrapVehicle || undefined,
-          mineSite: currentMine && currentMine !== 'ALL' && currentMine !== 'UNASSIGNED' ? currentMine : undefined,
+          mineSite: resolvedMineSite,
           remarks: `[SCRAP] ${scrapReason.trim()}`,
           items: [
             {

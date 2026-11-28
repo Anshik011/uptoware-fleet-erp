@@ -155,6 +155,14 @@ export const clientNavigationSections: ClientNavSection[] = [
           { name: 'LOG SCRAP PART', href: '/spare-parts?tab=scrap&action=scrap' },
         ],
       },
+      {
+        title: 'SERVICES',
+        items: [
+          { name: 'HOME', href: '/purchases?type=service' },
+          { name: 'SERVICE ENTRY', href: '/purchases?action=new&type=service' },
+          { name: 'SERVICE REPORT', href: '/purchases?view=report&type=service' },
+        ],
+      },
     ],
   },
   {
