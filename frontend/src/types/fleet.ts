@@ -835,6 +835,7 @@ export interface CreateStockEntryInput {
   vehicleBreakdown?: string;
   isReturn?: boolean;
   isTestRecord?: boolean;
+  remarks?: string;
   items: Array<{
     itemCode: string;
     qty: number;

@@ -5304,6 +5304,7 @@ export async function createStockEntry(
     custom_vehicle: input.vehicle || null,
     custom_vehicle_breakdown: input.vehicleBreakdown || null,
     custom_is_return: input.isReturn ? 1 : 0,
+    remarks: input.remarks || null,
     items: input.items.map((i) => ({
       item_code: i.itemCode,
       qty: Number(i.qty),
